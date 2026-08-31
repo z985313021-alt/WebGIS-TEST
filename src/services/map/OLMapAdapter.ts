@@ -79,13 +79,13 @@ export class OLMapAdapter implements MapAdapter {
       dataProjection: 'EPSG:4326',
     });
     // 把属性挂到 _props，便于点击回调取整包属性
-    features.forEach((f) => {
+    (features as Feature[]).forEach((f) => {
       f.set('_props', f.getProperties());
       if (f.get('id') == null && f.get('_id') == null) f.set('_id', f.getId());
     });
     const layer = new VectorLayer({
       source: new VectorSource({ features }),
-      style: (feature) => this.buildStyle(feature),
+      style: (feature) => this.buildStyle(feature as Feature),
     });
     this.map.addLayer(layer);
     this.layers.set(id, layer);
