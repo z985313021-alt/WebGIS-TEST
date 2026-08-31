@@ -6,6 +6,17 @@
 
 ---
 
+## [2026-08-31 16:35] 天地图 tk 服务端 key 验证出图 + feature 分支并入 dev 最新
+- **日期时间**：2026-08-31 16:35
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 协作 / 文档
+- **做了什么修改**：① 天地图 tk 由浏览器端 key 换成服务端 key，经后端代理实测瓦片返回 200 image/png（出图成功）；② `feature/tianditu-basemap` 合并 `origin/dev` 最新（PR #4 防呆钩子、#5 README），解决 3 个文件冲突（git-collab/SKILL.md、DEV_PLAN.md、feishu-log.md），推送远程
+- **尝试的实现方法**：`git merge origin/dev` 保留双方内容；服务端 key 走 `/api/tianditu/vec_w` 代理回源验证
+- **遇到的问题**：① 浏览器端 key 被天地图拒绝（code 301012 权限类型错误，须服务端 key）；② dev 与 main 已分叉，merge 时 git-collab/SKILL.md、DEV_PLAN.md、feishu-log.md 三处冲突
+- **解决方案**：申请服务端 key 替换 `.env`；冲突逐一手动合并（双方独立内容均保留，仅一处待办勾选以 dev 为准）
+- **创新点**：PR 到 dev 时顺带把 main 独有提交（git-collab 文档、TEST）带入 dev，可消除 dev/main 分叉
+- **关联提交/文件**：da187a2（merge）、d9c6ef9（天地图接入）、server/index.js、.env
+
 ## [2026-08-31 15:45] 天地图 WMTS 代理 + 前端底图接入 + 本地环境跑通
 - **日期时间**：2026-08-31 15:45
 - **操作人**：架构（AI 代理）
