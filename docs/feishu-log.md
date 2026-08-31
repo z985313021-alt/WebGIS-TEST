@@ -6,6 +6,17 @@
 
 ---
 
+## [2026-08-31 15:45] 天地图 WMTS 代理 + 前端底图接入 + 本地环境跑通
+- **日期时间**：2026-08-31 15:45
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层 / 环境
+- **做了什么修改**：① 后端 `server/index.js` 实现真实天地图 WMTS 代理（白名单重建 KVP + 环境变量 tk 回源，子域 t0-t7 轮换，新增 `/api/tianditu/status` 状态接口）；② 前端数据层封装 WMTS 源（`src/data/sources/tianditu.ts`）并新增状态查询（`src/data/api/tianditu.ts`）；③ 逻辑层 MapAdapter 增加 `useTianditu` 参数、mapStore 增加 `checkTianditu` action；④ 显示层 MapContainer 初始化先查状态、HomeMap 面板显示当前底图；⑤ 本地环境补装 Node v24、express/dotenv/@types/node 依赖
+- **尝试的实现方法**：后端用 `https.get` 回源 `t{s}.tianditu.gov.cn/:type/wmts` 并透传瓦片流；前端用 `ol/source/WMTS` + `WMTSTileGrid`（w 集，EPSG:4326，origin [-180,90]，resolutions 1.40625/2^z）；`/api/tianditu/status` 探测 tk 是否配置
+- **遇到的问题**：① 后端缺 express/dotenv 依赖，`npm run server` 崩溃 `Cannot find package 'express'`；② `vue-tsc -b` 构建报 5 个错：缺 vite/client 类型、缺 @types/node、`ol/Map` 遮蔽全局 `Map` 导致 `new Map<string,VectorLayer>()` 报"Expected 0 type arguments"、`View.setView` 方法不存在
+- **解决方案**：补装依赖；新建 `src/vite-env.d.ts` 引用 vite/client；`OLMapAdapter` 把 `import Map` 改为 `OLMap` 别名；`zoomTo` 改用 `view.setCenter` + `view.setZoom`
+- **创新点**：tk 未配置时前端自动降级 OSM 占位、配置后零改动切天地图（status 探测驱动，且 type 白名单防路径穿越）
+- **关联提交/文件**：server/index.js、src/data/sources/tianditu.ts、src/data/api/tianditu.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/services/stores/mapStore.ts、src/components/map/MapContainer.vue、src/views/HomeMap.vue、src/vite-env.d.ts、package.json
+
 ## [创建日] Git 仓库初始化 + 远程连接 + 分支保护实测
 - **日期时间**：创建日（本次会话，接下条）
 - **操作人**：架构（AI 代理）
@@ -30,7 +41,7 @@
 
 ## [待办] 下一步
 - [x] Git 初始化 + GitHub 仓库 + 分支策略（dev 已推送，PR 用户自理）
-- [ ] 用户提交天地图 tk → 后端 /api/tianditu 实现 WMTS 代理 → 切真实底图（替换 OSM 占位）
+- [~] 天地图接入代码已完成（后端 WMTS 代理 + 前端 WMTS 源 + OSM 兜底降级）；等用户填 .env 的 tk 即切真实底图
 - [ ] 数据层：shp/excel/WMS 接入（后端转换接口补全）
 - [ ] 空间分析：量算/缓冲区/查询/勾画（引入 turf）
 - [ ] 飞书凭证到位后日志自动上传

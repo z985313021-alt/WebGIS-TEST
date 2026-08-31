@@ -11,10 +11,12 @@ const mapEl = ref<HTMLElement | null>(null);
 const mapStore = useMapStore();
 let adapter: OLMapAdapter | null = null;
 
-onMounted(() => {
+onMounted(async () => {
   if (!mapEl.value) return;
+  // 先查后端 tk 是否配置（逻辑层 action），决定底图用天地图还是 OSM 兜底
+  await mapStore.checkTianditu();
   adapter = new OLMapAdapter();
-  adapter.mount(mapEl.value);
+  adapter.mount(mapEl.value, mapStore.tiandituConfigured);
   // 暴露给父组件用于联动（演示用）
   (window as any).__mapAdapter = adapter;
 });

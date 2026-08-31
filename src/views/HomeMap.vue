@@ -14,6 +14,7 @@
           <el-button size="small" @click="mapStore.toggleDrawPanel">绘制面板</el-button>
           <el-button size="small" @click="mapStore.toggleChartPanel">图表面板</el-button>
         </el-form-item>
+        <p class="tip">当前底图：{{ mapStore.tiandituConfigured ? '天地图 WMTS' : 'OSM（.env 未配置 tk）' }}</p>
       </el-form>
     </CollapsiblePanel>
 
