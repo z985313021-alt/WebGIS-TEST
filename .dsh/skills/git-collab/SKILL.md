@@ -23,6 +23,12 @@
 4. `git commit -m "type: 简述"`（见下方规范）
 5. `push` → GitHub 开 PR → 同伴 review → 合并 dev → 定期合并 main
 
+## 本地防呆层（已建成）
+- `.githooks/pre-commit`：在 main/master 上直接 commit 会被本地拦截（提示建 feature 分支）。
+- `.githooks/pre-push`：禁止 push 到 main/master（注释行可启用 dev 拦截）。
+- `npm install` 的 postinstall 自动执行 `npm run setup`（`git config core.hooksPath .githooks`）启用钩子。
+- 新手指南：`docs/CONTRIBUTING.md`；PR 模板：`.github/PULL_REQUEST_TEMPLATE.md`。
+
 ## 提交信息规范（Conventional Commits）
 - `feat:` 新功能
 - `fix:` 修复
@@ -37,7 +43,7 @@
 - [x] 写 `.gitignore`（node_modules/ dist/ .env 等）
 - [x] 建 GitHub 仓库并关联（z985313021-alt/WebGIS-TEST）
 - [x] 验证远程分支保护：main 禁止直推（GH013 实测），dev 可推
-- [ ] 加 PR 模板（可选）
+- [x] 加 PR 模板（.github/PULL_REQUEST_TEMPLATE.md）+ 本地防呆钩子 + CONTRIBUTING 新手指南
 
 ## 注意
 - `.env`（含天地图 tk、飞书 secret）必须进 `.gitignore`，绝不提交。
