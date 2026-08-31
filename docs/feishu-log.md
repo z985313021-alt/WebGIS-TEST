@@ -6,6 +6,17 @@
 
 ---
 
+## [创建日] 修复 PR#4 中文乱码（API 编码坑）
+- **日期时间**：创建日（本次会话）
+- **操作人**：架构（AI 代理）
+- **模块**：协作 / 文档
+- **做了什么修改**：PR #4 标题与描述中的中文全部变成 `??`，用 UTF-8 字节方式重新 PATCH 修复
+- **尝试的实现方法**：`Invoke-RestMethod -Body (ConvertTo-Json 字符串)` → 中文被编码转换破坏；改为把 JSON 写成 UTF-8 文件 → `ReadAllBytes` → `-Body $bytes -ContentType application/json; charset=utf-8` 发送
+- **遇到的问题**：PowerShell 传中文 body 给 GitHub API 时，非 UTF-8 字节流导致中文全部变问号（ASCII 正常）
+- **解决方案**：文件方式传 UTF-8 原始字节，绕开 PowerShell 字符串编码；修复后用 API 读回校验（Contains('本地防呆钩子')=True）
+- **创新点**：凡含中文的 API 写入一律走"UTF-8 文件 + 字节体"模式，避免再次踩坑
+- **关联提交/文件**：PR #4（title/body 已 PATCH）、docs/feishu-log.md
+
 ## [创建日] 审查 dev 提交 + 人读版工作手册 + CRLF 隐患修复
 - **日期时间**：创建日（本次会话）
 - **操作人**：架构（AI 代理）
