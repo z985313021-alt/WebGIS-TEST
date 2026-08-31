@@ -1,0 +1,3 @@
+# Git 换行符策略：钩子和 shell 脚本强制 LF，防止 Windows checkout 转 CRLF 导致 bash 报错
+.githooks/** text eol=lf
+*.sh text eol=lf

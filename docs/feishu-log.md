@@ -6,6 +6,17 @@
 
 ---
 
+## [创建日] 审查 dev 提交 + 人读版工作手册 + CRLF 隐患修复
+- **日期时间**：创建日（本次会话）
+- **操作人**：架构（AI 代理）
+- **模块**：文档 / 协作 / 显示层
+- **做了什么修改**：① 审查 feature/collab-guardrails → dev 的 3 个提交（10 文件，结论通过），开 PR #4；② 新增 `.gitattributes` 强制钩子脚本 LF，修 Windows CRLF 隐患；③ 新增 `docs/HANDBOOK.md`（把 9 个 AI 版技能翻译成队友人读版工作手册）；④ SKILLS.md 加指针
+- **尝试的实现方法**：GitHub API 读 PR/compare（用本机凭证管理器存量凭证，只读）；人读版用"餐厅类比"讲三层架构
+- **遇到的问题**：钩子脚本是 bash，Windows autocrlf 会把 LF 转 CRLF，队友 checkout 后 bash 报 `$'\r'` 错 → 用 .gitattributes 强制 eol=lf
+- **解决方案**：`.gitattributes` 加 `.githooks/** text eol=lf` 和 `*.sh text eol=lf`
+- **创新点**：一份规则两套读本——`.dsh/skills/`（AI 用）+ `docs/HANDBOOK.md`（人用），同步维护
+- **关联提交/文件**：docs/HANDBOOK.md、.gitattributes、.dsh/skills/SKILLS.md、PR #4
+
 ## [创建日] Git 仓库初始化 + 远程连接 + 分支保护实测
 - **日期时间**：创建日（本次会话，接下条）
 - **操作人**：架构（AI 代理）

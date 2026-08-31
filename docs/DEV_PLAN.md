@@ -142,3 +142,4 @@
 |---|---|---|
 | 创建日 | 架构 | 初版：决策表、功能清单、排期、待确认项 |
 | 创建日+ | 架构 | 新建本地技能手册 `.dsh/skills/`（9 个技能）+ 搭建 Vue3 脚手架：package.json/vite/tsconfig/index.html/main.ts，分层目录 data/services/views/components/router，地图页跑通 OSM 占位底图 + 可折叠面板；后端 server/ 骨架（天地图代理+转换占位）；.gitignore/.env.example |
+| 创建日+ | 架构 | Git 仓库初始化 + 连接远程 GitHub；实测 main/dev 分支保护（GH013），约定"代理只推 feature 分支、PR 用户自理"；新增本地防呆钩子 `.githooks/` + CONTRIBUTING + PR 模板 + GITHUB_RULES_SETUP 配置清单；新增人读版工作手册 `docs/HANDBOOK.md`；新增 `.gitattributes` 修 CRLF；开 PR #4（collab-guardrails → dev） |
