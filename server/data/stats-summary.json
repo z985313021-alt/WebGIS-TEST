@@ -1,0 +1,115 @@
+{
+    "projectInfo": {
+        "title": "山东省非物质文化遗产大数据概览",
+        "totalItems": 186,
+        "lastUpdated": "2026-01-12"
+    },
+    "statsByCity": [
+        {
+            "name": "济南",
+            "value": 24
+        },
+        {
+            "name": "青岛",
+            "value": 18
+        },
+        {
+            "name": "淄博",
+            "value": 15
+        },
+        {
+            "name": "枣庄",
+            "value": 9
+        },
+        {
+            "name": "东营",
+            "value": 7
+        },
+        {
+            "name": "烟台",
+            "value": 14
+        },
+        {
+            "name": "潍坊",
+            "value": 21
+        },
+        {
+            "name": "济宁",
+            "value": 16
+        },
+        {
+            "name": "泰安",
+            "value": 11
+        },
+        {
+            "name": "威海",
+            "value": 8
+        },
+        {
+            "name": "日照",
+            "value": 6
+        },
+        {
+            "name": "临沂",
+            "value": 13
+        },
+        {
+            "name": "德州",
+            "value": 10
+        },
+        {
+            "name": "聊城",
+            "value": 12
+        },
+        {
+            "name": "滨州",
+            "value": 9
+        },
+        {
+            "name": "菏泽",
+            "value": 19
+        }
+    ],
+    "categories": [
+        {
+            "name": "民间文学",
+            "count": 12
+        },
+        {
+            "name": "传统音乐",
+            "count": 18
+        },
+        {
+            "name": "传统舞蹈",
+            "count": 15
+        },
+        {
+            "name": "传统戏剧",
+            "count": 22
+        },
+        {
+            "name": "曲艺",
+            "count": 11
+        },
+        {
+            "name": "传统体育、游艺与杂技",
+            "count": 8
+        },
+        {
+            "name": "传统美术",
+            "count": 25
+        },
+        {
+            "name": "传统技艺",
+            "count": 35
+        },
+        {
+            "name": "传统医药",
+            "count": 14
+        },
+        {
+            "name": "民俗",
+            "count": 26
+        }
+    ]
+}
