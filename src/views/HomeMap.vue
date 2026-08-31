@@ -1,55 +1,103 @@
 <template>
   <div class="home-wrap">
-    <MapContainer />
-    <!-- 可调出/折叠的控制面板 -->
-    <CollapsiblePanel title="图层与底图" :visible="mapStore.layerPanelVisible" @close="mapStore.toggleLayerPanel">
-      <el-form label-width="64px">
-        <el-form-item label="底图">
-          <el-radio-group :model-value="mapStore.baseMap" @update:model-value="(v:any)=>mapStore.setBaseMap(v)">
-            <el-radio value="vec">矢量</el-radio>
-            <el-radio value="img">影像</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="操作">
-          <el-button size="small" @click="mapStore.toggleDrawPanel">绘制面板</el-button>
-          <el-button size="small" @click="mapStore.toggleChartPanel">图表面板</el-button>
-        </el-form-item>
-        <p class="tip">当前底图：{{ mapStore.tiandituConfigured ? '天地图 WMTS' : 'OSM（.env 未配置 tk）' }}</p>
-      </el-form>
+    <MapContainer ref="mapRef" />
+
+    <!-- 左侧：筛选 + 列表 -->
+    <CollapsiblePanel title="非遗筛选" :visible="mapStore.layerPanelVisible" @close="mapStore.toggleLayerPanel">
+      <p class="basemap-tip">
+        底图：{{ mapStore.tiandituConfigured ? '天地图 WMTS ✅' : 'OSM（.env 未配置 tk）' }}
+      </p>
+      <FilterPanel />
+      <div class="list-section">
+        <div class="list-header">
+          <span class="list-title">非遗列表（{{ store.filteredItems.length }}）</span>
+        </div>
+        <div class="list-items" v-if="store.filteredItems.length">
+          <div
+            v-for="i in store.filteredItems.slice(0, 100)"
+            :key="i.id"
+            class="list-item"
+            :class="{ active: store.selectedId === i.id }"
+            @click="selectItem(i.id)"
+          >
+            <span class="item-dot" :style="{ background: CATEGORY_COLORS[i.category] }"></span>
+            <div class="item-info">
+              <div class="item-name">{{ i.name }}</div>
+              <div class="item-sub">{{ i.city }} · {{ batchLabel(i.batch) }}</div>
+            </div>
+          </div>
+          <div v-if="store.filteredItems.length > 100" class="list-more">… 还有 {{ store.filteredItems.length - 100 }} 项</div>
+        </div>
+        <div v-else class="list-empty">无匹配要素</div>
+      </div>
     </CollapsiblePanel>
 
-    <CollapsiblePanel title="绘制工具" :visible="mapStore.drawPanelVisible" @close="mapStore.toggleDrawPanel">
-      <el-button size="small" @click="addSample">加载示例 GeoJSON</el-button>
-      <p class="tip">勾画/测量功能后续接入（见 spatial-analysis 技能）。</p>
+    <!-- 右侧：详情卡片 -->
+    <CollapsiblePanel title="非遗详情" position="right" :visible="detailVisible" @close="detailVisible = false">
+      <HeritageDetailCard />
     </CollapsiblePanel>
+
+    <!-- 地图快捷按钮 -->
+    <div class="map-quick-btns">
+      <el-button size="small" @click="store.resetFilters()">重置筛选</el-button>
+      <el-button size="small" type="primary" @click="zoomShandong()">山东全景</el-button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue';
 import MapContainer from '@/components/map/MapContainer.vue';
 import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue';
+import FilterPanel from '@/components/panels/FilterPanel.vue';
+import HeritageDetailCard from '@/components/panels/HeritageDetailCard.vue';
 import { useMapStore } from '@/services/stores/mapStore';
+import { useDataStore } from '@/services/stores/dataStore';
+import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
 
 const mapStore = useMapStore();
+const store = useDataStore();
+const mapRef = ref<InstanceType<typeof MapContainer> | null>(null);
+const detailVisible = ref(false);
 
-function addSample() {
-  const adapter = (window as any).__mapAdapter;
-  const sample = {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [104.06, 30.67] },
-        properties: { name: '成都' },
-      },
-    ],
-  };
-  adapter?.addVectorLayer(sample, 'sample');
-  mapStore.addLoadedLayer('sample');
+store.init();
+
+function selectItem(id: number) {
+  store.select(id);
+  detailVisible.value = true;
+  mapRef.value?.zoomToItem(id);
 }
+
+function zoomShandong() {
+  (window as any).__mapAdapter?.zoomTo([118.2, 36.3], 7);
+}
+
+// 点地图点位 → 自动展开详情
+watch(
+  () => store.selectedId,
+  (id) => {
+    if (id != null) detailVisible.value = true;
+  },
+);
 </script>
 
 <style scoped>
 .home-wrap { position: relative; width: 100%; height: 100%; }
-.tip { color: #999; font-size: 12px; }
+.basemap-tip { font-size: 12px; color: #888; margin-bottom: 8px; }
+.list-section { margin-top: 12px; border-top: 1px solid #eee; padding-top: 8px; }
+.list-header { font-size: 12px; color: #999; margin-bottom: 6px; }
+.list-items { max-height: 340px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.list-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border-radius: 6px; cursor: pointer; transition: background 0.15s;
+}
+.list-item:hover { background: #f5f7fa; }
+.list-item.active { background: #ecf5ff; }
+.item-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.item-info { min-width: 0; }
+.item-name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-sub { font-size: 11px; color: #999; }
+.list-more { font-size: 12px; color: #aaa; text-align: center; padding: 6px 0; }
+.list-empty { font-size: 12px; color: #bbb; text-align: center; padding: 20px 0; }
+.map-quick-btns { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; }
 </style>
