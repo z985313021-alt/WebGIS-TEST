@@ -1,0 +1,19 @@
+#!/bin/sh
+# pre-commit：阻止在受保护分支上直接 commit（新手防呆第一道闸）
+# 团队约定见 docs/CONTRIBUTING.md —— 代码一律写在 feature 分支上
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+case "$branch" in
+  main|master)
+    echo ""
+    echo "❌ 你当前在受保护分支 [$branch] 上，禁止直接提交。"
+    echo "   正确姿势："
+    echo "     git checkout -b feature/你的功能名   # 如 feature/data-shp"
+    echo "     # ...写代码、提交..."
+    echo "     git push -u origin feature/你的功能名"
+    echo "     # 然后到 GitHub 上发起 PR 合并"
+    echo ""
+    exit 1
+    ;;
+esac
+exit 0

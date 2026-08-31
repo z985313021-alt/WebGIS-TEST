@@ -1,0 +1,24 @@
+#!/bin/sh
+# pre-push：阻止把 feature 分支之外的提交直接推到远端保护分支
+# 团队约定见 docs/CONTRIBUTING.md
+protected="main master"
+# 如需连 dev 也本地拦截，取消下一行注释：
+# protected="main master dev"
+
+zero="0000000000000000000000000000000000000000"
+while read local_ref local_sha remote_ref remote_sha; do
+  # 删除远程分支的 push（sha 全 0）放行
+  [ "$remote_sha" = "$zero" ] && continue
+  branch="${remote_ref#refs/heads/}"
+  for p in $protected; do
+    if [ "$branch" = "$p" ]; then
+      echo ""
+      echo "❌ 禁止直接 push 到受保护分支 [$branch]。"
+      echo "   请推到功能分支：git push -u origin feature/你的功能名"
+      echo "   然后到 GitHub 发起 PR 合并（main/dev 只接受 PR）。"
+      echo ""
+      exit 1
+    fi
+  done
+done
+exit 0
