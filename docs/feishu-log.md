@@ -28,6 +28,17 @@
 - **创新点**：tk 未配置时前端自动降级 OSM 占位、配置后零改动切天地图（status 探测驱动，且 type 白名单防路径穿越）
 - **关联提交/文件**：server/index.js、src/data/sources/tianditu.ts、src/data/api/tianditu.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/services/stores/mapStore.ts、src/components/map/MapContainer.vue、src/views/HomeMap.vue、src/vite-env.d.ts、package.json
 
+## [创建日] T1 数据标准化完成：185 条山东非遗 + 图片绑定
+- **日期时间**：创建日（本次会话）
+- **操作人**：架构（AI 代理）
+- **模块**：数据层
+- **做了什么修改**：① 从旧仓库 zip（用户放 E 盘）提取 shp；② 写 GBK dbf 读取器 + shp→GeoJSON 转换脚本；③ 过滤山东省 185 条非遗（名录全国 3610 条）；④ 图片绑定 173/185（93.5%）；⑤ 拷贝图片库 163 张 + 边界/路网/统计到项目
+- **尝试的实现方法**：shapefile 包读几何 + 自写 dbf-reader（iconv-lite GBK 解码）；字段模糊映射；图片用"全名/基名/括号内容 × 序号 × 扩展名"匹配策略（继承旧系统 getPossibleImagePaths）
+- **遇到的问题**：① dbf 字段名 GBK 乱码 → iconv-lite 解码；② 批次"第一批"里的"1"是**汉字一**和全角字符 → 中文数字映射 + 全角转半角；③ shapefile 包迭代方式（.read() 而非 for await）；④ 9 个名称尾部有解码残渣 "?" → 正则清理；⑤ 图片名在括号内容里（海阳大秧歌 vs 秧歌（海阳大秧歌））→ 括号内容作为候选名
+- **解决方案**：见上；数据质量校验：185 条、10 类别与旧系统完全一致、16 地市、0 坐标越界
+- **创新点**：把旧项目的"字段不可信"经验做成模糊映射 + 防御性编程；数据体检统计内嵌转换脚本
+- **关联提交/文件**：server/scripts/{dbf-reader,convert-shp,bind-images,inspect-shp}.mjs、server/data/{heritage.geojson,shandong-boundary.json,roads.json,stats-summary.json}、public/images/（163 张）
+
 ## [创建日] 修复 PR#4 中文乱码（API 编码坑）
 - **日期时间**：创建日（本次会话）
 - **操作人**：架构（AI 代理）
