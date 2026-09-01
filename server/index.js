@@ -1,8 +1,11 @@
-// 轻量后端：天地图 WMTS 代理 + 数据转换中转
-// 阶段：WMTS 代理已实现；shp/excel 转换为占位（待补全）
+// 轻量后端：天地图 WMTS 代理 + 数据转换/体检（T4）+ 点赞/评论（T11）
 import express from 'express';
 import dotenv from 'dotenv';
 import https from 'node:https';
+import multer from 'multer';
+import { extname } from 'node:path';
+import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
+import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
 
 dotenv.config();
 const app = express();
@@ -11,6 +14,15 @@ const TIANDITU_TK = process.env.TIANDITU_TK || '';
 const TDT_SUBDOMAINS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'];
 const TDT_TYPES = ['vec_w', 'img_w', 'cva_w', 'cia_w'];
 const TDT_LAYER = { vec_w: 'vec', img_w: 'img', cva_w: 'cva', cia_w: 'cia' };
+
+// 保留原始扩展名（shapefile/xlsx 靠扩展名识别文件类型）
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: UPLOAD_DIR,
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 100 * 1024 * 1024, files: 8 },
+});
 
 app.use(express.json({ limit: '50mb' }));
 
@@ -75,14 +87,82 @@ app.get('/api/tianditu/:type', (req, res) => {
   });
 });
 
-// Shapefile 转换占位
-app.post('/api/convert/shp', (req, res) => {
-  res.status(501).json({ msg: 'shp->geojson placeholder, implement with shapefile+dbf' });
+// ============ T4 数据转换与体检 ============
+
+// Shapefile 上传 → GeoJSON（shp/dbf 必传，GBK 解码）
+app.post('/api/convert/shp', upload.array('files'), async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length === 0) return res.status(400).json({ msg: '未收到文件' });
+    const geojson = await convertShpToGeojson(files);
+    res.json(geojson);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
 });
 
-// Excel 转换占位
-app.post('/api/convert/excel', (req, res) => {
-  res.status(501).json({ msg: 'excel->geojson placeholder, implement with xlsx' });
+// Excel 上传 → 点 GeoJSON（lng/lat 列名经表单字段指定）
+app.post('/api/convert/excel', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ msg: '未收到 Excel 文件' });
+    const { lngColumn, latColumn, nameColumn } = req.body;
+    if (!lngColumn || !latColumn) return res.status(400).json({ msg: '请指定经度/纬度列名' });
+    const geojson = await convertExcelToGeojson(req.file.path, { lngColumn, latColumn, nameColumn });
+    res.json(geojson);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// 数据体检：提交 GeoJSON，返回质量报告
+app.post('/api/health-check', (req, res) => {
+  try {
+    const report = healthCheck(req.body);
+    res.json(report);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ T11 点赞 / 评论（SQLite） ============
+
+const parseItemId = (raw) => {
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return id;
+};
+
+// 点赞数
+app.get('/api/likes/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  res.json({ itemId: id, count: getLikeCount(id) });
+});
+
+// 点赞 +1
+app.post('/api/likes/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  res.json({ itemId: id, count: addLike(id) });
+});
+
+// 评论列表
+app.get('/api/comments/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  res.json({ itemId: id, comments: getComments(id) });
+});
+
+// 发表评论
+app.post('/api/comments/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  const { nickname, content } = req.body ?? {};
+  try {
+    res.json({ itemId: id, comment: addComment(id, nickname, content) });
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
 });
 
 app.listen(PORT, () => {

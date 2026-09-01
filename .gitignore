@@ -6,3 +6,7 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .server/uploads/
+server/uploads/
+
+# SQLite 运行时数据库（勿提交）
+server/data/*.db

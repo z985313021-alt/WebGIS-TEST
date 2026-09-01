@@ -6,6 +6,73 @@
 
 ---
 
+## [2026-09-01] T11 点赞 + 评论（SQLite 持久化）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① 新增 SQLite 互动库 `server/scripts/comment-db.mjs`（Node 内置 `node:sqlite` 的 `DatabaseSync`，零新依赖）：表 `likes(item_id 主键, count)` 与 `comments(id 自增, item_id, nickname 默认'匿名', content, created_at 默认本地时间)` + 索引，导出 getLikeCount/addLike（ON CONFLICT 自增）/getComments（倒序）/addComment（空内容抛错）；② 后端 `server/index.js` 新增 4 个 REST 接口：GET/POST `/api/likes/:id`、GET/POST `/api/comments/:id`，itemId 校验正整数非法 400；③ 数据层新增 `src/data/api/comment.ts`（fetchLikeCount/postLike/fetchComments/postComment）；④ 详情页 `HeritageDetail.vue` 新增互动卡片：点赞按钮（🤍/❤️ 切换 + 实时计数）、昵称输入（空则匿名）、200 字评论框（带字数统计）、评论列表（空态「还没有评论，来抢沙发～」），加载失败静默降级不影响主内容
+- **尝试的实现方法**：数据库文件 `server/data/interact.db` 本地持久化；点赞用 UPSERT 计数，评论自增 id 倒序展示；前端 `Promise.all` 并行拉取点赞+评论
+- **遇到的问题**：无用户体系，刷新后无法识别「本人是否已点过赞」→ 点赞状态不持久化、仅持久化计数（刷新后按钮回到 🤍 但计数保留）；PowerShell 终端中文显示乱码（GBK 控制台）需在浏览器确认 UTF-8 正确
+- **解决方案**：见上；浏览器实测确认中文完整无损
+- **创新点**：Node ≥22.5 内置 `node:sqlite`，免装 better-sqlite3 原生编译依赖；三层分离新增「互动数据」数据层模块，显示层零 axios
+- **测试记录**（Playwright 实测）：点赞 0→1 按钮变 ❤️ 无报错；昵称+评论发表 → 列表出现「🧑 测试用户 / 2026-09-01 09:45 / 内容」，中文显示正常、输入框清空复位；刷新后点赞计数 1 与评论完整保留（持久化）；/heritage/2 点赞 0 无评论（计数独立）；接口层测通 4 端点 + 非法 id 400；`npx vue-tsc -b` 类型检查通过
+- **关联提交/文件**：server/scripts/comment-db.mjs、server/index.js、src/data/api/comment.ts、src/views/HeritageDetail.vue、server/data/interact.db（**未提交**，留待同事编辑后上传）
+
+## [2026-09-01] T10 寻访路线规划：最近邻连线 + 沿途推荐（含 bug 修复）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：逻辑层 / 显示层
+- **做了什么修改**：① 逻辑层 `analysis.ts` 新增 `buildRoute(selected, all, corridorKm=20)`：选中点位按**最近邻贪心**排序生成寻访顺序（行程单），用 turf 折线 + `pointToLineDistance ≤ corridorKm` 筛出**沿途推荐**非遗（排除已选点）；② 显示层 `AnalysisTools.vue` 新增「寻访路线」tab：多选 2+ 寻访点（带折叠标签）、沿途半径调节（5-100km）、生成/清除按钮、行程单（序号圆标）+ 沿途推荐列表（最多显示 15 项 + 折叠提示）；③ 修复 T10 关键 bug（见问题）
+- **尝试的实现方法**：turf.lineString 生成折线、pointToLineDistance 球面距离筛沿途；MapAdapter.addGeoJsonLayer 渲染 'route' 折线图层；zoomTo 首站定位
+- **遇到的问题**：**turf v7 的 `lineString()` 返回的是 Feature（`{type:'Feature', geometry:{...}}`）而非纯 geometry**——`buildRoute` 原样返回后，组件再包一层 `geometry: r.line`，变成"Feature 套 Feature"，OL 的 GeoJSON reader 报 `Unsupported GeoJSON type: Feature`，折线图层特征数恒为 0、行程单有内容但 alert 缺失（异常被 catch 吞掉）
+- **解决方案**：`buildRoute` 取 `(lineFeat).geometry` 作为返回的 `line`（纯 LineString 给 OL 渲染）；`pointToLineDistance` 继续传完整 Feature（turf 两参均可）。修复后实测通过
+- **创新点**：路线排序走逻辑层 turf 纯计算，adapter 只负责渲染，保持引擎通用
+- **测试记录**（Playwright 实测）：3 点生成 → alert「3 站，沿途推荐 24 项（20km）」、route 图层特征数=1、行程单最近邻排序（济宁→淄博→日照）、zoom=8 定位首站；清除 → 全部重置+图层移除；1 点边界 → 警告「请至少选择 2 个寻访点」；`npx vue-tsc -b` 类型检查通过
+- **关联提交/文件**：src/services/analysis/analysis.ts、src/components/panels/AnalysisTools.vue（feature/t10-route → PR → dev）
+
+## [2026-09-01] T9 图表可视化页（ECharts）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：显示层 / 逻辑层
+- **做了什么修改**：新增图表可视化页（ChartView.vue + 路由「图表可视化」）：类别分布柱状图、地市分布、批次分布等 ECharts 图表，数据来自 dataStore getters（categoryCounts/cityOptions/batchCounts），与地图筛选状态联动
+- **尝试的实现方法**：ECharts 按需初始化 + resize 监听；图表数据从逻辑层 store 派生，显示层不直接碰数据
+- **遇到的问题**：① ECharts 柱体像素点击定位不稳 → 直接用 store 修改验证联动逻辑；② el-slider 合成事件不触发 → Playwright 真实鼠标拖拽
+- **解决方案**：见上；页面 0 控制台错误，图表渲染 + 联动验证通过
+- **创新点**：图表与地图共用同一 store 数据源，一处筛选两处联动
+- **关联提交/文件**：src/views/ChartView.vue、src/router/index.ts、src/services/stores/dataStore.ts
+
+## [2026-09-01] T8 非遗详情页（独立路由）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：显示层
+- **做了什么修改**：新增非遗详情页（HeritageDetail.vue + 路由 /heritage/:id）：完整展示名称/类别/批次/地市/区县/简介 + 图片，从地图列表/卡片点击进入
+- **尝试的实现方法**：路由参数取 id → dataStore 查详情 → 结构化排版展示
+- **遇到的问题**：图片路径兼容多种命名（括号内别名/序号）→ 复用 T1 图片匹配策略
+- **解决方案**：见上；详情页渲染 + 图片 200 加载验证通过
+- **关联提交/文件**：src/views/HeritageDetail.vue、src/router/index.ts
+
+## [2026-09-01] T6 时空演变：批次时间轴 + 面板互斥修复
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：显示层 / 逻辑层
+- **做了什么修改**：① 地图主页新增「时空演变」面板：批次时间轴滑块（TimeSlider.vue）按批次（1-5 批）过滤地图点位，展示非遗申报批次的时间演变；② 修复左侧筛选/空间分析/时空演变多面板重叠、无法重开的 bug（互斥 toggle + 快捷按钮）
+- **尝试的实现方法**：滑块值映射 filterBatchMax → dataStore 筛选 getter → 地图 setLayerFilter 联动；面板用互斥开关管理
+- **遇到的问题**：① el-slider 合成事件不触发 Vue 更新 → Playwright 用真实鼠标拖拽验证；② 多面板同时开导致布局重叠、收起后无法重开 → 重构为互斥 toggle
+- **解决方案**：见上；时间轴拖动 → 点位批次过滤联动验证通过；面板开关修复后多次开关正常
+- **创新点**：批次即时间维度，用同一筛选管道实现"时空演变"叙事，无需额外数据结构
+- **关联提交/文件**：src/components/map/TimeSlider.vue、src/components/panels/*、src/views/HomeMap.vue、src/services/stores/dataStore.ts
+
+## [2026-09-01] T4 数据管理页 + T7 空间分析（整合进地图主页）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① T4：后端 /api/convert/shp（GBK 解码）、/api/convert/excel（xlsx 列映射转点）、/api/health-check（体检：越界/空值/重名）；前端数据管理页三格式上传+列映射+体检报告+加载地图叠加（userDatasets store）；② T7：MapAdapter 增加 startMeasure/stopMeasure/isMeasuring（绘制期间抑制要素点击，解决功能冲突），analysis.ts 用 turf 计算（length/area/buffer/booleanPointInPolygon），空间分析工具整合进地图主页（/analysis 重定向 /?tool=analysis，自动开面板）
+- **尝试的实现方法**：multer（保留扩展名）+ shapefile/dbf-reader/xlsx；turf.js 纯几何计算；Draw interaction 测量
+- **遇到的问题**：① multer 随机文件名无扩展名导致 shapefile 找不到文件 → diskStorage 保留扩展名；② Windows 下 new URL().pathname 产生 C:\C:\ 双盘符路径 → 用 fileURLToPath；③ ol/sphere getArea 计算异常（2°×2° 返回 3.99/0）→ 改用 turf.area（46471 km² 正确）；④ 绘制点击与点位选中冲突 → measuring 标志抑制 singleclick；⑤ 分析页独立地图冗余 → 整合进主页
+- **解决方案**：见上；浏览器实测：测距 163km、缓冲区 50km→19 项、叠加统计 46471 km²→38 项、冲突抑制、重定向 全部通过
+- **创新点**：量算回调只回几何，数值计算统一走 turf 服务层（adapter 保持引擎通用）
+- **关联提交/文件**：server/index.js、server/scripts/upload-utils.mjs、src/data/api/convert.ts、src/views/DataManage.vue、src/components/panels/AnalysisTools.vue、src/services/analysis/analysis.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/views/HomeMap.vue、src/router/index.ts
+
 ## [2026-09-01] 飞书上传配置完成：凭证验证 + push 脚本 + 文档权限
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）

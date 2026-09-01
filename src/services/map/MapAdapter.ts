@@ -22,6 +22,12 @@ export interface MapAdapter {
   removeLayer(id: string): void;
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
   zoomTo(lonlat: [number, number], zoom?: number): void;
+  /** 开始量算/绘制（distance=线 / area=面），绘制完成后回调几何（GeoJSON 4326）；绘制期间自动抑制要素点击 */
+  startMeasure(mode: 'distance' | 'area', onDone: (geometry: object) => void): void;
+  /** 停止当前量算绘制 */
+  stopMeasure(): void;
+  /** 是否正在量算绘制中 */
+  isMeasuring(): boolean;
   destroy(): void;
 }
 
