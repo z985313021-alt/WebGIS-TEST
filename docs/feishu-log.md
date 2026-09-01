@@ -6,6 +6,17 @@
 
 ---
 
+## [2026-09-01] T4 数据管理页 + T7 空间分析（整合进地图主页）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① T4：后端 /api/convert/shp（GBK 解码）、/api/convert/excel（xlsx 列映射转点）、/api/health-check（体检：越界/空值/重名）；前端数据管理页三格式上传+列映射+体检报告+加载地图叠加（userDatasets store）；② T7：MapAdapter 增加 startMeasure/stopMeasure/isMeasuring（绘制期间抑制要素点击，解决功能冲突），analysis.ts 用 turf 计算（length/area/buffer/booleanPointInPolygon），空间分析工具整合进地图主页（/analysis 重定向 /?tool=analysis，自动开面板）
+- **尝试的实现方法**：multer（保留扩展名）+ shapefile/dbf-reader/xlsx；turf.js 纯几何计算；Draw interaction 测量
+- **遇到的问题**：① multer 随机文件名无扩展名导致 shapefile 找不到文件 → diskStorage 保留扩展名；② Windows 下 new URL().pathname 产生 C:\C:\ 双盘符路径 → 用 fileURLToPath；③ ol/sphere getArea 计算异常（2°×2° 返回 3.99/0）→ 改用 turf.area（46471 km² 正确）；④ 绘制点击与点位选中冲突 → measuring 标志抑制 singleclick；⑤ 分析页独立地图冗余 → 整合进主页
+- **解决方案**：见上；浏览器实测：测距 163km、缓冲区 50km→19 项、叠加统计 46471 km²→38 项、冲突抑制、重定向 全部通过
+- **创新点**：量算回调只回几何，数值计算统一走 turf 服务层（adapter 保持引擎通用）
+- **关联提交/文件**：server/index.js、server/scripts/upload-utils.mjs、src/data/api/convert.ts、src/views/DataManage.vue、src/components/panels/AnalysisTools.vue、src/services/analysis/analysis.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/views/HomeMap.vue、src/router/index.ts
+
 ## [2026-09-01] 飞书上传配置完成：凭证验证 + push 脚本 + 文档权限
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）

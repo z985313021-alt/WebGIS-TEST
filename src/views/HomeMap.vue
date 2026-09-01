@@ -32,6 +32,11 @@
       </div>
     </CollapsiblePanel>
 
+    <!-- 左侧：空间分析工具（T7，与筛选面板叠放，独立开关） -->
+    <CollapsiblePanel title="空间分析" :visible="analysisVisible" @close="analysisVisible = false">
+      <AnalysisTools :get-adapter="getMapAdapter" />
+    </CollapsiblePanel>
+
     <!-- 右侧：详情卡片 -->
     <CollapsiblePanel title="非遗详情" position="right" :visible="detailVisible" @close="detailVisible = false">
       <HeritageDetailCard />
@@ -41,24 +46,32 @@
     <div class="map-quick-btns">
       <el-button size="small" @click="store.resetFilters()">重置筛选</el-button>
       <el-button size="small" type="primary" @click="zoomShandong()">山东全景</el-button>
+      <el-button size="small" :type="analysisVisible ? 'warning' : ''" @click="analysisVisible = !analysisVisible">
+        空间分析
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import MapContainer from '@/components/map/MapContainer.vue';
 import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue';
 import FilterPanel from '@/components/panels/FilterPanel.vue';
 import HeritageDetailCard from '@/components/panels/HeritageDetailCard.vue';
+import AnalysisTools from '@/components/panels/AnalysisTools.vue';
 import { useMapStore } from '@/services/stores/mapStore';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
 
+const route = useRoute();
 const mapStore = useMapStore();
 const store = useDataStore();
 const mapRef = ref<InstanceType<typeof MapContainer> | null>(null);
 const detailVisible = ref(false);
+// 从 /analysis 跳转过来时自动打开分析面板（旧页面已重定向到主页）
+const analysisVisible = ref(route.query.tool === 'analysis');
 
 store.init();
 
@@ -70,6 +83,11 @@ function selectItem(id: number) {
 
 function zoomShandong() {
   (window as any).__mapAdapter?.zoomTo([118.2, 36.3], 7);
+}
+
+// 供分析面板取地图适配器（MapContainer 挂载后才可用）
+function getMapAdapter() {
+  return mapRef.value?.getAdapter?.() ?? null;
 }
 
 // 点地图点位 → 自动展开详情

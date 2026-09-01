@@ -95,7 +95,10 @@ function zoomToItem(id: number) {
   const item = dataStore.items.find((i) => i.id === id);
   if (item && adapter) adapter.zoomTo([item.lng, item.lat], 10);
 }
-defineExpose({ zoomToItem });
+function getAdapter() {
+  return adapter;
+}
+defineExpose({ zoomToItem, getAdapter });
 </script>
 
 <style scoped>
