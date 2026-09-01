@@ -8,6 +8,7 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "server": "cross-env PORT=3001 node server/index.js",
+    "feishu:push": "node server/scripts/push-feishu.mjs",
     "setup": "git config core.hooksPath .githooks",
     "postinstall": "npm run setup"
   },
