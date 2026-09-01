@@ -100,8 +100,9 @@
 - [ ] 分工流程说明
 
 ### H. 飞书集成
-- [ ] 飞书文档/多维表格按字段建模板
-- [ ] 开发日志上传（手动或脚本，需飞书 app 凭证）
+- [x] 飞书自建应用凭证配置（FEISHU_APP_ID/SECRET 入 .env）
+- [x] 开发日志自动上传：`npm run feishu:push`（server/scripts/push-feishu.mjs，导入任务全量生成飞书文档，组织内可编辑）
+- [ ] （可选）多维表格版 / 增量追加版
 
 ### I. Git / GitHub 协作
 - [ ] 建仓库、分支策略（main/dev/feature-*）、PR 模板、.gitignore

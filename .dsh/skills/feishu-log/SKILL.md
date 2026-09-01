@@ -17,12 +17,18 @@
 | 创新点 | 不错的思路/优化 | 上传即预览 |
 | 关联提交/文件 | git commit / 文件路径 | a1b2c3 / src/data/sources/shp.ts |
 
-## 落地方式（二选一，待用户凭证决定）
-- **A. 手动**：照字段在飞书文档/多维表格逐条填（当前默认，无需凭证）。
-- **B. 自动**：用飞书开放平台自建应用（需 app_id+app_secret+文档/多维表格 ID），
-  通过脚本/后端把日志推送到飞书。环境已有 `feishu-docx` 技能可写飞书文档。
+## 落地方式（已配置自动上传 ✅ 2026-09-01）
+1. **本地记录**：每次改动先把日志按上面字段写进 `docs/feishu-log.md`（随 git 提交，人人可见）。
+2. **推送飞书**：`npm run feishu:push` —— 脚本 `server/scripts/push-feishu.mjs`
+   用飞书导入任务 API 把 `docs/feishu-log.md` 全量转成飞书文档（markdown 原生转换，表格可用）。
+3. **凭证**：根目录 `.env` 的 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`（已 gitignore，禁止提交）。
+4. **文档权限**：已设为"组织内获得链接的人可编辑"。
+5. **文档地址**：每次推送会**替换为最新版本**（旧文档自动删除，保持单版本），最新 URL 由脚本打印，也存在 `server/data/feishu-doc-state.json` 的 `lastUrl`。当前最新：
+   `https://feishu.cn/docx/DL2TdklLroLalixg1WIckzeJnSc`（应用云空间"山东非遗实习日志"文件夹）。
+6. **注意**：全量导入生成新文档；如想要固定地址+增量追加版，需另行扩展（docx append blocks）。
 
 ## 纪律
 - 不漏记：哪怕只是"调试天地图 403，发现 tk 失效"。
 - 同步：重大变更同步更新 `docs/DEV_PLAN.md` 的变更记录表。
 - 频率：按次，不是按天；一次改动一条。
+- 任务收尾：先提交日志到 git，再跑 `npm run feishu:push` 推飞书。

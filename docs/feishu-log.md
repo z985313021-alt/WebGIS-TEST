@@ -1,10 +1,21 @@
 # 飞书开发日志（留痕存档）
 
 > 字段结构见 `.dsh/skills/feishu-log.md`。
-> 当前为本地存档；待用户提供飞书 app 凭证后，可一键推送至飞书文档/多维表格。
+> 已配置自动上传：写完本文件后跑 `npm run feishu:push` 同步到飞书文档（组织内可编辑）。
 > 每次开发改动追加一条，按时间倒序。
 
 ---
+
+## [2026-09-01] 飞书上传配置完成：凭证验证 + push 脚本 + 文档权限
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：协作 / 文档
+- **做了什么修改**：① 飞书自建应用凭证（App ID cli_aa96eeb066e19cbc）写入 .env 并验证 token 成功；② 写 server/scripts/push-feishu.mjs（导入任务 API：上传 md → import_tasks → 轮询转 docx），npm 脚本 feishu:push；③ 首次推送生成飞书文档（90 块内容验证无误），权限设为"组织内链接可编辑"；④ 更新仓库飞书说明（feishu-log 技能/HANDBOOK/README/DEV_PLAN）
+- **尝试的实现方法**：飞书"导入任务"把 markdown 原生转 docx（含表格）；tenant_access_token + drive API
+- **遇到的问题**：① 最初 OCR 的 Secret 无效（10014），用户重新复制后通过；② create_folder 返回 data.token 而非 node_token 导致"父节点不存在"（1061044）；③ 文档权限参数 comment_entity 只接受 anyone_can_view；④ 应用读取队友 wiki 需单独授权（131006，暂未授权）
+- **解决方案**：见上；文档地址 https://feishu.cn/docx/O5UXdSV9goIISAxFyF1cXYlynGb（应用云空间"山东非遗实习日志"文件夹）
+- **创新点**：每次推送生成最新完整文档（markdown 全量导入，简单可靠）
+- **关联提交/文件**：server/scripts/push-feishu.mjs、package.json、.dsh/skills/feishu-log/SKILL.md、docs/{HANDBOOK,README 相关,DEV_PLAN}.md
 
 ## [2026-08-31 16:35] 天地图 tk 服务端 key 验证出图 + feature 分支并入 dev 最新
 - **日期时间**：2026-08-31 16:35

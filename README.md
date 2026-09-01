@@ -36,13 +36,17 @@ cd WebGIS-TEST
 npm install
 
 # 3. 启动前端
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:8000
 
 # 4. 另开一个终端启动后端
 npm run server     # http://localhost:3001（天地图代理/数据转换）
+
+# 5. 开发日志推送飞书（每次任务收尾跑一次，全量生成最新飞书文档）
+npm run feishu:push
 ```
 
-> 后端需要 `.env`（含天地图 tk 等密钥）：复制 `.env.example` 为 `.env` 并填入真实值。**`.env` 严禁提交。**
+> 后端需要 `.env`（含天地图 tk、飞书凭证等密钥）：复制 `.env.example` 为 `.env` 并填入真实值。**`.env` 严禁提交。**
+> 飞书文档地址与说明见 `.dsh/skills/feishu-log/SKILL.md`。
 
 ---
 

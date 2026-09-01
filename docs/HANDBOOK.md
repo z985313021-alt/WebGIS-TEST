@@ -197,7 +197,7 @@ map.addInteraction(new Draw({ source, type: 'Polygon' }));
 > 创新点：npm install 自动启用钩子（postinstall），队友零配置。
 > 关联：PR #4 / docs/CONTRIBUTING.md
 
-**写在哪：** 先记 `docs/feishu-log.md`（随代码提交，人人可见）；飞书凭证到位后自动同步到飞书文档。
+**写在哪：** 先记 `docs/feishu-log.md`（随代码提交，人人可见），然后跑 **`npm run feishu:push`** 自动同步到飞书文档（组织内可编辑，地址见 `.dsh/skills/feishu-log/SKILL.md`）。每次推送生成最新完整文档。
 
 ---
 
