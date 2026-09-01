@@ -42,12 +42,18 @@
       <HeritageDetailCard />
     </CollapsiblePanel>
 
+    <!-- 时空演变：批次滑块（T6） -->
+    <TimeSlider v-if="showTimeSlider" />
+
     <!-- 地图快捷按钮 -->
     <div class="map-quick-btns">
       <el-button size="small" @click="store.resetFilters()">重置筛选</el-button>
       <el-button size="small" type="primary" @click="zoomShandong()">山东全景</el-button>
       <el-button size="small" :type="analysisVisible ? 'warning' : ''" @click="analysisVisible = !analysisVisible">
         空间分析
+      </el-button>
+      <el-button size="small" :type="showTimeSlider ? 'warning' : ''" @click="showTimeSlider = !showTimeSlider">
+        时空演变
       </el-button>
     </div>
   </div>
@@ -61,6 +67,7 @@ import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue';
 import FilterPanel from '@/components/panels/FilterPanel.vue';
 import HeritageDetailCard from '@/components/panels/HeritageDetailCard.vue';
 import AnalysisTools from '@/components/panels/AnalysisTools.vue';
+import TimeSlider from '@/components/map/TimeSlider.vue';
 import { useMapStore } from '@/services/stores/mapStore';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
@@ -72,6 +79,7 @@ const mapRef = ref<InstanceType<typeof MapContainer> | null>(null);
 const detailVisible = ref(false);
 // 从 /analysis 跳转过来时自动打开分析面板（旧页面已重定向到主页）
 const analysisVisible = ref(route.query.tool === 'analysis');
+const showTimeSlider = ref(false);
 
 store.init();
 
