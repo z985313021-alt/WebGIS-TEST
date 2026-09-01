@@ -6,6 +6,18 @@
 
 ---
 
+## [2026-09-01] 修复地图定位北极（天地图 DataServer XYZ）+ 底图切换 + 中文标注
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① 定位修复：天地图 WMTS w/c 集瓦片非正方形（行距=水平一半），OpenLayers 按正方形瓦片算行列号导致地图整体北移一倍（中心山东实际显示西伯利亚/北极附近）；改用天地图 **DataServer XYZ**（标准 Web Mercator 网格，与 OSM 完全一致）；② 底图切换：新增底图提供商切换按钮（天地图/OSM），同一 3857 投影下无缝切换，满足外网 OSM / 国内天地图需求；③ 中文标注：天地图模式自动叠加 **cva_w 注记层**（中文城市名/道路名/POI）；④ 后端新增 `/api/tianditu/xyz/:type/:z/:x/:y` 代理（保留原 WMTS 代理兼容旧用法）
+- **尝试的实现方法**：瓦片实测定位 bug：w 集 z6 row9（旧代码请求）=921B 海洋、row19=4868B 陆地（山东），确认非正方形瓦片导致行号北移一倍；对比 c 集（EPSG:4490 同样非正方形）与 DataServer XYZ（标准 3857 网格：山东矢量 16KB/注记 3KB 正常）；前端改用 `ol/source/XYZ` + 注记层叠加
+- **遇到的问题**：① 天地图 c 集并非 3857 而是 **CGCS2000(4490)**，与 w 集同样非正方形瓦片；② `vec_m`（Web Mercator WMTS）服务不存在（返回错误页）；③ Node 直连天地图官方 403（本地代理 `https.get` 回源正常）
+- **解决方案**：放弃 WMTS 方案，改用天地图 DataServer XYZ（`T=vec_w`/`cva_w`，标准 3857 网格）；后端按 type 透传、子域轮换、tk 服务端拼接
+- **创新点**：避开 WMTS 地理坐标集非正方形瓦片的行列错位坑；XYZ 与 OSM 同网格，底图切换零投影成本；注记层按 provider 自动叠加/移除
+- **测试记录**：`npm run build`（vue-tsc）类型检查通过；本地代理实测 `vec_w` 山东 16294B / `cva_w` 注记 3092B / `img_w` 影像 10475B / 北京 26624B 全部 200；`/api/tianditu/status` 仍返回 configured
+- **关联提交/文件**：be445e9、server/index.js、src/data/sources/tianditu.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/services/stores/mapStore.ts、src/components/map/MapContainer.vue、src/views/HomeMap.vue
+
 ## [2026-09-01] T11 点赞 + 评论（SQLite 持久化）
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）
