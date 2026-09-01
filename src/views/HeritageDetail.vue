@@ -50,6 +50,53 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 互动区：点赞 + 评论（T11） -->
+    <el-card shadow="never" class="interact-card">
+      <div class="interact-head">
+        <el-button
+          size="large"
+          :type="liked ? 'warning' : 'default'"
+          :plain="!liked"
+          round
+          :loading="liking"
+          @click="handleLike"
+        >
+          {{ liked ? '❤️ 已点赞' : '🤍 点赞' }} · {{ likeCount }}
+        </el-button>
+        <span class="interact-tip">为这项非遗点个赞吧～</span>
+      </div>
+
+      <el-divider />
+
+      <div class="comment-form">
+        <el-input v-model="nickname" placeholder="昵称（选填，默认匿名）" maxlength="20" class="nick-input" />
+        <div class="comment-row">
+          <el-input
+            v-model="newComment"
+            type="textarea"
+            :rows="2"
+            maxlength="200"
+            show-word-limit
+            placeholder="说说你对这项非遗的了解或感受…"
+          />
+          <el-button type="primary" :loading="submitting" :disabled="!newComment.trim()" @click="handleSubmit">
+            发表评论
+          </el-button>
+        </div>
+      </div>
+
+      <div v-if="comments.length" class="comment-list">
+        <div v-for="c in comments" :key="c.id" class="comment-item">
+          <div class="comment-meta">
+            <span class="comment-nick">🧑 {{ c.nickname }}</span>
+            <span class="comment-time">{{ formatTime(c.createdAt) }}</span>
+          </div>
+          <div class="comment-content">{{ c.content }}</div>
+        </div>
+      </div>
+      <el-empty v-else description="还没有评论，来抢沙发～" :image-size="60" />
+    </el-card>
   </div>
   <div v-else class="missing">
     <el-empty description="未找到该非遗项目" />
@@ -60,8 +107,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
+import {
+  fetchLikeCount,
+  postLike,
+  fetchComments,
+  postComment,
+  type CommentItem,
+} from '@/data/api/comment';
 
 const route = useRoute();
 const router = useRouter();
@@ -83,6 +138,66 @@ watch(item, () => {
   imgError.value = false;
 });
 
+// ---- T11 点赞 / 评论 ----
+const likeCount = ref(0);
+const liked = ref(false);
+const liking = ref(false);
+const comments = ref<CommentItem[]>([]);
+const nickname = ref('');
+const newComment = ref('');
+const submitting = ref(false);
+
+async function loadInteract() {
+  const id = Number(route.params.id);
+  if (!id) return;
+  try {
+    const [lc, cs] = await Promise.all([fetchLikeCount(id), fetchComments(id)]);
+    likeCount.value = lc;
+    comments.value = cs;
+  } catch {
+    /* 后端未起时静默降级，不阻塞详情展示 */
+  }
+}
+
+async function handleLike() {
+  const id = Number(route.params.id);
+  if (!id || liking.value) return;
+  liking.value = true;
+  try {
+    likeCount.value = await postLike(id);
+    liked.value = true;
+  } catch {
+    ElMessage.error('点赞失败，请检查后端服务');
+  } finally {
+    liking.value = false;
+  }
+}
+
+async function handleSubmit() {
+  const id = Number(route.params.id);
+  const text = newComment.value.trim();
+  if (!id || !text || submitting.value) return;
+  submitting.value = true;
+  try {
+    const c = await postComment(id, nickname.value, text);
+    comments.value.unshift(c);
+    newComment.value = '';
+    ElMessage.success('评论已发布');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg ?? '评论失败，请检查后端服务');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+function formatTime(t: string): string {
+  if (!t) return '';
+  // SQLite datetime('now','localtime') 输出 "YYYY-MM-DD HH:MM:SS"
+  return t.replace('T', ' ').slice(0, 16);
+}
+
+watch(item, loadInteract, { immediate: true });
+
 function viewOnMap() {
   if (!item.value) return;
   store.select(item.value.id);
@@ -102,4 +217,20 @@ function viewOnMap() {
 .fields { font-size: 13px; }
 .actions { margin-top: 16px; display: flex; gap: 10px; }
 .missing { padding: 60px 0; text-align: center; }
+
+/* ---- T11 互动区 ---- */
+.interact-card { margin-top: 20px; }
+.interact-head { display: flex; align-items: center; gap: 16px; }
+.interact-tip { font-size: 13px; color: #999; }
+.comment-form { margin-bottom: 8px; }
+.nick-input { width: 240px; margin-bottom: 10px; }
+.comment-row { display: flex; gap: 10px; align-items: flex-end; }
+.comment-row .el-textarea { flex: 1; }
+.comment-list { margin-top: 16px; }
+.comment-item { padding: 10px 4px; border-bottom: 1px dashed #eee; }
+.comment-item:last-child { border-bottom: none; }
+.comment-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.comment-nick { font-size: 13px; font-weight: 600; color: #444; }
+.comment-time { font-size: 12px; color: #aaa; }
+.comment-content { font-size: 13px; color: #555; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 </style>
