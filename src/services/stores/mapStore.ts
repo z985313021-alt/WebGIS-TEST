@@ -1,11 +1,13 @@
 // 逻辑层：Pinia store —— 地图 UI 状态（面板折叠、底图类型、天地图状态）
 import { defineStore } from 'pinia';
-import type { BaseMapType } from '@/data/sources/tianditu';
+import type { BaseMapType, BaseMapProvider } from '@/data/sources/tianditu';
 import { fetchTiandituStatus } from '@/data/api/tianditu';
 
 export const useMapStore = defineStore('map', {
   state: () => ({
     baseMap: 'vec' as BaseMapType,
+    /** 底图提供商：tianditu（天地图，国内可用）/ osm（OpenStreetMap，外网可用） */
+    provider: 'tianditu' as BaseMapProvider,
     /** 后端天地图 tk 是否已配置（决定底图用 WMTS 还是 OSM 兜底） */
     tiandituConfigured: false,
     layerPanelVisible: true,
@@ -24,6 +26,9 @@ export const useMapStore = defineStore('map', {
     },
     setBaseMap(t: BaseMapType) {
       this.baseMap = t;
+    },
+    setProvider(p: BaseMapProvider) {
+      this.provider = p;
     },
     toggleLayerPanel() {
       this.layerPanelVisible = !this.layerPanelVisible;

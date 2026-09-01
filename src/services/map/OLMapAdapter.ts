@@ -11,7 +11,8 @@ import { fromLonLat, transform } from 'ol/proj';
 import Draw from 'ol/interaction/Draw';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
-import { createBaseMapLayer } from '@/data/sources/tianditu';
+import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
+import type { BaseMapProvider } from '@/data/sources/tianditu';
 
 const HIDDEN_STYLE = new Style({
   image: new CircleStyle({ radius: 0, fill: new Fill({ color: 'rgba(0,0,0,0)' }) }),
@@ -30,25 +31,28 @@ const SHANDONG_CENTER: [number, number] = [118.2, 36.3];
 export class OLMapAdapter implements MapAdapter {
   private map: OMap | null = null;
   private baseLayer: ReturnType<typeof createBaseMapLayer> | null = null;
+  private labelLayer: ReturnType<typeof createTiandituLabelLayer> | null = null;
   private layers = new Map<string, VectorLayer>();
   private styleFns = new Map<string, FeatureStyleFn>();
   private filters = new Map<string, (props: Record<string, unknown>) => boolean>();
   private highlightId: string | number | null = null;
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
-  private useTianditu = false;
+  private baseMapType: BaseMapType = 'vec';
+  private provider: BaseMapProvider = 'osm';
 
-  mount(target: HTMLElement, useTianditu = false): void {
-    this.useTianditu = useTianditu;
-    this.baseLayer = createBaseMapLayer('vec', useTianditu);
-    // 天地图 w 集为 EPSG:4326；OSM 兜底保持默认 3857
-    const projection = useTianditu ? 'EPSG:4326' : 'EPSG:3857';
-    const center = useTianditu ? SHANDONG_CENTER : fromLonLat(SHANDONG_CENTER);
+  mount(target: HTMLElement, provider: BaseMapProvider = 'osm'): void {
+    this.provider = provider;
+    this.baseMapType = 'vec';
+    this.baseLayer = createBaseMapLayer('vec', provider);
+    // 统一 EPSG:3857（天地图 c 集与 OSM 同投影），中心点山东
+    const center = fromLonLat(SHANDONG_CENTER);
     this.map = new OMap({
       target,
       layers: [this.baseLayer],
-      view: new View({ projection, center, zoom: useTianditu ? 6 : 7 }),
+      view: new View({ projection: 'EPSG:3857', center, zoom: 7 }),
       controls: [],
     });
+    this.syncLabelLayer();
     this.map.on('singleclick', (evt) => {
       // 量算绘制中：抑制要素点击，避免与绘制冲突
       if (this.measuring) return;
@@ -62,11 +66,39 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   setBaseMap(type: BaseMapType): void {
+    this.baseMapType = type;
     if (!this.map) return;
-    const next = createBaseMapLayer(type, this.useTianditu);
-    if (this.baseLayer) this.map.removeLayer(this.baseLayer);
-    this.map.addLayer(next);
+    const next = createBaseMapLayer(type, this.provider);
+    // 原位替换底图（保持第 0 层），避免盖住注记/矢量图层
+    const layers = this.map.getLayers();
+    if (this.baseLayer) {
+      const idx = layers.getArray().indexOf(this.baseLayer);
+      if (idx >= 0) layers.setAt(idx, next);
+      else layers.insertAt(0, next);
+    } else {
+      layers.insertAt(0, next);
+    }
     this.baseLayer = next;
+    this.syncLabelLayer();
+  }
+
+  /** 切换底图提供商（天地图 / OSM），天地图模式下自动叠加中文注记层 */
+  setProvider(provider: BaseMapProvider): void {
+    this.provider = provider;
+    this.setBaseMap(this.baseMapType);
+  }
+
+  /** 天地图模式叠加 cva_c 注记层（城市名/道路名），OSM 模式移除（其自带标注） */
+  private syncLabelLayer(): void {
+    if (!this.map) return;
+    if (this.provider === 'tianditu' && !this.labelLayer) {
+      this.labelLayer = createTiandituLabelLayer();
+      // 插在底图之上、矢量数据之下
+      this.map.getLayers().insertAt(1, this.labelLayer);
+    } else if (this.provider === 'osm' && this.labelLayer) {
+      this.map.removeLayer(this.labelLayer);
+      this.labelLayer = null;
+    }
   }
 
   /** 视图投影（4326 或 3857），GeoJSON 读取用它做 featureProjection */

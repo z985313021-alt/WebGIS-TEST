@@ -29,10 +29,11 @@ function heritageGeojson(): object {
 onMounted(async () => {
   dataStore.init();
   if (!mapEl.value) return;
-  // 先查后端 tk 是否配置（逻辑层 action），决定底图用天地图还是 OSM 兜底
+  // 先查后端 tk 是否配置（逻辑层 action），决定初始底图提供商（天地图/OSM 可手动切换）
   await mapStore.checkTianditu();
+  mapStore.provider = mapStore.tiandituConfigured ? 'tianditu' : 'osm';
   adapter = new OLMapAdapter();
-  adapter.mount(mapEl.value, mapStore.tiandituConfigured);
+  adapter.mount(mapEl.value, mapStore.provider);
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
   adapter.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
   adapter.onFeatureClick((props) => {
@@ -81,8 +82,10 @@ watch(
   () => syncUserDatasets(),
 );
 
-// 底图切换
+// 底图类型切换（vec/img，仅天地图生效）
 watch(() => mapStore.baseMap, (t) => adapter?.setBaseMap(t));
+// 底图提供商切换（天地图 / OSM）
+watch(() => mapStore.provider, (p) => adapter?.setProvider(p));
 
 onBeforeUnmount(() => {
   adapter?.destroy();

@@ -58,6 +58,13 @@
       <el-button size="small" :type="showTimeSlider ? 'warning' : ''" @click="showTimeSlider = !showTimeSlider">
         时空演变
       </el-button>
+      <el-button
+        size="small"
+        :type="mapStore.provider === 'tianditu' ? 'success' : ''"
+        @click="mapStore.setProvider(mapStore.provider === 'tianditu' ? 'osm' : 'tianditu')"
+      >
+        底图：{{ mapStore.provider === 'tianditu' ? '天地图' : 'OSM' }}
+      </el-button>
     </div>
   </div>
 </template>
