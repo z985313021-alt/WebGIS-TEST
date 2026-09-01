@@ -10,7 +10,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 8000,
+    strictPort: true,
     proxy: {
       // 前端请求 /api 走本地后端，避免跨域、隐藏 tk
       '/api': 'http://localhost:3001',

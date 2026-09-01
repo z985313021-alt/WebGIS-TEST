@@ -7,22 +7,35 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
-    "server": "node server/index.js"
+    "server": "cross-env PORT=3001 node server/index.js",
+    "feishu:push": "node server/scripts/push-feishu.mjs",
+    "setup": "git config core.hooksPath .githooks",
+    "postinstall": "npm run setup"
   },
   "dependencies": {
-    "vue": "^3.5.13",
-    "vue-router": "^4.5.0",
-    "pinia": "^2.3.0",
-    "element-plus": "^2.9.1",
-    "ol": "^10.3.1",
     "@turf/turf": "^7.1.0",
+    "axios": "^1.7.9",
+    "dotenv": "^17.4.2",
     "echarts": "^5.5.1",
-    "axios": "^1.7.9"
+    "element-plus": "^2.9.1",
+    "express": "^5.2.1",
+    "iconv-lite": "^0.7.3",
+    "ol": "^10.3.1",
+    "pinia": "^2.3.0",
+    "shapefile": "^0.6.6",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@types/node": "^26.4.0",
     "@vitejs/plugin-vue": "^5.2.1",
+    "cross-env": "^10.1.0",
     "typescript": "~5.6.3",
     "vite": "^6.0.5",
     "vue-tsc": "^2.2.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "vue-demi@0.14.10": true
   }
 }

@@ -1,9 +1,9 @@
 <template>
   <transition name="slide">
-    <div v-if="visible" class="collapsible-panel">
+    <div v-if="visible" class="collapsible-panel" :class="position === 'right' ? 'panel-right' : 'panel-left'">
       <div class="panel-header">
         <span>{{ title }}</span>
-        <el-button text size="small" @click="$emit('close')">收起</el-button>
+        <el-button text size="small" @click="$emit('close')">收起 ✕</el-button>
       </div>
       <div class="panel-body">
         <slot />
@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ title: string; visible: boolean }>();
+defineProps<{ title: string; visible: boolean; position?: 'left' | 'right' }>();
 defineEmits<{ (e: 'close'): void }>();
 </script>
 
@@ -21,15 +21,16 @@ defineEmits<{ (e: 'close'): void }>();
 .collapsible-panel {
   position: absolute;
   top: 12px;
-  left: 12px;
-  width: 280px;
+  width: 300px;
   max-height: calc(100% - 24px);
   overflow: auto;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
   z-index: 10;
 }
+.panel-left { left: 12px; }
+.panel-right { right: 12px; }
 .panel-header {
   display: flex;
   justify-content: space-between;

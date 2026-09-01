@@ -69,7 +69,7 @@
 - [ ] 所有面板支持折叠/按钮调出（"可选择是否展示"）
 
 ### C. 数据层
-- [ ] 天地图 WMTS 底图（矢量/影像/注记，后端代理 tk）
+- [~] 天地图 WMTS 底图（矢量/影像已接入 + 后端代理 tk；注记待加；tk 填入 .env 即出图）
 - [ ] GeoJSON 加载/编辑
 - [ ] Shapefile 上传→后端转 GeoJSON
 - [ ] Excel 上传→后端转带几何 GeoJSON
@@ -100,8 +100,9 @@
 - [ ] 分工流程说明
 
 ### H. 飞书集成
-- [ ] 飞书文档/多维表格按字段建模板
-- [ ] 开发日志上传（手动或脚本，需飞书 app 凭证）
+- [x] 飞书自建应用凭证配置（FEISHU_APP_ID/SECRET 入 .env）
+- [x] 开发日志自动上传：`npm run feishu:push`（server/scripts/push-feishu.mjs，导入任务全量生成飞书文档，组织内可编辑）
+- [ ] （可选）多维表格版 / 增量追加版
 
 ### I. Git / GitHub 协作
 - [ ] 建仓库、分支策略（main/dev/feature-*）、PR 模板、.gitignore
@@ -142,3 +143,5 @@
 |---|---|---|
 | 创建日 | 架构 | 初版：决策表、功能清单、排期、待确认项 |
 | 创建日+ | 架构 | 新建本地技能手册 `.dsh/skills/`（9 个技能）+ 搭建 Vue3 脚手架：package.json/vite/tsconfig/index.html/main.ts，分层目录 data/services/views/components/router，地图页跑通 OSM 占位底图 + 可折叠面板；后端 server/ 骨架（天地图代理+转换占位）；.gitignore/.env.example |
+| 创建日+ | 架构 | Git 仓库初始化 + 连接远程 GitHub；实测 main/dev 分支保护（GH013），约定"代理只推 feature 分支、PR 用户自理"；新增本地防呆钩子 `.githooks/` + CONTRIBUTING + PR 模板 + GITHUB_RULES_SETUP 配置清单；新增人读版工作手册 `docs/HANDBOOK.md`；新增 `.gitattributes` 修 CRLF；开 PR #4（collab-guardrails → dev） |
+| 2026-08-31 | 架构 | 实现天地图 WMTS 接入：后端 `/api/tianditu/:type` 代理（tk 回源 + 状态接口）、前端 WMTS 源 + OSM 兜底自动降级；本地环境补装 Node/依赖；修复脚手架 TS 构建错误（vite/client 类型、@types/node、ol/Map 遮蔽、View.setView） |
