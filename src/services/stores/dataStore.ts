@@ -1,6 +1,14 @@
-// 逻辑层：非遗数据状态（筛选 + 选中）
+// 逻辑层：非遗数据状态（筛选 + 选中 + 用户上传数据集）
 import { defineStore } from 'pinia';
 import { loadHeritage, type HeritageItem } from '@/data/sources/heritage';
+
+export interface UserDataset {
+  id: number;
+  name: string;
+  geojson: object;
+  health?: Record<string, unknown>;
+  addedAt: string;
+}
 
 export const useDataStore = defineStore('data', {
   state: () => ({
@@ -11,6 +19,8 @@ export const useDataStore = defineStore('data', {
     filterCity: null as string | null,
     filterBatch: null as number | null,
     keyword: '',
+    userDatasets: [] as UserDataset[],
+    nextDatasetId: 1,
   }),
   getters: {
     selected(state): HeritageItem | null {
@@ -53,6 +63,21 @@ export const useDataStore = defineStore('data', {
       this.filterCity = null;
       this.filterBatch = null;
       this.keyword = '';
+    },
+    /** 添加用户上传的数据集（用于地图叠加显示） */
+    addUserDataset(name: string, geojson: object, health?: Record<string, unknown>) {
+      const ds: UserDataset = {
+        id: this.nextDatasetId++,
+        name,
+        geojson,
+        health,
+        addedAt: new Date().toLocaleString(),
+      };
+      this.userDatasets.push(ds);
+      return ds.id;
+    },
+    removeUserDataset(id: number) {
+      this.userDatasets = this.userDatasets.filter((d) => d.id !== id);
     },
   },
 });
