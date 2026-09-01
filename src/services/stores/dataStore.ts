@@ -1,4 +1,4 @@
-// 逻辑层：非遗数据状态（筛选 + 选中 + 用户上传数据集）
+// 逻辑层：非遗数据状态（筛选 + 选中 + 时空演变 + 用户上传数据集）
 import { defineStore } from 'pinia';
 import { loadHeritage, type HeritageItem } from '@/data/sources/heritage';
 
@@ -18,6 +18,8 @@ export const useDataStore = defineStore('data', {
     filterCategories: [] as string[],
     filterCity: null as string | null,
     filterBatch: null as number | null,
+    /** 时空演变：批次上限（null=不限，1=只显示第一批，2=第一~二批...） */
+    filterBatchMax: null as number | null,
     keyword: '',
     userDatasets: [] as UserDataset[],
     nextDatasetId: 1,
@@ -32,6 +34,7 @@ export const useDataStore = defineStore('data', {
         if (state.filterCategories.length > 0 && !state.filterCategories.includes(i.category)) return false;
         if (state.filterCity && i.city !== state.filterCity) return false;
         if (state.filterBatch != null && i.batch !== state.filterBatch) return false;
+        if (state.filterBatchMax != null && (i.batch == null || i.batch > state.filterBatchMax)) return false;
         if (state.keyword) {
           const kw = state.keyword.trim();
           if (!i.name.includes(kw) && !(i.district || '').includes(kw)) return false;
@@ -48,6 +51,14 @@ export const useDataStore = defineStore('data', {
     cityOptions(state): string[] {
       return [...new Set(state.items.map((i) => i.city))].sort();
     },
+    // 批次分布（时空演变统计）
+    batchCounts(state): Record<number, number> {
+      const counts: Record<number, number> = {};
+      for (const i of state.items) {
+        if (i.batch != null) counts[i.batch] = (counts[i.batch] || 0) + 1;
+      }
+      return counts;
+    },
   },
   actions: {
     init() {
@@ -62,6 +73,7 @@ export const useDataStore = defineStore('data', {
       this.filterCategories = [];
       this.filterCity = null;
       this.filterBatch = null;
+      this.filterBatchMax = null;
       this.keyword = '';
     },
     /** 添加用户上传的数据集（用于地图叠加显示） */
