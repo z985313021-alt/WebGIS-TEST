@@ -22,6 +22,7 @@
       <el-descriptions-item label="项目编号">{{ item.code || '—' }}</el-descriptions-item>
       <el-descriptions-item label="保护单位">{{ item.protectUnit || '—' }}</el-descriptions-item>
     </el-descriptions>
+    <el-button size="small" type="primary" plain class="detail-link" @click="goDetail">查看完整详情 →</el-button>
   </div>
   <div v-else class="detail-empty">
     <p>👆 点击地图上的非遗点位，或从左侧列表选择，查看详情</p>
@@ -30,14 +31,20 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
 
 const store = useDataStore();
+const router = useRouter();
 const item = computed(() => store.selected);
 const color = computed(() => (item.value ? CATEGORY_COLORS[item.value.category] ?? '#999' : '#999'));
 const imgError = ref(false);
 watch(item, () => { imgError.value = false; });
+
+function goDetail() {
+  if (item.value) router.push(`/heritage/${item.value.id}`);
+}
 </script>
 
 <style scoped>
