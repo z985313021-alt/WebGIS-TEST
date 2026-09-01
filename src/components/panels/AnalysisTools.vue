@@ -48,6 +48,46 @@
           <div v-if="overlayItems.length > 20" class="overlay-more">… 还有 {{ overlayItems.length - 20 }} 项</div>
         </div>
       </el-tab-pane>
+
+      <!-- 寻访路线（T10） -->
+      <el-tab-pane label="寻访路线" name="route">
+        <el-form label-width="70px" size="small">
+          <el-form-item label="寻访点">
+            <el-select
+              v-model="routeItemIds"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="选择 2 个以上非遗点位"
+              style="width: 100%"
+            >
+              <el-option v-for="i in store.items" :key="i.id" :label="`${i.name}（${i.city}）`" :value="i.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="沿途半径">
+            <el-input-number v-model="routeCorridor" :min="5" :max="100" :step="5" style="width: 100%" />
+            <span class="unit">km</span>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" size="small" @click="runRoute">生成路线</el-button>
+            <el-button size="small" text type="danger" @click="clearRoute">清除</el-button>
+          </el-form-item>
+        </el-form>
+        <el-alert v-if="routeResult" :title="routeResult" type="success" :closable="false" class="result" />
+        <div v-if="routeStops.length" class="route-section">
+          <div class="route-title">🗺️ 行程单（{{ routeStops.length }} 站）</div>
+          <div v-for="(s, idx) in routeStops" :key="s.id" class="route-stop">
+            <span class="stop-no">{{ idx + 1 }}</span>
+            <span class="stop-name">{{ s.name }}（{{ s.city }}）</span>
+          </div>
+        </div>
+        <div v-if="routeAlong.length" class="route-section">
+          <div class="route-title">📍 沿途推荐（{{ routeAlong.length }} 项）</div>
+          <div v-for="i in routeAlong.slice(0, 15)" :key="i.id" class="overlay-item">{{ i.name }} · {{ i.city }}</div>
+          <div v-if="routeAlong.length > 15" class="overlay-more">… 还有 {{ routeAlong.length - 15 }} 项</div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -63,6 +103,8 @@ import {
   countPointsInRadius,
   measureDistance,
   measureArea,
+  buildRoute,
+  type RouteResult,
 } from '@/services/analysis/analysis';
 
 const props = defineProps<{ getAdapter: () => MapAdapter | null }>();
@@ -148,6 +190,43 @@ function clearOverlay() {
   props.getAdapter()?.removeLayer('overlay-poly');
 }
 
+// ---- 寻访路线（T10）----
+const routeItemIds = ref<number[]>([]);
+const routeCorridor = ref(20);
+const routeResult = ref('');
+const routeStops = ref<any[]>([]);
+const routeAlong = ref<any[]>([]);
+function runRoute() {
+  const ad = props.getAdapter();
+  if (!ad) return;
+  if (routeItemIds.value.length < 2) {
+    ElMessage.warning('请至少选择 2 个寻访点');
+    return;
+  }
+  const selected = routeItemIds.value
+    .map((id) => store.items.find((i) => i.id === id))
+    .filter(Boolean) as any[];
+  try {
+    const r: RouteResult = buildRoute(selected, store.items, routeCorridor.value);
+    routeStops.value = r.stops;
+    routeAlong.value = r.along;
+    ad.removeLayer('route');
+    ad.addGeoJsonLayer({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: r.line, properties: {} }] } as object, 'route');
+    routeResult.value = `路线已生成：${r.stops.length} 站，沿途推荐 ${r.along.length} 项（半径 ${routeCorridor.value}km）`;
+    const first = r.stops[0];
+    ad.zoomTo([first.lng, first.lat], 8);
+  } catch (e: any) {
+    ElMessage.error(e.message);
+  }
+}
+function clearRoute() {
+  routeItemIds.value = [];
+  routeResult.value = '';
+  routeStops.value = [];
+  routeAlong.value = [];
+  props.getAdapter()?.removeLayer('route');
+}
+
 onBeforeUnmount(() => {
   props.getAdapter()?.stopMeasure();
 });
@@ -158,7 +237,16 @@ onBeforeUnmount(() => {
 .tool-row { display: flex; gap: 8px; }
 .tip { font-size: 12px; color: #999; margin: 8px 0; }
 .result { margin-top: 8px; }
+.unit { font-size: 12px; color: #999; margin-left: 6px; }
 .overlay-list { margin-top: 8px; border-top: 1px dashed #eee; padding-top: 8px; }
 .overlay-item { font-size: 12px; color: #555; padding: 2px 0; }
 .overlay-more { font-size: 12px; color: #aaa; }
+.route-section { margin-top: 10px; border-top: 1px dashed #eee; padding-top: 8px; }
+.route-title { font-size: 12px; color: #666; font-weight: 600; margin-bottom: 6px; }
+.route-stop { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; color: #444; }
+.stop-no {
+  width: 18px; height: 18px; border-radius: 50%; background: #409eff; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+}
+.stop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
