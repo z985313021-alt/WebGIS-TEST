@@ -40,6 +40,8 @@ onMounted(async () => {
   });
   (window as any).__mapAdapter = adapter;
   (window as any).__dataStore = dataStore;
+  // 挂载后同步一次已存在的数据集（从数据管理页跳转过来的场景）
+  syncUserDatasets();
 });
 
 // 筛选条件变化 → 地图图层筛选
@@ -54,6 +56,29 @@ watch(
 watch(
   () => dataStore.selectedId,
   (id) => adapter?.setHighlightId(id),
+);
+
+// 用户上传数据集 → 叠加图层（按 id 增量渲染）
+const renderedDatasets = new Set<number>();
+function syncUserDatasets() {
+  if (!adapter) return;
+  const ids = dataStore.userDatasets.map((d) => d.id);
+  for (const d of dataStore.userDatasets) {
+    if (!renderedDatasets.has(d.id)) {
+      adapter.addGeoJsonLayer(d.geojson, `user-${d.id}`);
+      renderedDatasets.add(d.id);
+    }
+  }
+  for (const rid of renderedDatasets) {
+    if (!ids.includes(rid)) {
+      adapter.removeLayer(`user-${rid}`);
+      renderedDatasets.delete(rid);
+    }
+  }
+}
+watch(
+  () => dataStore.userDatasets.map((d) => d.id),
+  () => syncUserDatasets(),
 );
 
 // 底图切换
