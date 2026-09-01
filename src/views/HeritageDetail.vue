@@ -201,6 +201,8 @@ watch(item, loadInteract, { immediate: true });
 function viewOnMap() {
   if (!item.value) return;
   store.select(item.value.id);
+  // 设置飞行目标，MapContainer 会消费并执行动画+局部放大
+  store.pendingFlyTo = { id: item.value.id, zoom: 12 };
   router.push('/');
 }
 </script>

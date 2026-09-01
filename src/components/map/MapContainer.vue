@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue';
 import { OLMapAdapter } from '@/services/map/OLMapAdapter';
 import { useMapStore } from '@/services/stores/mapStore';
 import { useDataStore } from '@/services/stores/dataStore';
@@ -59,6 +59,18 @@ watch(
   (id) => adapter?.setHighlightId(id),
 );
 
+// 详情页点击"在地图上查看" → 自动飞行定位+局部放大
+watch(
+  () => dataStore.pendingFlyTo,
+  async (target) => {
+    if (!target || !adapter) return;
+    await nextTick();
+    dataStore.select(target.id);
+    zoomToItem(target.id, target.zoom);
+    dataStore.pendingFlyTo = null;
+  },
+);
+
 // 用户上传数据集 → 叠加图层（按 id 增量渲染）
 const renderedDatasets = new Set<number>();
 function syncUserDatasets() {
@@ -94,9 +106,10 @@ onBeforeUnmount(() => {
 });
 
 // 供父组件调用：定位到某要素（列表点击）
-function zoomToItem(id: number) {
+function zoomToItem(id: number, customZoom?: number) {
   const item = dataStore.items.find((i) => i.id === id);
-  if (item && adapter) adapter.zoomTo([item.lng, item.lat], 10);
+  const zoom = customZoom ?? 10;
+  if (item && adapter) adapter.zoomTo([item.lng, item.lat], zoom);
 }
 function getAdapter() {
   return adapter;
