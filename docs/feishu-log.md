@@ -6,6 +6,18 @@
 
 ---
 
+## [2026-09-01] T11 点赞 + 评论（SQLite 持久化）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① 新增 SQLite 互动库 `server/scripts/comment-db.mjs`（Node 内置 `node:sqlite` 的 `DatabaseSync`，零新依赖）：表 `likes(item_id 主键, count)` 与 `comments(id 自增, item_id, nickname 默认'匿名', content, created_at 默认本地时间)` + 索引，导出 getLikeCount/addLike（ON CONFLICT 自增）/getComments（倒序）/addComment（空内容抛错）；② 后端 `server/index.js` 新增 4 个 REST 接口：GET/POST `/api/likes/:id`、GET/POST `/api/comments/:id`，itemId 校验正整数非法 400；③ 数据层新增 `src/data/api/comment.ts`（fetchLikeCount/postLike/fetchComments/postComment）；④ 详情页 `HeritageDetail.vue` 新增互动卡片：点赞按钮（🤍/❤️ 切换 + 实时计数）、昵称输入（空则匿名）、200 字评论框（带字数统计）、评论列表（空态「还没有评论，来抢沙发～」），加载失败静默降级不影响主内容
+- **尝试的实现方法**：数据库文件 `server/data/interact.db` 本地持久化；点赞用 UPSERT 计数，评论自增 id 倒序展示；前端 `Promise.all` 并行拉取点赞+评论
+- **遇到的问题**：无用户体系，刷新后无法识别「本人是否已点过赞」→ 点赞状态不持久化、仅持久化计数（刷新后按钮回到 🤍 但计数保留）；PowerShell 终端中文显示乱码（GBK 控制台）需在浏览器确认 UTF-8 正确
+- **解决方案**：见上；浏览器实测确认中文完整无损
+- **创新点**：Node ≥22.5 内置 `node:sqlite`，免装 better-sqlite3 原生编译依赖；三层分离新增「互动数据」数据层模块，显示层零 axios
+- **测试记录**（Playwright 实测）：点赞 0→1 按钮变 ❤️ 无报错；昵称+评论发表 → 列表出现「🧑 测试用户 / 2026-09-01 09:45 / 内容」，中文显示正常、输入框清空复位；刷新后点赞计数 1 与评论完整保留（持久化）；/heritage/2 点赞 0 无评论（计数独立）；接口层测通 4 端点 + 非法 id 400；`npx vue-tsc -b` 类型检查通过
+- **关联提交/文件**：server/scripts/comment-db.mjs、server/index.js、src/data/api/comment.ts、src/views/HeritageDetail.vue、server/data/interact.db（**未提交**，留待同事编辑后上传）
+
 ## [2026-09-01] T10 寻访路线规划：最近邻连线 + 沿途推荐（含 bug 修复）
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）

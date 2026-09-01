@@ -1,10 +1,11 @@
-// 轻量后端：天地图 WMTS 代理 + 数据转换/体检（T4）
+// 轻量后端：天地图 WMTS 代理 + 数据转换/体检（T4）+ 点赞/评论（T11）
 import express from 'express';
 import dotenv from 'dotenv';
 import https from 'node:https';
 import multer from 'multer';
 import { extname } from 'node:path';
 import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
+import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
 
 dotenv.config();
 const app = express();
@@ -118,6 +119,47 @@ app.post('/api/health-check', (req, res) => {
   try {
     const report = healthCheck(req.body);
     res.json(report);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ T11 点赞 / 评论（SQLite） ============
+
+const parseItemId = (raw) => {
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return id;
+};
+
+// 点赞数
+app.get('/api/likes/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  res.json({ itemId: id, count: getLikeCount(id) });
+});
+
+// 点赞 +1
+app.post('/api/likes/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  res.json({ itemId: id, count: addLike(id) });
+});
+
+// 评论列表
+app.get('/api/comments/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  res.json({ itemId: id, comments: getComments(id) });
+});
+
+// 发表评论
+app.post('/api/comments/:id', (req, res) => {
+  const id = parseItemId(req.params.id);
+  if (id === null) return res.status(400).json({ msg: '无效的 id' });
+  const { nickname, content } = req.body ?? {};
+  try {
+    res.json({ itemId: id, comment: addComment(id, nickname, content) });
   } catch (e) {
     res.status(400).json({ msg: e.message });
   }
