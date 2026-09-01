@@ -1,5 +1,5 @@
 // 逻辑层：OpenLayers 实现的 MapAdapter
-// 合并自：队友 T2（天地图 WMTS + 投影切换）+ 本分支 T3（GeoJSON 图层/筛选/高亮/点击）
+// 合并自：队友 T2（天地图 WMTS + 投影切换）+ T3（GeoJSON 图层/筛选/高亮/点击）+ T7（量算绘制）
 // 注意：ol 的 Map 导入别名 OMap，避免遮蔽全局 Map（new Map() 必须指向 JS Map）
 import OMap from 'ol/Map';
 import View from 'ol/View';
@@ -8,6 +8,7 @@ import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style';
 import { fromLonLat, transform } from 'ol/proj';
+import Draw from 'ol/interaction/Draw';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer } from '@/data/sources/tianditu';
@@ -49,6 +50,8 @@ export class OLMapAdapter implements MapAdapter {
       controls: [],
     });
     this.map.on('singleclick', (evt) => {
+      // 量算绘制中：抑制要素点击，避免与绘制冲突
+      if (this.measuring) return;
       const feature = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f);
       if (feature) {
         this.clickCb?.(feature.getProperties() as Record<string, unknown>);
@@ -145,25 +148,79 @@ export class OLMapAdapter implements MapAdapter {
     });
   }
 
+  // ---- T7 量算绘制 ----
+  private measureDraw: Draw | null = null;
+  private measureLayer: VectorLayer | null = null;
+  private measuring = false;
+
+  startMeasure(mode: 'distance' | 'area', onDone: (geometry: object) => void): void {
+    if (!this.map) return;
+    this.stopMeasure();
+    this.measuring = true;
+    const source = new VectorSource();
+    const measureStyle = new Style({
+      stroke: new Stroke({ color: '#ff5722', width: 2.5 }),
+      fill: new Fill({ color: 'rgba(255,87,34,0.15)' }),
+      image: new CircleStyle({ radius: 5, fill: new Fill({ color: '#ff5722' }) }),
+    });
+    this.measureLayer = new VectorLayer({ source, style: measureStyle });
+    this.map.addLayer(this.measureLayer);
+    this.measureDraw = new Draw({
+      source,
+      type: mode === 'distance' ? 'LineString' : 'Polygon',
+      style: measureStyle,
+    });
+    this.map.addInteraction(this.measureDraw);
+    this.measureDraw.on('drawend', (evt) => {
+      this.measuring = false;
+      const geom = evt.feature.getGeometry();
+      const geom4326 = geom!.clone().transform(this.viewProjection(), 'EPSG:4326');
+      onDone(new GeoJSON().writeGeometryObject(geom4326) as object);
+    });
+  }
+
+  stopMeasure(): void {
+    this.measuring = false;
+    if (this.measureDraw && this.map) this.map.removeInteraction(this.measureDraw);
+    this.measureDraw = null;
+    if (this.measureLayer && this.map) this.map.removeLayer(this.measureLayer);
+    this.measureLayer = null;
+  }
+
+  isMeasuring(): boolean {
+    return this.measuring;
+  }
+
   destroy(): void {
     this.map?.setTarget(undefined);
     this.map = null;
   }
 
-  /** 要素样式：隐藏(筛选不中) / 高亮(选中) / 分类样式 */
+  /** 要素样式：隐藏(筛选不中) / 高亮(选中) / 分类样式（按几何类型渲染） */
   private buildStyle(feature: Feature): Style {
     const props = (feature.get('_props') as Record<string, unknown>) ?? feature.getProperties();
     // 筛选不中 → 隐藏
     for (const predicate of this.filters.values()) {
       if (!predicate(props)) return HIDDEN_STYLE;
     }
-    // 高亮
+    const color = (props['color'] as string) || '#1890ff';
+    const geomType = feature.getGeometry()?.getType();
+    // 高亮（仅点要素放大）
     const id = props['id'];
-    if (this.highlightId != null && String(id) === String(this.highlightId)) {
+    if (this.highlightId != null && String(id) === String(this.highlightId) && geomType === 'Point') {
       return HIGHLIGHT_STYLE;
     }
-    // 分类样式（默认圆点）
-    const color = (props['color'] as string) || '#1890ff';
+    // 多边形/线 → 描边+填充
+    if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+      return new Style({
+        stroke: new Stroke({ color, width: 2 }),
+        fill: new Fill({ color: 'rgba(255, 87, 34, 0.15)' }),
+      });
+    }
+    if (geomType === 'LineString' || geomType === 'MultiLineString') {
+      return new Style({ stroke: new Stroke({ color, width: 3 }) });
+    }
+    // 点 → 圆点
     return new Style({
       image: new CircleStyle({
         radius: 6,
