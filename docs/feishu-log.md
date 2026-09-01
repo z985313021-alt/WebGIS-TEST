@@ -6,6 +6,50 @@
 
 ---
 
+## [2026-09-01] T10 寻访路线规划：最近邻连线 + 沿途推荐（含 bug 修复）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：逻辑层 / 显示层
+- **做了什么修改**：① 逻辑层 `analysis.ts` 新增 `buildRoute(selected, all, corridorKm=20)`：选中点位按**最近邻贪心**排序生成寻访顺序（行程单），用 turf 折线 + `pointToLineDistance ≤ corridorKm` 筛出**沿途推荐**非遗（排除已选点）；② 显示层 `AnalysisTools.vue` 新增「寻访路线」tab：多选 2+ 寻访点（带折叠标签）、沿途半径调节（5-100km）、生成/清除按钮、行程单（序号圆标）+ 沿途推荐列表（最多显示 15 项 + 折叠提示）；③ 修复 T10 关键 bug（见问题）
+- **尝试的实现方法**：turf.lineString 生成折线、pointToLineDistance 球面距离筛沿途；MapAdapter.addGeoJsonLayer 渲染 'route' 折线图层；zoomTo 首站定位
+- **遇到的问题**：**turf v7 的 `lineString()` 返回的是 Feature（`{type:'Feature', geometry:{...}}`）而非纯 geometry**——`buildRoute` 原样返回后，组件再包一层 `geometry: r.line`，变成"Feature 套 Feature"，OL 的 GeoJSON reader 报 `Unsupported GeoJSON type: Feature`，折线图层特征数恒为 0、行程单有内容但 alert 缺失（异常被 catch 吞掉）
+- **解决方案**：`buildRoute` 取 `(lineFeat).geometry` 作为返回的 `line`（纯 LineString 给 OL 渲染）；`pointToLineDistance` 继续传完整 Feature（turf 两参均可）。修复后实测通过
+- **创新点**：路线排序走逻辑层 turf 纯计算，adapter 只负责渲染，保持引擎通用
+- **测试记录**（Playwright 实测）：3 点生成 → alert「3 站，沿途推荐 24 项（20km）」、route 图层特征数=1、行程单最近邻排序（济宁→淄博→日照）、zoom=8 定位首站；清除 → 全部重置+图层移除；1 点边界 → 警告「请至少选择 2 个寻访点」；`npx vue-tsc -b` 类型检查通过
+- **关联提交/文件**：src/services/analysis/analysis.ts、src/components/panels/AnalysisTools.vue（feature/t10-route → PR → dev）
+
+## [2026-09-01] T9 图表可视化页（ECharts）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：显示层 / 逻辑层
+- **做了什么修改**：新增图表可视化页（ChartView.vue + 路由「图表可视化」）：类别分布柱状图、地市分布、批次分布等 ECharts 图表，数据来自 dataStore getters（categoryCounts/cityOptions/batchCounts），与地图筛选状态联动
+- **尝试的实现方法**：ECharts 按需初始化 + resize 监听；图表数据从逻辑层 store 派生，显示层不直接碰数据
+- **遇到的问题**：① ECharts 柱体像素点击定位不稳 → 直接用 store 修改验证联动逻辑；② el-slider 合成事件不触发 → Playwright 真实鼠标拖拽
+- **解决方案**：见上；页面 0 控制台错误，图表渲染 + 联动验证通过
+- **创新点**：图表与地图共用同一 store 数据源，一处筛选两处联动
+- **关联提交/文件**：src/views/ChartView.vue、src/router/index.ts、src/services/stores/dataStore.ts
+
+## [2026-09-01] T8 非遗详情页（独立路由）
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：显示层
+- **做了什么修改**：新增非遗详情页（HeritageDetail.vue + 路由 /heritage/:id）：完整展示名称/类别/批次/地市/区县/简介 + 图片，从地图列表/卡片点击进入
+- **尝试的实现方法**：路由参数取 id → dataStore 查详情 → 结构化排版展示
+- **遇到的问题**：图片路径兼容多种命名（括号内别名/序号）→ 复用 T1 图片匹配策略
+- **解决方案**：见上；详情页渲染 + 图片 200 加载验证通过
+- **关联提交/文件**：src/views/HeritageDetail.vue、src/router/index.ts
+
+## [2026-09-01] T6 时空演变：批次时间轴 + 面板互斥修复
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：显示层 / 逻辑层
+- **做了什么修改**：① 地图主页新增「时空演变」面板：批次时间轴滑块（TimeSlider.vue）按批次（1-5 批）过滤地图点位，展示非遗申报批次的时间演变；② 修复左侧筛选/空间分析/时空演变多面板重叠、无法重开的 bug（互斥 toggle + 快捷按钮）
+- **尝试的实现方法**：滑块值映射 filterBatchMax → dataStore 筛选 getter → 地图 setLayerFilter 联动；面板用互斥开关管理
+- **遇到的问题**：① el-slider 合成事件不触发 Vue 更新 → Playwright 用真实鼠标拖拽验证；② 多面板同时开导致布局重叠、收起后无法重开 → 重构为互斥 toggle
+- **解决方案**：见上；时间轴拖动 → 点位批次过滤联动验证通过；面板开关修复后多次开关正常
+- **创新点**：批次即时间维度，用同一筛选管道实现"时空演变"叙事，无需额外数据结构
+- **关联提交/文件**：src/components/map/TimeSlider.vue、src/components/panels/*、src/views/HomeMap.vue、src/services/stores/dataStore.ts
+
 ## [2026-09-01] T4 数据管理页 + T7 空间分析（整合进地图主页）
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）
