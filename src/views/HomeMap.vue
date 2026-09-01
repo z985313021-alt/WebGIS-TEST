@@ -32,7 +32,7 @@
       </div>
     </CollapsiblePanel>
 
-    <!-- 左侧：空间分析工具（T7，与筛选面板叠放，独立开关） -->
+    <!-- 左侧：空间分析工具（T7，与筛选互斥，不重叠） -->
     <CollapsiblePanel title="空间分析" :visible="analysisVisible" @close="analysisVisible = false">
       <AnalysisTools :get-adapter="getMapAdapter" />
     </CollapsiblePanel>
@@ -47,9 +47,12 @@
 
     <!-- 地图快捷按钮 -->
     <div class="map-quick-btns">
+      <el-button size="small" :type="mapStore.layerPanelVisible ? 'warning' : ''" @click="toggleFilterPanel">
+        非遗筛选
+      </el-button>
       <el-button size="small" @click="store.resetFilters()">重置筛选</el-button>
       <el-button size="small" type="primary" @click="zoomShandong()">山东全景</el-button>
-      <el-button size="small" :type="analysisVisible ? 'warning' : ''" @click="analysisVisible = !analysisVisible">
+      <el-button size="small" :type="analysisVisible ? 'warning' : ''" @click="toggleAnalysisPanel">
         空间分析
       </el-button>
       <el-button size="small" :type="showTimeSlider ? 'warning' : ''" @click="showTimeSlider = !showTimeSlider">
@@ -96,6 +99,16 @@ function zoomShandong() {
 // 供分析面板取地图适配器（MapContainer 挂载后才可用）
 function getMapAdapter() {
   return mapRef.value?.getAdapter?.() ?? null;
+}
+
+// 左面板互斥：开筛选关分析，开分析关筛选（避免重叠）
+function toggleFilterPanel() {
+  mapStore.toggleLayerPanel();
+  if (mapStore.layerPanelVisible) analysisVisible.value = false;
+}
+function toggleAnalysisPanel() {
+  analysisVisible.value = !analysisVisible.value;
+  if (analysisVisible.value) mapStore.layerPanelVisible = false;
 }
 
 // 点地图点位 → 自动展开详情
