@@ -12,8 +12,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const TIANDITU_TK = process.env.TIANDITU_TK || '';
 const TDT_SUBDOMAINS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'];
-const TDT_TYPES = ['vec_w', 'img_w', 'cva_w', 'cia_w'];
-const TDT_LAYER = { vec_w: 'vec', img_w: 'img', cva_w: 'cva', cia_w: 'cia' };
+const TDT_TYPES = ['vec_w', 'img_w', 'cva_w', 'cia_w', 'vec_c', 'img_c', 'cva_c', 'cia_c'];
+const TDT_LAYER = {
+  vec_w: 'vec', img_w: 'img', cva_w: 'cva', cia_w: 'cia',
+  vec_c: 'vec', img_c: 'img', cva_c: 'cva', cia_c: 'cia',
+};
+/** 由类型推断瓦片矩阵集：c 集(3857) / w 集(4326) */
+const TDT_MATRIXSET = (type) => (type.endsWith('_c') ? 'c' : 'w');
 
 // 保留原始扩展名（shapefile/xlsx 靠扩展名识别文件类型）
 const upload = multer({
@@ -33,7 +38,33 @@ app.get('/api/tianditu/status', (req, res) => {
   res.json({ configured: tdtConfigured() });
 });
 
-// 天地图 WMTS 代理：/api/tianditu/:type?<WMTS KVP 参数>
+// 天地图 DataServer XYZ 代理：/api/tianditu/xyz/:type/:z/:x/:y
+// 标准 Web Mercator 切片网格（与 OSM 一致），type 如 vec_w/cva_w/img_w
+// 前端不携带 tk，由本代理拼接 tk 回源，避免密钥暴露
+app.get('/api/tianditu/xyz/:type/:z/:x/:y', (req, res) => {
+  const { type, z, x, y } = req.params;
+  if (!TDT_TYPES.includes(type)) {
+    return res.status(400).json({ msg: `invalid type, allowed: ${TDT_TYPES.join(', ')}` });
+  }
+  if (!tdtConfigured()) {
+    return res.status(503).json({ msg: 'TIANDITU_TK not configured, see .env' });
+  }
+  const sub = TDT_SUBDOMAINS[Math.floor(Math.random() * TDT_SUBDOMAINS.length)];
+  const upstream = `https://${sub}.tianditu.gov.cn/DataServer?T=${type}&x=${x}&y=${y}&l=${z}&tk=${TIANDITU_TK}`;
+
+  const proxyReq = https.get(upstream, (upRes) => {
+    res.status(upRes.statusCode ?? 502);
+    res.setHeader('Content-Type', upRes.headers['content-type'] || 'image/tiles');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    upRes.pipe(res);
+  });
+  proxyReq.on('error', (err) => {
+    if (!res.headersSent) res.status(502).json({ msg: 'upstream error', error: err.message });
+    else res.end();
+  });
+});
+
+// 天地图 WMTS 代理：/api/tianditu/:type?<WMTS KVP 参数>（保留兼容旧 w 集用法）
 // 前端不携带 tk，由本代理拼接 tk 回源，避免密钥暴露
 app.get('/api/tianditu/:type', (req, res) => {
   const type = String(req.params.type || '');
@@ -65,7 +96,7 @@ app.get('/api/tianditu/:type', (req, res) => {
     version: '1.0.0',
     layer: TDT_LAYER[type],
     style: 'default',
-    tilematrixset: 'w',
+    tilematrixset: TDT_MATRIXSET(type),
     format: 'tiles',
     tilematrix,
     tilerow,
