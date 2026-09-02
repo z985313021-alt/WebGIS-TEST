@@ -29,9 +29,9 @@ function heritageGeojson(): object {
 onMounted(async () => {
   dataStore.init();
   if (!mapEl.value) return;
-  // 先查后端 tk 是否配置（逻辑层 action），决定初始底图提供商（天地图/OSM 可手动切换）
+  // 先查后端 tk 是否配置（逻辑层 action），供底图切换 UI 判断天地图是否可用
   await mapStore.checkTianditu();
-  mapStore.provider = mapStore.tiandituConfigured ? 'tianditu' : 'osm';
+  // 默认 OSM 底图（无需密钥，始终可加载）；天地图由侧边栏手动切换
   adapter = new OLMapAdapter();
   adapter.mount(mapEl.value, mapStore.provider);
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
