@@ -6,6 +6,20 @@
 
 ---
 
+## [2026-09-02] 修复飞书日志推送失败（1061004 forbidden：旧文件夹失效自愈）
+- **日期时间**：2026-09-02
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 运维脚本
+- **做了什么修改**：`server/scripts/push-feishu.mjs` 增加 **folderToken 可用性校验 + 失效自动重建**：复用 state 里的旧文件夹前先用 list files 探测，返回非 0 则重新 `create_folder` 并更新 state；同时整体重写脚本（含密钥行被工具脱敏导致无法文本匹配编辑）
+- **尝试的实现方法**：临时调试脚本直连飞书 API 逐段排查——getToken 正常(0)、查旧文件夹 404、向旧文件夹上传 403（1061004 forbidden）、新建文件夹+上传成功(0) → 定位为"旧 folderToken 已被清理，脚本直接复用"
+- **遇到的问题**：① 首次失败 `99991672 Access denied`（应用缺 drive:drive/drive:file/drive:file:upload 权限，用户在飞书开放平台开通）；② 开通后变 `1061004 forbidden`（旧 folderToken 失效仍被复用）；③ push-feishu.mjs 含 APP_SECRET 相关行被读取工具脱敏，edit_file/apply_patch 均无法精确匹配 → 改用整体重写
+- **解决方案**：使用前探测文件夹可用性，失效自动重建（自愈）；脚本重写时保持原有"单版本文档"策略（删旧→传新→导入→轮询）
+- **创新点**：状态文件里的资源 token 可能因清理/权限变更失效，加一层"探测-重建"自愈，推送脚本从此无需人工干预
+- **测试记录**：`node --check` 语法通过；`npm run feishu:push` 成功：旧文件夹已失效→自动重建→md 上传→导入任务→✅ 新文档 https://feishu.cn/docx/BDMQdokqTo1qJDxMyYncS7FunMQ
+- **关联提交/文件**：server/scripts/push-feishu.mjs、server/data/feishu-doc-state.json、.dsh/skills/feishu-log/SKILL.md（最新 URL）
+
+---
+
 ## [2026-09-02] 详情卡片多图展示 + 省界高亮 + "在地图上查看"飞行动画修复
 - **日期时间**：2026-09-02
 - **操作人**：架构（AI 代理）

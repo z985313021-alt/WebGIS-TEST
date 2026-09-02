@@ -24,7 +24,7 @@
 3. **凭证**：根目录 `.env` 的 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`（已 gitignore，禁止提交）。
 4. **文档权限**：已设为"组织内获得链接的人可编辑"。
 5. **文档地址**：每次推送会**替换为最新版本**（旧文档自动删除，保持单版本），最新 URL 由脚本打印，也存在 `server/data/feishu-doc-state.json` 的 `lastUrl`。当前最新：
-   `https://feishu.cn/docx/DL2TdklLroLalixg1WIckzeJnSc`（应用云空间"山东非遗实习日志"文件夹）。
+   `https://feishu.cn/docx/BDMQdokqTo1qJDxMyYncS7FunMQ`（应用云空间"山东非遗实习日志"文件夹）。
 6. **注意**：全量导入生成新文档；如想要固定地址+增量追加版，需另行扩展（docx append blocks）。
 
 ## 纪律
