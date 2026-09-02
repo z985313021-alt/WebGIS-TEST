@@ -5,7 +5,10 @@
     <!-- 左侧：筛选 + 列表 -->
     <CollapsiblePanel title="非遗筛选" :visible="mapStore.layerPanelVisible" @close="mapStore.toggleLayerPanel">
       <p class="basemap-tip">
-        底图：{{ mapStore.tiandituConfigured ? '天地图 WMTS ✅' : 'OSM（.env 未配置 tk）' }}
+        当前底图：<b :style="{ color: mapStore.provider === 'tianditu' ? '#67c23a' : '#409eff' }">
+          {{ mapStore.provider === 'tianditu' ? '天地图 WMTS' : 'OpenStreetMap' }}
+        </b>
+        {{ !mapStore.tiandituConfigured && mapStore.provider === 'tianditu' ? '（未配置tk，自动降级到OSM）' : '' }}
       </p>
       <FilterPanel />
       <div class="list-section">
@@ -139,7 +142,7 @@ watch(
 }
 .list-item:hover { background: #f5f7fa; }
 .list-item.active { background: #ecf5ff; }
-.item-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.item-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 2px rgba(0,0,0,0.15); }
 .item-info { min-width: 0; }
 .item-name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-sub { font-size: 11px; color: #999; }

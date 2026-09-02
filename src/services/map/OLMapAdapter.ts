@@ -142,6 +142,26 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.set(id, layer);
   }
 
+  /** 省界高亮图层：加粗描边 + 半透明填充，插入底图之上、矢量数据之下 */
+  addBoundaryLayer(geojson: object, id: string): void {
+    if (!this.map) return;
+    const features = new GeoJSON().readFeatures(geojson, {
+      featureProjection: this.viewProjection(),
+      dataProjection: 'EPSG:4326',
+    });
+    const boundaryStyle = new Style({
+      stroke: new Stroke({ color: '#1a56db', width: 3 }),
+      fill: new Fill({ color: 'rgba(26, 86, 219, 0.08)' }),
+    });
+    const layer = new VectorLayer({
+      source: new VectorSource({ features }),
+      style: boundaryStyle,
+    });
+    // 插在底图（第 0 层）之上，避免盖住后续加入的注记/数据图层
+    this.map.getLayers().insertAt(1, layer);
+    this.layers.set(id, layer);
+  }
+
   setLayerFilter(id: string, predicate: (props: Record<string, unknown>) => boolean): void {
     this.filters.set(id, predicate);
     this.layers.get(id)?.changed();
@@ -170,13 +190,13 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
-  zoomTo(lonlat: [number, number], zoom = 9): void {
+  zoomTo(lonlat: [number, number], zoom = 9, duration = 1000): void {
     const view = this.map?.getView();
     if (!view) return;
     view.animate({
       center: transform(lonlat, 'EPSG:4326', view.getProjection()),
       zoom,
-      duration: 350,
+      duration,
     });
   }
 

@@ -6,7 +6,18 @@
 
 ---
 
-## [2026-09-01] 修复地图定位北极（天地图 DataServer XYZ）+ 底图切换 + 中文标注
+## [2026-09-02] 详情卡片多图展示 + 省界高亮 + "在地图上查看"飞行动画修复
+- **日期时间**：2026-09-02
+- **操作人**：架构（AI 代理）
+- **模块**：数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① **右侧详情卡片全部图片展示**：数据里 185 个非遗项中 50 个有 2~5 张图（`photos[]`），原卡片只显示第一张；改为多图用 `el-carousel` 轮播（左右箭头 + 外部指示器），单图直接展示，无图显示占位 🏺，加载失败的图索引级降级为占位；② **山东省边界高亮加粗**：用 `@turf/turf` 的 `union` 把 `server/data/shandong-boundary.json` 的 17 个地市多边形**离线预合并**为单一省界（`scripts/merge-shandong-boundary.mjs` 一次性脚本，266ms），产出 `src/data/shandong-province-boundary.json`（161KB，去内部地市界），新增 `MapAdapter.addBoundaryLayer` + OLMapAdapter 实现（3px 深蓝描边 + 8% 半透明填充），插入底图之上、注记与数据之下；③ **修复"在地图上查看"飞行动画不触发 bug**：详情页 `/heritage/:id` 与首页 `/` 是不同路由，点击按钮时 `pendingFlyTo` 在跳转前已设好，MapContainer 重挂载后 watch 不会对"已存在的旧值"触发 → 动画从不执行；改为在 `onMounted` 末尾主动调用 `consumePendingFlyTo()` 消费一次，watch 仍负责后续变化；④ 飞行 zoom 12→15、动画时长 350ms→1000ms，列表点击默认 zoom 10→13
+- **尝试的实现方法**：先尝试在浏览器运行时用 turf `union` 合并 17 个地市 → 青岛/烟台含大量海岛小多边形，逐对 union 在浏览器主线程同步执行会卡顿卡死页面；改为 Node 脚本离线一次合并，前端只加载结果零运行时开销
+- **遇到的问题**：① turf v7 的 `union` 直接传 FeatureCollection 即可，但输入实际为 16 个要素（地市含 MultiPolygon）；② `pendingFlyTo` 跨路由时序：watch 注册时值已是非 null 但不会再触发 → 动画失效（这就是用户反馈"点了没飞过去"的根因）
+- **解决方案**：离线预合并省界（脚本可重跑）；MapContainer 挂载完成、adapter 就绪后主动消费 `pendingFlyTo`，watch 兜底挂载后变化
+- **创新点**：426KB 原始地市界 → 161KB 单一省界（去内部界线，打包体积减半）；跨路由"先设目标、挂载后消费"的飞行定位模式
+- **测试记录**：`npx vue-tsc -b --noEmit` 类型检查通过；`npm run build` 完整构建通过（32.8s）；本地起 server(3001)+vite(8000)：首页 200、`/api/tianditu/status` 返回 configured:true、`shandongBoundary.ts` 模块编译正常、图片静态资源 `/images/传统音乐非遗/鲁西南鼓吹乐1.jpg` 200（162KB，多图数据真实存在）
+- **关联提交/文件**：feature/map-fix（待提交）、src/components/panels/HeritageDetailCard.vue、src/components/map/MapContainer.vue、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/views/{HeritageDetail,HomeMap}.vue、src/data/sources/shandongBoundary.ts、src/data/shandong-province-boundary.json、scripts/merge-shandong-boundary.mjs
+
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）
 - **模块**：后端 / 数据层 / 逻辑层 / 显示层

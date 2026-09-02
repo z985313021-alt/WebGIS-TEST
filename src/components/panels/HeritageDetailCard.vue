@@ -1,9 +1,26 @@
 <template>
   <div class="detail-card" v-if="item">
     <div class="detail-photo">
-      <img v-if="item.photo" :src="item.photo" :alt="item.name" @error="imgError = true" />
-      <div v-else-if="imgError" class="photo-placeholder" :style="{ background: color }">
-        <span>🏺</span>
+      <!-- 全部图片：多图用轮播，单图直接展示 -->
+      <el-carousel
+        v-if="allPhotos.length > 1"
+        height="160px"
+        :autoplay="false"
+        indicator-position="outside"
+        arrow="always"
+      >
+        <el-carousel-item v-for="(p, i) in allPhotos" :key="i">
+          <img :src="p" :alt="item.name" class="carousel-img" @error="handleImgError(i)" />
+          <div v-if="failedPhotos.includes(i)" class="photo-placeholder" :style="{ background: color }">
+            <span>🏺</span>
+          </div>
+        </el-carousel-item>
+      </el-carousel>
+      <div v-else-if="allPhotos.length === 1" class="single-photo">
+        <img :src="allPhotos[0]" :alt="item.name" @error="imgError = true" />
+        <div v-if="imgError" class="photo-placeholder" :style="{ background: color }">
+          <span>🏺</span>
+        </div>
       </div>
       <div v-else class="photo-placeholder" :style="{ background: color }">
         <span>🏺</span>
@@ -40,7 +57,21 @@ const router = useRouter();
 const item = computed(() => store.selected);
 const color = computed(() => (item.value ? CATEGORY_COLORS[item.value.category] ?? '#999' : '#999'));
 const imgError = ref(false);
-watch(item, () => { imgError.value = false; });
+/** 全部图片：优先 photos[]（完整图集），回退到 photo（单张） */
+const allPhotos = computed(() => {
+  const photos = item.value?.photos;
+  if (photos && photos.length > 0) return photos;
+  return item.value?.photo ? [item.value.photo] : [];
+});
+/** 轮播中加载失败的图片索引（显示占位图） */
+const failedPhotos = ref<number[]>([]);
+function handleImgError(i: number) {
+  if (!failedPhotos.value.includes(i)) failedPhotos.value.push(i);
+}
+watch(item, () => {
+  imgError.value = false;
+  failedPhotos.value = [];
+});
 
 function goDetail() {
   if (item.value) router.push(`/heritage/${item.value.id}`);
@@ -51,6 +82,9 @@ function goDetail() {
 .detail-card { text-align: left; }
 .detail-photo { width: 100%; height: 160px; border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
 .detail-photo img { width: 100%; height: 100%; object-fit: cover; }
+.carousel-img { width: 100%; height: 100%; object-fit: cover; }
+.single-photo { width: 100%; height: 100%; }
+.single-photo img { width: 100%; height: 100%; object-fit: cover; }
 .photo-placeholder {
   width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
   font-size: 48px; opacity: 0.85;
