@@ -5,7 +5,8 @@
     <!-- 左侧：筛选 + 列表 -->
     <CollapsiblePanel title="非遗筛选" :visible="mapStore.layerPanelVisible" @close="mapStore.toggleLayerPanel">
       <p class="basemap-tip">
-        底图：{{ mapStore.tiandituConfigured ? '天地图 WMTS ✅' : 'OSM（.env 未配置 tk）' }}
+        当前底图：{{ mapStore.provider === 'tianditu' ? '天地图' : 'OSM' }}
+        <template v-if="!mapStore.tiandituConfigured">（天地图未启用：.env 未配置 tk）</template>
       </p>
       <FilterPanel />
       <div class="list-section">
@@ -57,13 +58,6 @@
       </el-button>
       <el-button size="small" :type="showTimeSlider ? 'warning' : ''" @click="showTimeSlider = !showTimeSlider">
         时空演变
-      </el-button>
-      <el-button
-        size="small"
-        :type="mapStore.provider === 'tianditu' ? 'success' : ''"
-        @click="mapStore.setProvider(mapStore.provider === 'tianditu' ? 'osm' : 'tianditu')"
-      >
-        底图：{{ mapStore.provider === 'tianditu' ? '天地图' : 'OSM' }}
       </el-button>
     </div>
   </div>
