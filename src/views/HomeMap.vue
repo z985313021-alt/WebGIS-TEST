@@ -133,7 +133,7 @@ watch(
 }
 .list-item:hover { background: #f5f7fa; }
 .list-item.active { background: #ecf5ff; }
-.item-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.item-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 2px rgba(0,0,0,0.15); }
 .item-info { min-width: 0; }
 .item-name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-sub { font-size: 11px; color: #999; }

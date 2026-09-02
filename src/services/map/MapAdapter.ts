@@ -21,6 +21,8 @@ export interface MapAdapter {
   getLayerFeatureCount(id: string): number;
   /** 加载通用矢量图层（兼容旧接口） */
   addVectorLayer(geojson: object, id: string): void;
+  /** 加载省界高亮图层（加粗描边 + 半透明填充，置于底图之上、数据之下） */
+  addBoundaryLayer(geojson: object, id: string): void;
   removeLayer(id: string): void;
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
   zoomTo(lonlat: [number, number], zoom?: number): void;
