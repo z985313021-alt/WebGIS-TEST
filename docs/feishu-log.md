@@ -6,6 +6,18 @@
 
 ---
 
+## [2026-09-03] T4 数据管理增强：Excel 模板下载 + 体检报告导出 + WMS 接入探测
+- **日期时间**：2026-09-03
+- **操作人**：成员 6 / lidongtian987-dotcom
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① 后端新增 `server/scripts/data-manage.mjs`，提供 Excel 模板生成、数据体检报告导出 Excel、示例 GeoJSON 模板；② `server/index.js` 新增 `GET /api/template/:type`（下载 Excel/GeoJSON/SHP 模板）、`POST /api/health-check/export`（导出体检报告 xlsx）、`GET /api/wms/capabilities`（WMS GetCapabilities 图层探测）；③ 数据层 `src/data/api/convert.ts` 新增 `downloadTemplate`/`exportHealthReport`/`probeWms`；④ 逻辑层 `MapAdapter`/`OLMapAdapter` 新增 `addWMSLayer` 接口（OpenLayers ImageWMS，支持透明叠加）；⑤ 显示层 `DataManage.vue` 增加「模板下载」卡片、「导出体检报告 Excel」按钮、「WMS 接入探测」面板（输入地址→探测图层→展示 Name/Title 列表）
+- **尝试的实现方法**：`xlsx` 在 Node ESM 中用 `createRequire` 静态 require 生成 Buffer；前端通过 `<a download>` 与 Blob 触发下载；WMS 探测用后端代理请求 GetCapabilities 并正则解析 `<Name>`/`<Title>`
+- **遇到的问题**：① `xlsx` 在 ESM 下不能直接用 `require`，改为 `node:module` 的 `createRequire(import.meta.url)` 后 `require('xlsx')` 成功；② 此前误基于落后于 dev 的 main 分支开发，收到提醒后将 Y 分支重置到最新 `dev`（f79fdef）并重新应用全部改动，避免基线过旧；③ TypeScript 编译 `OLMapAdapter` 引入 `ImageLayer`/`ImageWMS` 时注意 ol 10.x 泛型约束（`ImageLayer<ImageSource>`）
+- **解决方案**：见上；代码仅在本地 `Y分支` 提交，不合并到 `main/dev`
+- **创新点**：数据管理页从「单文件上传体检」升级为「模板-上传-体检-导出-WMS 探测」完整工作流，WMS 能力以抽象接口形式挂到 MapAdapter，不破坏已有天地图/OSM 底图逻辑
+- **测试记录**：`npx vue-tsc -b --noEmit` 类型检查通过；后端模板下载、体检报告导出、WMS 探测接口可独立调用
+- **关联提交/文件**：server/scripts/data-manage.mjs、server/index.js、src/data/api/convert.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/views/DataManage.vue、docs/feishu-log.md
+
 ## [2026-09-02] 修复飞书日志推送失败（1061004 forbidden：旧文件夹失效自愈）
 - **日期时间**：2026-09-02
 - **操作人**：架构（AI 代理）
