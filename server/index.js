@@ -6,6 +6,7 @@ import multer from 'multer';
 import { extname } from 'node:path';
 import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
+import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
 
 dotenv.config();
 const app = express();
@@ -120,6 +121,22 @@ app.get('/api/tianditu/:type', (req, res) => {
 
 // ============ T4 数据转换与体检 ============
 
+// 模板下载：Excel / GeoJSON / SHP
+app.get('/api/template/:type', (req, res) => {
+  try {
+    const type = String(req.params.type || '').toLowerCase();
+    if (!['excel', 'geojson', 'shp'].includes(type)) {
+      return res.status(400).json({ msg: 'invalid type, allowed: excel, geojson, shp' });
+    }
+    const { buffer, filename, contentType } = createTemplate(type);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', contentType);
+    res.send(buffer);
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+});
+
 // Shapefile 上传 → GeoJSON（shp/dbf 必传，GBK 解码）
 app.post('/api/convert/shp', upload.array('files'), async (req, res) => {
   try {
@@ -150,6 +167,19 @@ app.post('/api/health-check', (req, res) => {
   try {
     const report = healthCheck(req.body);
     res.json(report);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// 体检报告导出 Excel
+app.post('/api/health-check/export', (req, res) => {
+  try {
+    const report = healthCheck(req.body);
+    const { buffer, filename } = generateHealthReportExcel(report);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
   } catch (e) {
     res.status(400).json({ msg: e.message });
   }
@@ -191,6 +221,35 @@ app.post('/api/comments/:id', (req, res) => {
   const { nickname, content } = req.body ?? {};
   try {
     res.json({ itemId: id, comment: addComment(id, nickname, content) });
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ WMS 服务接入探测 ============
+app.get('/api/wms/capabilities', (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ msg: '缺少 url 参数' });
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('SERVICE', 'WMS');
+    parsed.searchParams.set('REQUEST', 'GetCapabilities');
+    parsed.searchParams.set('VERSION', '1.1.1');
+    const target = parsed.toString();
+    https.get(target, (upRes) => {
+      let data = '';
+      upRes.setEncoding('utf8');
+      upRes.on('data', (chunk) => (data += chunk));
+      upRes.on('end', () => {
+        const layers = [];
+        const names = [...data.matchAll(/<Name>([^<]+)<\/Name>/g)].map((m) => m[1]);
+        const titles = [...data.matchAll(/<Title>([^<]+)<\/Title>/g)].map((m) => m[1]);
+        for (let i = 0; i < names.length; i++) {
+          layers.push({ name: names[i], title: titles[i] || names[i] });
+        }
+        res.json({ ok: true, url: target, layerCount: layers.length, layers: layers.slice(0, 30) });
+      });
+    }).on('error', (err) => res.status(502).json({ msg: 'WMS 请求失败', error: err.message }));
   } catch (e) {
     res.status(400).json({ msg: e.message });
   }

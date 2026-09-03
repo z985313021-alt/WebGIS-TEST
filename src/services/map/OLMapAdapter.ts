@@ -9,6 +9,9 @@ import GeoJSON from 'ol/format/GeoJSON';
 import { Style, Circle as CircleStyle, Fill, Stroke, Icon, Text } from 'ol/style';
 import { fromLonLat, transform } from 'ol/proj';
 import Draw from 'ol/interaction/Draw';
+import ImageLayer from 'ol/layer/Image';
+import type ImageSource from 'ol/source/Image';
+import ImageWMS from 'ol/source/ImageWMS';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
@@ -44,6 +47,7 @@ export class OLMapAdapter implements MapAdapter {
   private baseLayer: ReturnType<typeof createBaseMapLayer> | null = null;
   private labelLayer: ReturnType<typeof createTiandituLabelLayer> | null = null;
   private layers = new Map<string, VectorLayer>();
+  private wmsLayers = new Map<string, ImageLayer<ImageSource>>();
   private styleFns = new Map<string, FeatureStyleFn>();
   private filters = new Map<string, (props: Record<string, unknown>) => boolean>();
   private highlightId: string | number | null = null;
@@ -177,6 +181,25 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.set(id, layer);
   }
 
+  /** 加载 WMS 图层（ImageWMS 透明叠加，EPSG:3857） */
+  addWMSLayer(url: string, id: string, params?: { layers?: string; version?: string; format?: string }): void {
+    if (!this.map) return;
+    const layer = new ImageLayer({
+      source: new ImageWMS({
+        url,
+        params: {
+          LAYERS: params?.layers ?? '',
+          VERSION: params?.version ?? '1.1.1',
+          FORMAT: params?.format ?? 'image/png',
+          TRANSPARENT: true,
+        },
+        ratio: 1,
+      }),
+    });
+    this.map.addLayer(layer);
+    this.wmsLayers.set(id, layer);
+  }
+
   setLayerFilter(id: string, predicate: (props: Record<string, unknown>) => boolean): void {
     this.filters.set(id, predicate);
     this.layers.get(id)?.changed();
@@ -202,6 +225,10 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.delete(id);
     this.styleFns.delete(id);
     this.filters.delete(id);
+
+    const wmsLayer = this.wmsLayers.get(id);
+    if (wmsLayer && this.map) this.map.removeLayer(wmsLayer);
+    this.wmsLayers.delete(id);
   }
 
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
