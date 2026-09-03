@@ -17,6 +17,8 @@ export const useDataStore = defineStore('data', {
     selectedId: null as number | null,
     filterCategories: [] as string[],
     filterCity: null as string | null,
+    /** 详情页"在地图上查看"的飞行目标，MapContainer 消费后清除 */
+    pendingFlyTo: null as { id: number; zoom: number } | null,
     filterBatch: null as number | null,
     /** 时空演变：批次上限（null=不限，1=只显示第一批，2=第一~二批...） */
     filterBatchMax: null as number | null,

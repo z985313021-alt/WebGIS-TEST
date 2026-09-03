@@ -3,11 +3,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue';
 import { OLMapAdapter } from '@/services/map/OLMapAdapter';
 import { useMapStore } from '@/services/stores/mapStore';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS } from '@/data/sources/heritage';
+import { loadShandongBoundary } from '@/data/sources/shandongBoundary';
 
 const mapEl = ref<HTMLElement | null>(null);
 const mapStore = useMapStore();
@@ -29,10 +30,13 @@ function heritageGeojson(): object {
 onMounted(async () => {
   dataStore.init();
   if (!mapEl.value) return;
-  // 先查后端 tk 是否配置（逻辑层 action），决定底图用天地图还是 OSM 兜底
+  // 先查后端 tk 是否配置（逻辑层 action），供底图切换 UI 判断天地图是否可用
   await mapStore.checkTianditu();
+  // 默认 OSM 底图（无需密钥，始终可加载）；天地图由侧边栏手动切换
   adapter = new OLMapAdapter();
-  adapter.mount(mapEl.value, mapStore.tiandituConfigured);
+  adapter.mount(mapEl.value, mapStore.provider);
+  // 山东省边界高亮（合并地市界 → 单一省界，加粗描边）
+  adapter.addBoundaryLayer(loadShandongBoundary(), 'shandong-boundary');
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
   adapter.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
   adapter.onFeatureClick((props) => {
@@ -42,6 +46,9 @@ onMounted(async () => {
   (window as any).__dataStore = dataStore;
   // 挂载后同步一次已存在的数据集（从数据管理页跳转过来的场景）
   syncUserDatasets();
+  // 关键：详情页跳转回来时 pendingFlyTo 可能早已设好（watch 不会对旧值触发），
+  // 这里主动消费一次，让"在地图上查看"真正执行飞行定位动画。
+  consumePendingFlyTo();
 });
 
 // 筛选条件变化 → 地图图层筛选
@@ -56,6 +63,22 @@ watch(
 watch(
   () => dataStore.selectedId,
   (id) => adapter?.setHighlightId(id),
+);
+
+// 详情页点击"在地图上查看" → 自动飞行定位+局部放大
+// 注意：pendingFlyTo 在跳转前就设好了值，组件挂载后 watch 不会对"已存在的旧值"触发，
+// 因此 onMounted 里会主动消费一次（见 mount 末尾），此处 watch 负责挂载后再次变化的场景。
+async function consumePendingFlyTo() {
+  const target = dataStore.pendingFlyTo;
+  if (!target || !adapter) return;
+  await nextTick();
+  dataStore.select(target.id);
+  zoomToItem(target.id, target.zoom);
+  dataStore.pendingFlyTo = null;
+}
+watch(
+  () => dataStore.pendingFlyTo,
+  () => consumePendingFlyTo(),
 );
 
 // 用户上传数据集 → 叠加图层（按 id 增量渲染）
@@ -81,8 +104,10 @@ watch(
   () => syncUserDatasets(),
 );
 
-// 底图切换
+// 底图类型切换（vec/img，仅天地图生效）
 watch(() => mapStore.baseMap, (t) => adapter?.setBaseMap(t));
+// 底图提供商切换（天地图 / OSM）
+watch(() => mapStore.provider, (p) => adapter?.setProvider(p));
 
 onBeforeUnmount(() => {
   adapter?.destroy();
@@ -91,9 +116,10 @@ onBeforeUnmount(() => {
 });
 
 // 供父组件调用：定位到某要素（列表点击）
-function zoomToItem(id: number) {
+function zoomToItem(id: number, customZoom?: number) {
   const item = dataStore.items.find((i) => i.id === id);
-  if (item && adapter) adapter.zoomTo([item.lng, item.lat], 10);
+  const zoom = customZoom ?? 13;
+  if (item && adapter) adapter.zoomTo([item.lng, item.lat], zoom);
 }
 function getAdapter() {
   return adapter;

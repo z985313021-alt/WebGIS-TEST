@@ -1,6 +1,19 @@
 <template>
   <div class="filter-panel">
     <div class="filter-row">
+      <span class="label">底图</span>
+      <el-radio-group v-model="mapStore.provider" size="small" style="width: 100%">
+        <el-radio-button value="osm">OSM</el-radio-button>
+        <el-radio-button value="tianditu" :disabled="!mapStore.tiandituConfigured">
+          天地图
+        </el-radio-button>
+      </el-radio-group>
+    </div>
+    <div v-if="!mapStore.tiandituConfigured" class="basemap-hint">
+      ⚠️ 天地图未启用：.env 未配置 TIANDITU_TK，当前使用 OSM 底图
+    </div>
+
+    <div class="filter-row">
       <span class="label">类别</span>
       <el-select
         v-model="store.filterCategories"
@@ -53,14 +66,17 @@
 
 <script setup lang="ts">
 import { useDataStore } from '@/services/stores/dataStore';
+import { useMapStore } from '@/services/stores/mapStore';
 import { CATEGORIES, CATEGORY_COLORS, BATCHES, batchLabel } from '@/data/sources/heritage';
 
 const store = useDataStore();
+const mapStore = useMapStore();
 </script>
 
 <style scoped>
 .filter-panel { display: flex; flex-direction: column; gap: 10px; }
 .filter-row { display: flex; align-items: center; gap: 8px; }
+.basemap-hint { font-size: 12px; color: #e6a23c; line-height: 1.4; }
 .label { font-size: 13px; color: #666; white-space: nowrap; width: 34px; }
 .filter-actions { display: flex; justify-content: space-between; align-items: center; }
 .count { font-size: 12px; color: #999; }

@@ -6,6 +6,55 @@
 
 ---
 
+## [2026-09-03] T4 数据管理增强：Excel 模板下载 + 体检报告导出 + WMS 接入探测
+- **日期时间**：2026-09-03
+- **操作人**：成员 6 / lidongtian987-dotcom
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① 后端新增 `server/scripts/data-manage.mjs`，提供 Excel 模板生成、数据体检报告导出 Excel、示例 GeoJSON 模板；② `server/index.js` 新增 `GET /api/template/:type`（下载 Excel/GeoJSON/SHP 模板）、`POST /api/health-check/export`（导出体检报告 xlsx）、`GET /api/wms/capabilities`（WMS GetCapabilities 图层探测）；③ 数据层 `src/data/api/convert.ts` 新增 `downloadTemplate`/`exportHealthReport`/`probeWms`；④ 逻辑层 `MapAdapter`/`OLMapAdapter` 新增 `addWMSLayer` 接口（OpenLayers ImageWMS，支持透明叠加）；⑤ 显示层 `DataManage.vue` 增加「模板下载」卡片、「导出体检报告 Excel」按钮、「WMS 接入探测」面板（输入地址→探测图层→展示 Name/Title 列表）
+- **尝试的实现方法**：`xlsx` 在 Node ESM 中用 `createRequire` 静态 require 生成 Buffer；前端通过 `<a download>` 与 Blob 触发下载；WMS 探测用后端代理请求 GetCapabilities 并正则解析 `<Name>`/`<Title>`
+- **遇到的问题**：① `xlsx` 在 ESM 下不能直接用 `require`，改为 `node:module` 的 `createRequire(import.meta.url)` 后 `require('xlsx')` 成功；② 此前误基于落后于 dev 的 main 分支开发，收到提醒后将 Y 分支重置到最新 `dev`（f79fdef）并重新应用全部改动，避免基线过旧；③ TypeScript 编译 `OLMapAdapter` 引入 `ImageLayer`/`ImageWMS` 时注意 ol 10.x 泛型约束（`ImageLayer<ImageSource>`）
+- **解决方案**：见上；代码仅在本地 `Y分支` 提交，不合并到 `main/dev`
+- **创新点**：数据管理页从「单文件上传体检」升级为「模板-上传-体检-导出-WMS 探测」完整工作流，WMS 能力以抽象接口形式挂到 MapAdapter，不破坏已有天地图/OSM 底图逻辑
+- **测试记录**：`npx vue-tsc -b --noEmit` 类型检查通过；后端模板下载、体检报告导出、WMS 探测接口可独立调用
+- **关联提交/文件**：server/scripts/data-manage.mjs、server/index.js、src/data/api/convert.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/views/DataManage.vue、docs/feishu-log.md
+
+## [2026-09-02] 修复飞书日志推送失败（1061004 forbidden：旧文件夹失效自愈）
+- **日期时间**：2026-09-02
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 运维脚本
+- **做了什么修改**：`server/scripts/push-feishu.mjs` 增加 **folderToken 可用性校验 + 失效自动重建**：复用 state 里的旧文件夹前先用 list files 探测，返回非 0 则重新 `create_folder` 并更新 state；同时整体重写脚本（含密钥行被工具脱敏导致无法文本匹配编辑）
+- **尝试的实现方法**：临时调试脚本直连飞书 API 逐段排查——getToken 正常(0)、查旧文件夹 404、向旧文件夹上传 403（1061004 forbidden）、新建文件夹+上传成功(0) → 定位为"旧 folderToken 已被清理，脚本直接复用"
+- **遇到的问题**：① 首次失败 `99991672 Access denied`（应用缺 drive:drive/drive:file/drive:file:upload 权限，用户在飞书开放平台开通）；② 开通后变 `1061004 forbidden`（旧 folderToken 失效仍被复用）；③ push-feishu.mjs 含 APP_SECRET 相关行被读取工具脱敏，edit_file/apply_patch 均无法精确匹配 → 改用整体重写
+- **解决方案**：使用前探测文件夹可用性，失效自动重建（自愈）；脚本重写时保持原有"单版本文档"策略（删旧→传新→导入→轮询）
+- **创新点**：状态文件里的资源 token 可能因清理/权限变更失效，加一层"探测-重建"自愈，推送脚本从此无需人工干预
+- **测试记录**：`node --check` 语法通过；`npm run feishu:push` 成功：旧文件夹已失效→自动重建→md 上传→导入任务→✅ 新文档 https://feishu.cn/docx/BDMQdokqTo1qJDxMyYncS7FunMQ
+- **关联提交/文件**：server/scripts/push-feishu.mjs、server/data/feishu-doc-state.json、.dsh/skills/feishu-log/SKILL.md（最新 URL）
+
+---
+
+## [2026-09-02] 详情卡片多图展示 + 省界高亮 + "在地图上查看"飞行动画修复
+- **日期时间**：2026-09-02
+- **操作人**：架构（AI 代理）
+- **模块**：数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① **右侧详情卡片全部图片展示**：数据里 185 个非遗项中 50 个有 2~5 张图（`photos[]`），原卡片只显示第一张；改为多图用 `el-carousel` 轮播（左右箭头 + 外部指示器），单图直接展示，无图显示占位 🏺，加载失败的图索引级降级为占位；② **山东省边界高亮加粗**：用 `@turf/turf` 的 `union` 把 `server/data/shandong-boundary.json` 的 17 个地市多边形**离线预合并**为单一省界（`scripts/merge-shandong-boundary.mjs` 一次性脚本，266ms），产出 `src/data/shandong-province-boundary.json`（161KB，去内部地市界），新增 `MapAdapter.addBoundaryLayer` + OLMapAdapter 实现（3px 深蓝描边 + 8% 半透明填充），插入底图之上、注记与数据之下；③ **修复"在地图上查看"飞行动画不触发 bug**：详情页 `/heritage/:id` 与首页 `/` 是不同路由，点击按钮时 `pendingFlyTo` 在跳转前已设好，MapContainer 重挂载后 watch 不会对"已存在的旧值"触发 → 动画从不执行；改为在 `onMounted` 末尾主动调用 `consumePendingFlyTo()` 消费一次，watch 仍负责后续变化；④ 飞行 zoom 12→15、动画时长 350ms→1000ms，列表点击默认 zoom 10→13
+- **尝试的实现方法**：先尝试在浏览器运行时用 turf `union` 合并 17 个地市 → 青岛/烟台含大量海岛小多边形，逐对 union 在浏览器主线程同步执行会卡顿卡死页面；改为 Node 脚本离线一次合并，前端只加载结果零运行时开销
+- **遇到的问题**：① turf v7 的 `union` 直接传 FeatureCollection 即可，但输入实际为 16 个要素（地市含 MultiPolygon）；② `pendingFlyTo` 跨路由时序：watch 注册时值已是非 null 但不会再触发 → 动画失效（这就是用户反馈"点了没飞过去"的根因）
+- **解决方案**：离线预合并省界（脚本可重跑）；MapContainer 挂载完成、adapter 就绪后主动消费 `pendingFlyTo`，watch 兜底挂载后变化
+- **创新点**：426KB 原始地市界 → 161KB 单一省界（去内部界线，打包体积减半）；跨路由"先设目标、挂载后消费"的飞行定位模式
+- **测试记录**：`npx vue-tsc -b --noEmit` 类型检查通过；`npm run build` 完整构建通过（32.8s）；本地起 server(3001)+vite(8000)：首页 200、`/api/tianditu/status` 返回 configured:true、`shandongBoundary.ts` 模块编译正常、图片静态资源 `/images/传统音乐非遗/鲁西南鼓吹乐1.jpg` 200（162KB，多图数据真实存在）
+- **关联提交/文件**：feature/map-fix（待提交）、src/components/panels/HeritageDetailCard.vue、src/components/map/MapContainer.vue、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/views/{HeritageDetail,HomeMap}.vue、src/data/sources/shandongBoundary.ts、src/data/shandong-province-boundary.json、scripts/merge-shandong-boundary.mjs
+
+- **日期时间**：2026-09-01
+- **操作人**：架构（AI 代理）
+- **模块**：后端 / 数据层 / 逻辑层 / 显示层
+- **做了什么修改**：① 定位修复：天地图 WMTS w/c 集瓦片非正方形（行距=水平一半），OpenLayers 按正方形瓦片算行列号导致地图整体北移一倍（中心山东实际显示西伯利亚/北极附近）；改用天地图 **DataServer XYZ**（标准 Web Mercator 网格，与 OSM 完全一致）；② 底图切换：新增底图提供商切换按钮（天地图/OSM），同一 3857 投影下无缝切换，满足外网 OSM / 国内天地图需求；③ 中文标注：天地图模式自动叠加 **cva_w 注记层**（中文城市名/道路名/POI）；④ 后端新增 `/api/tianditu/xyz/:type/:z/:x/:y` 代理（保留原 WMTS 代理兼容旧用法）
+- **尝试的实现方法**：瓦片实测定位 bug：w 集 z6 row9（旧代码请求）=921B 海洋、row19=4868B 陆地（山东），确认非正方形瓦片导致行号北移一倍；对比 c 集（EPSG:4490 同样非正方形）与 DataServer XYZ（标准 3857 网格：山东矢量 16KB/注记 3KB 正常）；前端改用 `ol/source/XYZ` + 注记层叠加
+- **遇到的问题**：① 天地图 c 集并非 3857 而是 **CGCS2000(4490)**，与 w 集同样非正方形瓦片；② `vec_m`（Web Mercator WMTS）服务不存在（返回错误页）；③ Node 直连天地图官方 403（本地代理 `https.get` 回源正常）
+- **解决方案**：放弃 WMTS 方案，改用天地图 DataServer XYZ（`T=vec_w`/`cva_w`，标准 3857 网格）；后端按 type 透传、子域轮换、tk 服务端拼接
+- **创新点**：避开 WMTS 地理坐标集非正方形瓦片的行列错位坑；XYZ 与 OSM 同网格，底图切换零投影成本；注记层按 provider 自动叠加/移除
+- **测试记录**：`npm run build`（vue-tsc）类型检查通过；本地代理实测 `vec_w` 山东 16294B / `cva_w` 注记 3092B / `img_w` 影像 10475B / 北京 26624B 全部 200；`/api/tianditu/status` 仍返回 configured
+- **关联提交/文件**：be445e9、server/index.js、src/data/sources/tianditu.ts、src/services/map/{MapAdapter,OLMapAdapter}.ts、src/services/stores/mapStore.ts、src/components/map/MapContainer.vue、src/views/HomeMap.vue
+
 ## [2026-09-01] T11 点赞 + 评论（SQLite 持久化）
 - **日期时间**：2026-09-01
 - **操作人**：架构（AI 代理）

@@ -6,12 +6,16 @@ import View from 'ol/View';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style';
+import { Style, Circle as CircleStyle, Fill, Stroke, Icon, Text } from 'ol/style';
 import { fromLonLat, transform } from 'ol/proj';
 import Draw from 'ol/interaction/Draw';
+import ImageLayer from 'ol/layer/Image';
+import type ImageSource from 'ol/source/Image';
+import ImageWMS from 'ol/source/ImageWMS';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
-import { createBaseMapLayer } from '@/data/sources/tianditu';
+import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
+import type { BaseMapProvider } from '@/data/sources/tianditu';
 
 const HIDDEN_STYLE = new Style({
   image: new CircleStyle({ radius: 0, fill: new Fill({ color: 'rgba(0,0,0,0)' }) }),
@@ -27,27 +31,46 @@ const HIGHLIGHT_STYLE = new Style({
 /** 山东中心（经纬度） */
 const SHANDONG_CENTER: [number, number] = [118.2, 36.3];
 
+/** 放大到该 zoom 及以上时，非遗点标注从 pin 图标切换为「图片缩略图 + 名称」 */
+const LABEL_ZOOM = 11;
+
+/** 生成分类色 pin 图标（SVG data URI），替换默认圆点标注 */
+function pinIconDataUri(color: string): string {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24">'
+    + '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="' + color + '" stroke="#ffffff" stroke-width="1.5"/>'
+    + '<circle cx="12" cy="9" r="3" fill="#ffffff"/></svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
 export class OLMapAdapter implements MapAdapter {
   private map: OMap | null = null;
   private baseLayer: ReturnType<typeof createBaseMapLayer> | null = null;
+  private labelLayer: ReturnType<typeof createTiandituLabelLayer> | null = null;
   private layers = new Map<string, VectorLayer>();
+  private wmsLayers = new Map<string, ImageLayer<ImageSource>>();
   private styleFns = new Map<string, FeatureStyleFn>();
   private filters = new Map<string, (props: Record<string, unknown>) => boolean>();
   private highlightId: string | number | null = null;
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
-  private useTianditu = false;
+  private baseMapType: BaseMapType = 'vec';
+  private provider: BaseMapProvider = 'osm';
 
-  mount(target: HTMLElement, useTianditu = false): void {
-    this.useTianditu = useTianditu;
-    this.baseLayer = createBaseMapLayer('vec', useTianditu);
-    // 天地图 w 集为 EPSG:4326；OSM 兜底保持默认 3857
-    const projection = useTianditu ? 'EPSG:4326' : 'EPSG:3857';
-    const center = useTianditu ? SHANDONG_CENTER : fromLonLat(SHANDONG_CENTER);
+  mount(target: HTMLElement, provider: BaseMapProvider = 'osm'): void {
+    this.provider = provider;
+    this.baseMapType = 'vec';
+    this.baseLayer = createBaseMapLayer('vec', provider);
+    // 统一 EPSG:3857（天地图 c 集与 OSM 同投影），中心点山东
+    const center = fromLonLat(SHANDONG_CENTER);
     this.map = new OMap({
       target,
       layers: [this.baseLayer],
-      view: new View({ projection, center, zoom: useTianditu ? 6 : 7 }),
+      view: new View({ projection: 'EPSG:3857', center, zoom: 7 }),
       controls: [],
+    });
+    this.syncLabelLayer();
+    // zoom 变化时重算样式（非遗点标注在小/大比例之间切换 icon 与图片+名称）
+    this.map.getView().on('change:resolution', () => {
+      this.layers.forEach((layer) => layer.changed());
     });
     this.map.on('singleclick', (evt) => {
       // 量算绘制中：抑制要素点击，避免与绘制冲突
@@ -62,11 +85,39 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   setBaseMap(type: BaseMapType): void {
+    this.baseMapType = type;
     if (!this.map) return;
-    const next = createBaseMapLayer(type, this.useTianditu);
-    if (this.baseLayer) this.map.removeLayer(this.baseLayer);
-    this.map.addLayer(next);
+    const next = createBaseMapLayer(type, this.provider);
+    // 原位替换底图（保持第 0 层），避免盖住注记/矢量图层
+    const layers = this.map.getLayers();
+    if (this.baseLayer) {
+      const idx = layers.getArray().indexOf(this.baseLayer);
+      if (idx >= 0) layers.setAt(idx, next);
+      else layers.insertAt(0, next);
+    } else {
+      layers.insertAt(0, next);
+    }
     this.baseLayer = next;
+    this.syncLabelLayer();
+  }
+
+  /** 切换底图提供商（天地图 / OSM），天地图模式下自动叠加中文注记层 */
+  setProvider(provider: BaseMapProvider): void {
+    this.provider = provider;
+    this.setBaseMap(this.baseMapType);
+  }
+
+  /** 天地图模式叠加 cva_c 注记层（城市名/道路名），OSM 模式移除（其自带标注） */
+  private syncLabelLayer(): void {
+    if (!this.map) return;
+    if (this.provider === 'tianditu' && !this.labelLayer) {
+      this.labelLayer = createTiandituLabelLayer();
+      // 插在底图之上、矢量数据之下
+      this.map.getLayers().insertAt(1, this.labelLayer);
+    } else if (this.provider === 'osm' && this.labelLayer) {
+      this.map.removeLayer(this.labelLayer);
+      this.labelLayer = null;
+    }
   }
 
   /** 视图投影（4326 或 3857），GeoJSON 读取用它做 featureProjection */
@@ -110,6 +161,45 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.set(id, layer);
   }
 
+  /** 省界高亮图层：加粗描边 + 半透明填充，插入底图之上、矢量数据之下 */
+  addBoundaryLayer(geojson: object, id: string): void {
+    if (!this.map) return;
+    const features = new GeoJSON().readFeatures(geojson, {
+      featureProjection: this.viewProjection(),
+      dataProjection: 'EPSG:4326',
+    });
+    const boundaryStyle = new Style({
+      stroke: new Stroke({ color: '#1a56db', width: 3 }),
+      fill: new Fill({ color: 'rgba(26, 86, 219, 0.08)' }),
+    });
+    const layer = new VectorLayer({
+      source: new VectorSource({ features }),
+      style: boundaryStyle,
+    });
+    // 插在底图（第 0 层）之上，避免盖住后续加入的注记/数据图层
+    this.map.getLayers().insertAt(1, layer);
+    this.layers.set(id, layer);
+  }
+
+  /** 加载 WMS 图层（ImageWMS 透明叠加，EPSG:3857） */
+  addWMSLayer(url: string, id: string, params?: { layers?: string; version?: string; format?: string }): void {
+    if (!this.map) return;
+    const layer = new ImageLayer({
+      source: new ImageWMS({
+        url,
+        params: {
+          LAYERS: params?.layers ?? '',
+          VERSION: params?.version ?? '1.1.1',
+          FORMAT: params?.format ?? 'image/png',
+          TRANSPARENT: true,
+        },
+        ratio: 1,
+      }),
+    });
+    this.map.addLayer(layer);
+    this.wmsLayers.set(id, layer);
+  }
+
   setLayerFilter(id: string, predicate: (props: Record<string, unknown>) => boolean): void {
     this.filters.set(id, predicate);
     this.layers.get(id)?.changed();
@@ -135,16 +225,20 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.delete(id);
     this.styleFns.delete(id);
     this.filters.delete(id);
+
+    const wmsLayer = this.wmsLayers.get(id);
+    if (wmsLayer && this.map) this.map.removeLayer(wmsLayer);
+    this.wmsLayers.delete(id);
   }
 
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
-  zoomTo(lonlat: [number, number], zoom = 9): void {
+  zoomTo(lonlat: [number, number], zoom = 9, duration = 1000): void {
     const view = this.map?.getView();
     if (!view) return;
     view.animate({
       center: transform(lonlat, 'EPSG:4326', view.getProjection()),
       zoom,
-      duration: 350,
+      duration,
     });
   }
 
@@ -220,12 +314,37 @@ export class OLMapAdapter implements MapAdapter {
     if (geomType === 'LineString' || geomType === 'MultiLineString') {
       return new Style({ stroke: new Stroke({ color, width: 3 }) });
     }
-    // 点 → 圆点
+    // 点 → 小比例用分类色 pin 图标，放大到 LABEL_ZOOM 后切换为「图片缩略图 + 名称」
+    const zoom = this.map?.getView().getZoom() ?? 7;
+    const photo = (props['photo'] as string) || undefined;
+    const name = ((props['name'] as string) || '').trim();
+    if (zoom >= LABEL_ZOOM && photo) {
+      return new Style({
+        image: new Icon({
+          src: photo,
+          width: 44,
+          height: 44,
+          anchor: [0.5, 0.5],
+          anchorXUnits: 'fraction',
+          anchorYUnits: 'fraction',
+        }),
+        text: new Text({
+          text: name,
+          offsetY: 30,
+          font: 'bold 12px "Microsoft YaHei", "PingFang SC", sans-serif',
+          fill: new Fill({ color: '#4a3a1f' }),
+          stroke: new Stroke({ color: '#ffffff', width: 3 }),
+        }),
+      });
+    }
     return new Style({
-      image: new CircleStyle({
-        radius: 6,
-        fill: new Fill({ color }),
-        stroke: new Stroke({ color: '#ffffff', width: 1.5 }),
+      image: new Icon({
+        src: pinIconDataUri(color),
+        width: 30,
+        height: 30,
+        anchor: [0.5, 1],
+        anchorXUnits: 'fraction',
+        anchorYUnits: 'fraction',
       }),
     });
   }
