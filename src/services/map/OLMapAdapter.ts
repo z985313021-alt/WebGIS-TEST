@@ -6,7 +6,7 @@ import View from 'ol/View';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style';
+import { Style, Circle as CircleStyle, Fill, Stroke, Icon, Text } from 'ol/style';
 import { fromLonLat, transform } from 'ol/proj';
 import Draw from 'ol/interaction/Draw';
 import type { Feature } from 'ol';
@@ -27,6 +27,17 @@ const HIGHLIGHT_STYLE = new Style({
 
 /** 山东中心（经纬度） */
 const SHANDONG_CENTER: [number, number] = [118.2, 36.3];
+
+/** 放大到该 zoom 及以上时，非遗点标注从 pin 图标切换为「图片缩略图 + 名称」 */
+const LABEL_ZOOM = 11;
+
+/** 生成分类色 pin 图标（SVG data URI），替换默认圆点标注 */
+function pinIconDataUri(color: string): string {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24">'
+    + '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="' + color + '" stroke="#ffffff" stroke-width="1.5"/>'
+    + '<circle cx="12" cy="9" r="3" fill="#ffffff"/></svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 
 export class OLMapAdapter implements MapAdapter {
   private map: OMap | null = null;
@@ -53,6 +64,10 @@ export class OLMapAdapter implements MapAdapter {
       controls: [],
     });
     this.syncLabelLayer();
+    // zoom 变化时重算样式（非遗点标注在小/大比例之间切换 icon 与图片+名称）
+    this.map.getView().on('change:resolution', () => {
+      this.layers.forEach((layer) => layer.changed());
+    });
     this.map.on('singleclick', (evt) => {
       // 量算绘制中：抑制要素点击，避免与绘制冲突
       if (this.measuring) return;
@@ -272,12 +287,37 @@ export class OLMapAdapter implements MapAdapter {
     if (geomType === 'LineString' || geomType === 'MultiLineString') {
       return new Style({ stroke: new Stroke({ color, width: 3 }) });
     }
-    // 点 → 圆点
+    // 点 → 小比例用分类色 pin 图标，放大到 LABEL_ZOOM 后切换为「图片缩略图 + 名称」
+    const zoom = this.map?.getView().getZoom() ?? 7;
+    const photo = (props['photo'] as string) || undefined;
+    const name = ((props['name'] as string) || '').trim();
+    if (zoom >= LABEL_ZOOM && photo) {
+      return new Style({
+        image: new Icon({
+          src: photo,
+          width: 44,
+          height: 44,
+          anchor: [0.5, 0.5],
+          anchorXUnits: 'fraction',
+          anchorYUnits: 'fraction',
+        }),
+        text: new Text({
+          text: name,
+          offsetY: 30,
+          font: 'bold 12px "Microsoft YaHei", "PingFang SC", sans-serif',
+          fill: new Fill({ color: '#4a3a1f' }),
+          stroke: new Stroke({ color: '#ffffff', width: 3 }),
+        }),
+      });
+    }
     return new Style({
-      image: new CircleStyle({
-        radius: 6,
-        fill: new Fill({ color }),
-        stroke: new Stroke({ color: '#ffffff', width: 1.5 }),
+      image: new Icon({
+        src: pinIconDataUri(color),
+        width: 30,
+        height: 30,
+        anchor: [0.5, 1],
+        anchorXUnits: 'fraction',
+        anchorYUnits: 'fraction',
       }),
     });
   }
