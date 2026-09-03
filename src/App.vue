@@ -8,6 +8,7 @@
         <el-menu-item index="/analysis">空间分析</el-menu-item>
         <el-menu-item index="/chart">图表可视化</el-menu-item>
         <el-menu-item index="/about">关于</el-menu-item>
+        <el-menu-item index="/register">注册</el-menu-item>
       </el-menu>
     </el-header>
     <el-main class="main-area">
