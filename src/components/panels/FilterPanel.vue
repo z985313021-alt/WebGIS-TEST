@@ -3,8 +3,8 @@
     <div class="filter-row">
       <span class="label">底图</span>
       <el-radio-group v-model="mapStore.provider" size="small" style="width: 100%">
-        <el-radio-button value="osm">OSM</el-radio-button>
-        <el-radio-button value="tianditu" :disabled="!mapStore.tiandituConfigured">
+        <el-radio-button label="osm">OSM</el-radio-button>
+        <el-radio-button label="tianditu" :disabled="!mapStore.tiandituConfigured">
           天地图
         </el-radio-button>
       </el-radio-group>
