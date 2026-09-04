@@ -7,7 +7,7 @@ export const useMapStore = defineStore('map', {
   state: () => ({
     baseMap: 'vec' as BaseMapType,
     /** 底图提供商：osm（OpenStreetMap，默认，无需密钥）/ tianditu（天地图，需在 .env 配置 tk） */
-    provider: 'osm' as BaseMapProvider,
+    provider: 'none' as BaseMapProvider,
     /** 后端天地图 tk 是否已配置（决定底图用 WMTS 还是 OSM 兜底） */
     tiandituConfigured: false,
     layerPanelVisible: true,
