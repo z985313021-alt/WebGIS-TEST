@@ -7,6 +7,7 @@ import multer from 'multer';
 import { extname } from 'node:path';
 import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
+import { registerUser } from './scripts/user-db.mjs';
 import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
 
 dotenv.config();
@@ -170,6 +171,19 @@ app.post('/api/health-check', (req, res) => {
     res.json(report);
   } catch (e) {
     res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ 用户注册（SQLite） ============
+
+// 注册新用户
+app.post('/api/auth/register', (req, res) => {
+  const { username, email, password } = req.body ?? {};
+  try {
+    const user = registerUser(username, email, password);
+    res.json({ ok: true, user });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
   }
 });
 
