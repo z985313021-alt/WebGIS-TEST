@@ -73,7 +73,35 @@
     <div class="actions">
       <el-button type="primary" :loading="converting" @click="convertAndCheck">转换并体检</el-button>
       <el-button v-if="convertedGeo" type="success" @click="loadToMap">加载到地图并前往</el-button>
+      <el-button v-if="report" @click="onExportReport">导出体检报告 Excel</el-button>
     </div>
+
+    <!-- 模板下载 -->
+    <el-card class="template-card" shadow="never">
+      <template #header>📥 模板下载</template>
+      <el-space>
+        <el-button size="small" @click="downloadTemplate('excel')">Excel 模板</el-button>
+        <el-button size="small" @click="downloadTemplate('geojson')">GeoJSON 示例</el-button>
+        <el-button size="small" @click="downloadTemplate('shp')">SHP 示例</el-button>
+      </el-space>
+    </el-card>
+
+    <!-- WMS 接入 -->
+    <el-card class="wms-card" shadow="never">
+      <template #header>🌐 WMS 接入探测</template>
+      <el-input v-model="wmsUrl" placeholder="请输入 WMS 服务地址，例如 https://demo.geo-solutions.it/geoserver/wms" clearable>
+        <template #append>
+          <el-button :loading="wmsProbing" @click="onProbeWms">探测图层</el-button>
+        </template>
+      </el-input>
+      <div v-if="wmsResult" class="wms-result">
+        <p>发现图层数：{{ wmsResult.layerCount }}</p>
+        <el-table :data="wmsResult.layers" size="small" max-height="200">
+          <el-table-column prop="name" label="Name" />
+          <el-table-column prop="title" label="Title" />
+        </el-table>
+      </div>
+    </el-card>
 
     <!-- 体检报告 -->
     <el-card v-if="report" class="report-card" shadow="never">
@@ -117,7 +145,7 @@ import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { useDataStore } from '@/services/stores/dataStore';
-import { convertShp, convertExcel, checkHealth, type HealthReport } from '@/data/api/convert';
+import { convertShp, convertExcel, checkHealth, downloadTemplate, exportHealthReport, probeWms, type HealthReport } from '@/data/api/convert';
 import * as XLSX from 'xlsx';
 
 const router = useRouter();
@@ -135,6 +163,9 @@ const nameColumn = ref('');
 const convertedGeo = ref<object | null>(null);
 const report = ref<HealthReport | null>(null);
 const converting = ref(false);
+const wmsUrl = ref('');
+const wmsProbing = ref(false);
+const wmsResult = ref<{ layerCount: number; layers: { name: string; title: string }[] } | null>(null);
 
 function onGeojsonChange(file: any) {
   const raw = file.raw as File;
@@ -230,6 +261,27 @@ function loadToMap() {
 function formatByType(byType: Record<string, number>) {
   return Object.entries(byType || {}).map(([k, v]) => `${k}:${v}`).join(' ');
 }
+
+function onExportReport() {
+  if (!convertedGeo.value) return ElMessage.warning('请先完成转换并体检');
+  exportHealthReport(convertedGeo.value);
+  ElMessage.success('正在导出体检报告');
+}
+
+async function onProbeWms() {
+  if (!wmsUrl.value.trim()) return ElMessage.warning('请输入 WMS 地址');
+  wmsProbing.value = true;
+  try {
+    const res = await probeWms(wmsUrl.value.trim());
+    wmsResult.value = res;
+    ElMessage.success(`探测成功，发现 ${res.layerCount} 个图层`);
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'WMS 探测失败');
+    wmsResult.value = null;
+  } finally {
+    wmsProbing.value = false;
+  }
+}
 </script>
 
 <style scoped>
@@ -239,6 +291,9 @@ function formatByType(byType: Record<string, number>) {
 .file-preview { margin-top: 8px; font-size: 13px; color: #67c23a; }
 .column-map { margin-top: 12px; }
 .actions { margin: 16px 0; }
+.template-card { margin-bottom: 16px; }
+.wms-card { margin-bottom: 16px; }
+.wms-result { margin-top: 12px; }
 .report-card { margin-bottom: 16px; }
 .report-header { display: flex; justify-content: space-between; align-items: center; }
 .dataset-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; border-bottom: 1px solid #f0f0f0; }

@@ -2,11 +2,13 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import https from 'node:https';
+import zlib from 'node:zlib';
 import multer from 'multer';
 import { extname } from 'node:path';
 import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
 import { registerUser } from './scripts/user-db.mjs';
+import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
 
 dotenv.config();
 const app = express();
@@ -121,6 +123,22 @@ app.get('/api/tianditu/:type', (req, res) => {
 
 // ============ T4 数据转换与体检 ============
 
+// 模板下载：Excel / GeoJSON / SHP
+app.get('/api/template/:type', (req, res) => {
+  try {
+    const type = String(req.params.type || '').toLowerCase();
+    if (!['excel', 'geojson', 'shp'].includes(type)) {
+      return res.status(400).json({ msg: 'invalid type, allowed: excel, geojson, shp' });
+    }
+    const { buffer, filename, contentType } = createTemplate(type);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', contentType);
+    res.send(buffer);
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+});
+
 // Shapefile 上传 → GeoJSON（shp/dbf 必传，GBK 解码）
 app.post('/api/convert/shp', upload.array('files'), async (req, res) => {
   try {
@@ -169,6 +187,19 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
+// 体检报告导出 Excel
+app.post('/api/health-check/export', (req, res) => {
+  try {
+    const report = healthCheck(req.body);
+    const { buffer, filename } = generateHealthReportExcel(report);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
 // ============ T11 点赞 / 评论（SQLite） ============
 
 const parseItemId = (raw) => {
@@ -205,6 +236,81 @@ app.post('/api/comments/:id', (req, res) => {
   const { nickname, content } = req.body ?? {};
   try {
     res.json({ itemId: id, comment: addComment(id, nickname, content) });
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ WMS 服务接入探测 ============
+// 代理 GetCapabilities：支持 gzip 解压、大小限制、超时、重定向跟随
+app.get('/api/wms/capabilities', (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ msg: '缺少 url 参数' });
+  if (typeof url !== 'string' || url.length > 2000) return res.status(400).json({ msg: 'url 参数无效' });
+
+  const MAX_BYTES = 3 * 1024 * 1024; // 3MB 上限，防超大 XML
+  const TIMEOUT_MS = 15000;
+
+  const fetchCapabilities = (targetUrl, redirectsLeft = 3) => {
+    const parsed = new URL(targetUrl);
+    parsed.searchParams.set('SERVICE', 'WMS');
+    parsed.searchParams.set('REQUEST', 'GetCapabilities');
+    parsed.searchParams.set('VERSION', '1.1.1');
+
+    const req = https.get(parsed.toString(), { timeout: TIMEOUT_MS }, (upRes) => {
+      // 跟随重定向
+      if (upRes.statusCode >= 300 && upRes.statusCode < 400 && upRes.headers.location) {
+        upRes.resume();
+        if (redirectsLeft <= 0) return res.status(502).json({ msg: 'WMS 重定向次数过多' });
+        return fetchCapabilities(new URL(upRes.headers.location, parsed).toString(), redirectsLeft - 1);
+      }
+      if (upRes.statusCode !== 200) {
+        upRes.resume();
+        return res.status(502).json({ msg: `WMS 服务返回 ${upRes.statusCode}` });
+      }
+
+      let stream = upRes;
+      const encoding = (upRes.headers['content-encoding'] || '').toLowerCase();
+      if (encoding.includes('gzip')) stream = upRes.pipe(zlib.createGunzip());
+      else if (encoding.includes('deflate')) stream = upRes.pipe(zlib.createInflate());
+
+      const chunks = [];
+      let total = 0;
+      stream.on('data', (chunk) => {
+        total += chunk.length;
+        if (total > MAX_BYTES) {
+          req.destroy();
+          return res.status(502).json({ msg: 'WMS GetCapabilities 响应过大' });
+        }
+        chunks.push(chunk);
+      });
+      stream.on('end', () => {
+        const data = Buffer.concat(chunks).toString('utf8');
+        // 逐个 <Layer> 节点解析，只取有 <Name> 的图层（跳过根服务名如 OGC:WMS）
+        const layerBlocks = [...data.matchAll(/<Layer\b[^>]*>([\s\S]*?)<\/Layer>/g)].map((m) => m[1]);
+        const layers = [];
+        for (const block of layerBlocks) {
+          const name = block.match(/<Name>([^<]+)<\/Name>/)?.[1];
+          if (!name) continue; // 根 Layer 无 Name，跳过
+          const title = block.match(/<Title>([^<]+)<\/Title>/)?.[1] || name;
+          layers.push({ name, title });
+        }
+        res.json({ ok: true, url: parsed.toString(), layerCount: layers.length, layers: layers.slice(0, 30) });
+      });
+      stream.on('error', (err) => res.status(502).json({ msg: 'WMS 响应解析失败', error: err.message }));
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      res.status(504).json({ msg: 'WMS 请求超时' });
+    });
+    req.on('error', (err) => {
+      if (!res.headersSent) res.status(502).json({ msg: 'WMS 请求失败', error: err.message });
+    });
+  };
+
+  try {
+    fetchCapabilities(url);
   } catch (e) {
     res.status(400).json({ msg: e.message });
   }
