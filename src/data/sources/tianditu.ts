@@ -5,11 +5,10 @@
 // 按正方形瓦片算行列号会整体北移一倍（表现为定位到北极附近）；改用 DataServer
 // XYZ（标准 3857 网格）后与 OSM 完全一致，无此问题。
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 
 export type BaseMapType = 'vec' | 'img';
-export type BaseMapProvider = 'tianditu' | 'osm';
+export type BaseMapProvider = 'tianditu' | 'osm' | 'none';
 
 const TDT_TYPE: Record<BaseMapType, string> = { vec: 'vec_w', img: 'img_w' };
 
@@ -40,7 +39,27 @@ export function createTiandituLabelLayer(): TileLayer {
  * @param provider tianditu（天地图 DataServer XYZ）或 osm（OpenStreetMap）
  * @param type 底图类型（仅天地图生效：vec 矢量 / img 影像）
  */
+/** 浅色极简底图（Esri World Light Gray，免费无需 key，适合数据可视化） */
+function createLightBasemap(): TileLayer {
+  return new TileLayer({
+    source: new XYZ({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      maxZoom: 16,
+      attributions: '© Esri, © OpenStreetMap contributors',
+    }),
+  });
+}
+
+/**
+ * 创建底图图层。
+ * @param provider tianditu（天地图 DataServer XYZ）或 osm（浅色极简底图，默认）
+ * @param type 底图类型（仅天地图生效：vec 矢量 / img 影像）
+ */
 export function createBaseMapLayer(type: BaseMapType = 'vec', provider: BaseMapProvider = 'osm'): TileLayer {
   if (provider === 'tianditu') return createTiandituLayer(type);
-  return new TileLayer({ source: new OSM() });
+  if (provider === 'none') {
+    // 无底图模式：空瓦片层占位（配合省界/市界 GeoJSON 铺底），用于非遗平台主页
+    return new TileLayer({ source: new XYZ({ url: '', maxZoom: 16 }) });
+  }
+  return createLightBasemap();
 }

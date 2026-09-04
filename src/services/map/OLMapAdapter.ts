@@ -4,11 +4,13 @@
 import OMap from 'ol/Map';
 import View from 'ol/View';
 import VectorLayer from 'ol/layer/Vector';
+import VectorImageLayer from 'ol/layer/VectorImage';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Style, Circle as CircleStyle, Fill, Stroke, Icon, Text } from 'ol/style';
 import { fromLonLat, transform } from 'ol/proj';
 import Draw from 'ol/interaction/Draw';
+import Point from 'ol/geom/Point';
 import ImageLayer from 'ol/layer/Image';
 import type ImageSource from 'ol/source/Image';
 import ImageWMS from 'ol/source/ImageWMS';
@@ -42,18 +44,45 @@ function pinIconDataUri(color: string): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
+/** 出生动画参数 */
+const BIRTH_DELAY_MAX = 450; // 每个点最大随机延迟(ms)，让一批点错落弹出
+const BIRTH_DURATION = 620; // 单个点弹性放大时长(ms)
+
+/** 由要素 id 生成确定性延迟（同一点每次刷新延迟一致，不抖动） */
+function birthDelay(id: unknown): number {
+  const s = String(id ?? 0);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % BIRTH_DELAY_MAX;
+}
+
+/** easeOutBack：先冲过头一点再回落，做出"弹跳长出"的质感 */
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  const u = t - 1;
+  return 1 + c3 * u * u * u + c1 * u * u;
+}
+
 export class OLMapAdapter implements MapAdapter {
   private map: OMap | null = null;
   private baseLayer: ReturnType<typeof createBaseMapLayer> | null = null;
   private labelLayer: ReturnType<typeof createTiandituLabelLayer> | null = null;
-  private layers = new Map<string, VectorLayer>();
+  private layers = new Map<string, VectorLayer | VectorImageLayer>();
   private wmsLayers = new Map<string, ImageLayer<ImageSource>>();
   private styleFns = new Map<string, FeatureStyleFn>();
   private filters = new Map<string, (props: Record<string, unknown>) => boolean>();
   private highlightId: string | number | null = null;
+  private hoverCityCode: string | null = null;
+  private cityStyleFns = new Map<string, () => void>();
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
   private baseMapType: BaseMapType = 'vec';
   private provider: BaseMapProvider = 'osm';
+  /** 出生动画：距动画开始已过去的毫秒数(0=未在播放)。由 playBirthAnimation 驱动，buildStyle 读取 */
+  private birthPlayhead = 0;
+  private birthTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 本次出生动画要弹出的 feature 集合（空 = 全部可见点都弹） */
+  private birthTargets = new Map<Feature, boolean>();
 
   mount(target: HTMLElement, provider: BaseMapProvider = 'osm'): void {
     this.provider = provider;
@@ -64,12 +93,22 @@ export class OLMapAdapter implements MapAdapter {
     this.map = new OMap({
       target,
       layers: [this.baseLayer],
-      view: new View({ projection: 'EPSG:3857', center, zoom: 7 }),
+      view: new View({
+        projection: 'EPSG:3857',
+        center,
+        zoom: 7.5,
+        // 山东周边范围（手算 3857：112E~124E, 32N~39.5N），放大显示
+        extent: [12467783, 3763311, 13803617, 4793547],
+        constrainOnlyCenter: true,
+        smoothExtentConstraint: true,
+      }),
+      // 构造后用 animate 平滑约束也行 —— 先删 SHANDONG_BOUNDS 引用
       controls: [],
     });
     this.syncLabelLayer();
-    // zoom 变化时重算样式（非遗点标注在小/大比例之间切换 icon 与图片+名称）
-    this.map.getView().on('change:resolution', () => {
+    // 缩放结束后重算样式（非遗点 pin/图片切换、边界层刷新）——用 moveend 而非
+    // change:resolution，避免拖动/缩放每一帧都触发全层重绘导致卡顿
+    this.map.on('moveend', () => {
       this.layers.forEach((layer) => layer.changed());
     });
     this.map.on('singleclick', (evt) => {
@@ -114,7 +153,7 @@ export class OLMapAdapter implements MapAdapter {
       this.labelLayer = createTiandituLabelLayer();
       // 插在底图之上、矢量数据之下
       this.map.getLayers().insertAt(1, this.labelLayer);
-    } else if (this.provider === 'osm' && this.labelLayer) {
+    } else if (this.provider !== 'tianditu' && this.labelLayer) {
       this.map.removeLayer(this.labelLayer);
       this.labelLayer = null;
     }
@@ -168,13 +207,16 @@ export class OLMapAdapter implements MapAdapter {
       featureProjection: this.viewProjection(),
       dataProjection: 'EPSG:4326',
     });
+    // 无底图模式：省界用深色加粗描边 + 浅金填充（非遗平台风格）
     const boundaryStyle = new Style({
-      stroke: new Stroke({ color: '#1a56db', width: 3 }),
-      fill: new Fill({ color: 'rgba(26, 86, 219, 0.08)' }),
+      stroke: new Stroke({ color: '#8a6a3f', width: 3 }),
+      fill: new Fill({ color: 'rgba(216, 192, 119, 0.12)' }),
     });
-    const layer = new VectorLayer({
+    // 用 VectorImageLayer：边界静态、顶点多，平移时复用离屏缓存图像，避免每帧重绘
+    const layer = new VectorImageLayer({
       source: new VectorSource({ features }),
       style: boundaryStyle,
+      imageRatio: 1,
     });
     // 插在底图（第 0 层）之上，避免盖住后续加入的注记/数据图层
     this.map.getLayers().insertAt(1, layer);
@@ -198,6 +240,70 @@ export class OLMapAdapter implements MapAdapter {
     });
     this.map.addLayer(layer);
     this.wmsLayers.set(id, layer);
+  }
+
+  /** 市界分块图层：16 地市各自色块 + 市名标注，悬停高亮 */
+  addCityBoundaryLayer(geojson: object, id: string): void {
+    if (!this.map) return;
+    const features = new GeoJSON().readFeatures(geojson, {
+      featureProjection: this.viewProjection(),
+      dataProjection: 'EPSG:4326',
+    });
+    // 市界同样用 VectorImageLayer：色块+标注静态，平移不重绘，仅 hover 变化时重绘一次
+    const layer = new VectorImageLayer({
+      source: new VectorSource({ features }),
+      style: (feature) => this.cityStyle(feature as Feature),
+      imageRatio: 1,
+    });
+    this.map.addLayer(layer);
+    this.layers.set(id, layer);
+    // 悬停高亮：pointermove 检测命中的市（取命中的市界 feature，忽略非遗点等）
+    this.map.on('pointermove', (evt) => {
+      if (evt.dragging) return;
+      let hitCode: string | null = null;
+      this.map!.forEachFeatureAtPixel(evt.pixel, (f) => {
+        const p = (f as Feature).get('_props') as Record<string, unknown> | undefined;
+        if (p && typeof p['code'] === 'string' && p['name']) {
+          hitCode = p['code'] as string;
+          return f;
+        }
+        return undefined;
+      });
+      if (this.hoverCityCode !== hitCode) {
+        this.hoverCityCode = hitCode;
+        this.layers.get(id)?.changed();
+      }
+    });
+    // 样式函数：悬停市高亮，其余正常
+    this.cityStyleFns.set(id, () => {});
+  }
+
+  /** 市界块样式（含悬停高亮）：色块 + 描边，市名标注定位到 center */
+  private cityStyle(feature: Feature): Style[] {
+    const props = (feature.get('_props') as Record<string, unknown>) ?? {};
+    const code = props['code'];
+    const name = (props['name'] as string) || '';
+    const center = props['center'] as number[] | undefined;
+    const isHover = this.hoverCityCode != null && code === this.hoverCityCode;
+    const styles: Style[] = [
+      new Style({
+        fill: new Fill({ color: isHover ? 'rgba(246, 166, 35, 0.45)' : 'rgba(216, 192, 119, 0.10)' }),
+        stroke: new Stroke({ color: isHover ? '#d97706' : '#b08d57', width: isHover ? 3 : 1.5 }),
+      }),
+    ];
+    // 市名标注：geometry 指向市中心
+    if (name && center && center.length >= 2) {
+      styles.push(new Style({
+        geometry: new Point(fromLonLat([center[0], center[1]])),
+        text: new Text({
+          text: name,
+          font: 'bold 14px "Microsoft YaHei", sans-serif',
+          fill: new Fill({ color: isHover ? '#d97706' : '#6d4c2a' }),
+          stroke: new Stroke({ color: '#ffffff', width: 3 }),
+        }),
+      }));
+    }
+    return styles;
   }
 
   setLayerFilter(id: string, predicate: (props: Record<string, unknown>) => boolean): void {
@@ -240,6 +346,52 @@ export class OLMapAdapter implements MapAdapter {
       zoom,
       duration,
     });
+  }
+
+  // ---- 出生生长动画（时空演变炫技）----
+  /**
+   * 触发"点出生"动画。传入 wantBornIds 时，只有这些 id 对应的点会逐个弹出
+   * （已显示的点不受影响）；不传则当前全部可见点一起弹出（用于首页首载生长）。
+   * 每个点的出生进度 = (now - 该点确定性延迟) / 持续时长，动画到点自动结束。
+   * 只影响样式（缩放），不改动数据/图层结构。
+   */
+  playBirthAnimation(wantBornIds?: Array<string | number>): void {
+    this.stopBirthAnimation();
+    // 预置"本帧想出生的点"映射：feature 原生 id → 是否本次要弹
+    this.birthTargets.clear();
+    if (wantBornIds) {
+      const set = new Set(wantBornIds.map(String));
+      this.layers.forEach((layer) => {
+        const src = layer.getSource() as VectorSource | null;
+        if (!src) return;
+        src.getFeatures().forEach((f) => {
+          const p = (f.get('_props') as Record<string, unknown>) ?? f.getProperties();
+          if (p && p['id'] != null && set.has(String(p['id']))) this.birthTargets.set(f, true);
+        });
+      });
+    }
+    this.birthPlayhead = performance.now();
+    const tick = () => {
+      // 距起始已超过(最长延迟 + 时长) → 结束，恢复静态
+      if (performance.now() - this.birthPlayhead >= BIRTH_DELAY_MAX + BIRTH_DURATION) {
+        this.stopBirthAnimation();
+        this.layers.forEach((layer) => layer.changed());
+        return;
+      }
+      this.layers.forEach((layer) => layer.changed());
+      this.birthTimer = setTimeout(tick, 16);
+    };
+    this.birthTimer = setTimeout(tick, 16);
+  }
+
+  /** 停止出生动画，立即恢复静态尺寸 */
+  stopBirthAnimation(): void {
+    this.birthPlayhead = 0;
+    this.birthTargets.clear();
+    if (this.birthTimer) {
+      clearTimeout(this.birthTimer);
+      this.birthTimer = null;
+    }
   }
 
   // ---- T7 量算绘制 ----
@@ -286,6 +438,7 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   destroy(): void {
+    this.stopBirthAnimation();
     this.map?.setTarget(undefined);
     this.map = null;
   }
@@ -318,30 +471,48 @@ export class OLMapAdapter implements MapAdapter {
     const zoom = this.map?.getView().getZoom() ?? 7;
     const photo = (props['photo'] as string) || undefined;
     const name = ((props['name'] as string) || '').trim();
+    // 出生动画：仅"本次要出生"的点（birthTargets 为空=全部）按确定性延迟弹出
+    let birthScale = 1;
+    const isBirthTarget = this.birthTargets.size === 0 || this.birthTargets.has(feature);
+    if (this.birthPlayhead > 0 && isBirthTarget && geomType === 'Point') {
+      const delay = birthDelay(id);
+      const t = (performance.now() - this.birthPlayhead - delay) / BIRTH_DURATION;
+      if (t < 0) {
+        birthScale = 0; // 还没轮到它出生 → 先隐藏
+      } else if (t < 1) {
+        birthScale = Math.max(0.05, easeOutBack(t));
+      }
+    }
+    const pinsize = Math.max(0.001, 30 * birthScale);
     if (zoom >= LABEL_ZOOM && photo) {
+      // 出生前完全隐藏(尺寸0+无文本)；出生中按比例缩放并淡入文本
+      const born = birthScale <= 0;
       return new Style({
         image: new Icon({
           src: photo,
-          width: 44,
-          height: 44,
+          width: Math.max(0.001, 44 * birthScale),
+          height: Math.max(0.001, 44 * birthScale),
           anchor: [0.5, 0.5],
           anchorXUnits: 'fraction',
           anchorYUnits: 'fraction',
+          opacity: born ? 0 : Math.min(1, birthScale / 0.5),
         }),
-        text: new Text({
-          text: name,
-          offsetY: 30,
-          font: 'bold 12px "Microsoft YaHei", "PingFang SC", sans-serif',
-          fill: new Fill({ color: '#4a3a1f' }),
-          stroke: new Stroke({ color: '#ffffff', width: 3 }),
-        }),
+        text: born
+          ? undefined
+          : new Text({
+              text: name,
+              offsetY: 30,
+              font: 'bold 12px "Microsoft YaHei", "PingFang SC", sans-serif',
+              fill: new Fill({ color: '#4a3a1f' }),
+              stroke: new Stroke({ color: '#ffffff', width: 3 }),
+            }),
       });
     }
     return new Style({
       image: new Icon({
         src: pinIconDataUri(color),
-        width: 30,
-        height: 30,
+        width: pinsize,
+        height: pinsize,
         anchor: [0.5, 1],
         anchorXUnits: 'fraction',
         anchorYUnits: 'fraction',

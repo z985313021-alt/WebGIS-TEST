@@ -7,7 +7,9 @@ import multer from 'multer';
 import { extname } from 'node:path';
 import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
+import { registerUser } from './scripts/user-db.mjs';
 import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
+import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCode, stationName, cityPos } from './scripts/train12306.mjs';
 
 dotenv.config();
 const app = express();
@@ -173,6 +175,19 @@ app.post('/api/health-check', (req, res) => {
   }
 });
 
+// ============ 用户注册（SQLite） ============
+
+// 注册新用户
+app.post('/api/auth/register', (req, res) => {
+  const { username, email, password } = req.body ?? {};
+  try {
+    const user = registerUser(username, email, password);
+    res.json({ ok: true, user });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
 // 体检报告导出 Excel
 app.post('/api/health-check/export', (req, res) => {
   try {
@@ -300,6 +315,62 @@ app.get('/api/wms/capabilities', (req, res) => {
   } catch (e) {
     res.status(400).json({ msg: e.message });
   }
+});
+
+
+// ============ 12306 火车查询（旅游路线规划） ============
+// 车站搜索（中文/拼音/简拼/三字码）
+app.get('/api/train/stations', (req, res) => {
+  const q = String(req.query.q || '');
+  const limit = Math.min(Number(req.query.limit) || 10, 20);
+  if (!q) return res.json({ success: false, error: '请输入关键词' });
+  res.json({ success: true, count: searchStations(q, limit).length, stations: searchStations(q, limit) });
+});
+
+// 余票 + 时刻查询
+app.get('/api/train/tickets', async (req, res) => {
+  const { from, to, date } = req.query;
+  if (!from || !to || !date) return res.json({ success: false, error: '缺少 from/to/date 参数' });
+  try {
+    res.json(await queryTickets(String(from), String(to), String(date)));
+  } catch (e) {
+    res.json({ success: false, error: '查询失败: ' + e.message });
+  }
+});
+
+// 票价查询
+app.get('/api/train/prices', async (req, res) => {
+  const { from, to, date } = req.query;
+  if (!from || !to || !date) return res.json({ success: false, error: '缺少 from/to/date 参数' });
+  try {
+    res.json(await queryPrices(String(from), String(to), String(date)));
+  } catch (e) {
+    res.json({ success: false, error: '查询失败: ' + e.message });
+  }
+});
+
+// 经停站查询（车次编号 trainNo）
+app.get('/api/train/route', async (req, res) => {
+  const { trainNo, from, to, date } = req.query;
+  if (!trainNo || !from || !to || !date) return res.json({ success: false, error: '缺少参数' });
+  try {
+    res.json(await queryRouteStations(String(trainNo), String(from), String(to), String(date)));
+  } catch (e) {
+    res.json({ success: false, error: '查询失败: ' + e.message });
+  }
+});
+
+// 城市经纬度（地图可视化用）
+app.get('/api/train/city-pos', (req, res) => {
+  const c = String(req.query.city || '');
+  const pos = c ? cityPos(c) : null;
+  res.json({ city: c, pos });
+});
+
+// 车站编码解析（站名 → 三字码）
+app.get('/api/train/station-code', (req, res) => {
+  const q = String(req.query.q || '');
+  res.json({ name: q, code: ensureCode(q), station: q ? stationName(ensureCode(q) || '') : '' });
 });
 
 app.listen(PORT, () => {
