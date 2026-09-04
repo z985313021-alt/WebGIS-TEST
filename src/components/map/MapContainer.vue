@@ -9,6 +9,7 @@ import { useMapStore } from '@/services/stores/mapStore';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS } from '@/data/sources/heritage';
 import { loadShandongBoundary } from '@/data/sources/shandongBoundary';
+import { loadShandongCityBoundary } from '@/data/sources/shandongCityBoundary';
 
 const mapEl = ref<HTMLElement | null>(null);
 const mapStore = useMapStore();
@@ -61,9 +62,11 @@ onMounted(async () => {
   await mapStore.checkTianditu();
   // 默认 OSM 底图（无需密钥，始终可加载）；天地图由侧边栏手动切换
   adapter = new OLMapAdapter();
-  adapter.mount(mapEl.value, mapStore.provider);
+  // 主页使用无底图模式：省界+市界 GeoJSON 铺底（非遗平台风格），不加载在线瓦片
+  adapter.mount(mapEl.value, 'none');
   // 山东省边界高亮（合并地市界 → 单一省界，加粗描边）
   adapter.addBoundaryLayer(loadShandongBoundary(), 'shandong-boundary');
+  adapter.addCityBoundaryLayer(loadShandongCityBoundary(), 'shandong-city');
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
   adapter.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
   adapter.onFeatureClick((props) => {
@@ -181,5 +184,5 @@ defineExpose({ zoomToItem, getAdapter });
 </script>
 
 <style scoped>
-.map-container { width: 100%; height: 100%; background: #f0f0f0; }
+.map-container { width: 100%; height: 100%; background: #f7f3e8; }
 </style>
