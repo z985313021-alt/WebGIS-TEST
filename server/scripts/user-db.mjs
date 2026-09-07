@@ -73,8 +73,8 @@ export function registerUser(username, email, password) {
   if (!EMAIL_RE.test(mail)) {
     throw new Error('邮箱格式不正确');
   }
-  if (pwd.length < 6) {
-    throw new Error('密码至少 6 位');
+  if (pwd.length < 6 || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_@#$%&*]{6,20}$/.test(pwd)) {
+    throw new Error('密码需 6-20 位，且需同时包含字母与数字');
   }
   if (isUsernameTaken(name)) {
     throw new Error('用户名已被占用');
@@ -185,7 +185,7 @@ export function listUsers() {
 /** 直接重设密码哈希（改密用） */
 export function rehashPassword(userId, newPassword) {
   const pwd = String(newPassword || '');
-  if (pwd.length < 6) throw new Error('新密码至少 6 位');
+  if (pwd.length < 6 || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_@#$%&*]{6,20}$/.test(pwd)) throw new Error('新密码需 6-20 位，且需同时包含字母与数字');
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(pwd), Number(userId));
   return getUserById(Number(userId));
 }

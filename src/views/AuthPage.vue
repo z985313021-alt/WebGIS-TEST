@@ -53,7 +53,7 @@
               <el-input v-model="regForm.email" placeholder="邮箱" clearable prefix-icon="Message" />
             </el-form-item>
             <el-form-item prop="password">
-              <el-input v-model="regForm.password" type="password" placeholder="密码（至少 6 位）" show-password prefix-icon="Lock" />
+              <el-input v-model="regForm.password" type="password" placeholder="密码（6-20 位，需含字母与数字）" show-password prefix-icon="Lock" />
             </el-form-item>
             <el-form-item prop="confirmPassword">
               <el-input v-model="regForm.confirmPassword" type="password" placeholder="再次输入密码" show-password prefix-icon="Lock" />
@@ -101,7 +101,7 @@ const regRules: FormRules = {
     { pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/, message: '2-20 位字母、数字、下划线或中文', trigger: 'blur' },
   ],
   email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }, { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, message: '密码至少 6 位', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { validator: (_r: any, v: string, cb: any) => { if (!v) return cb(new Error('请输入密码')); if (v.length < 6 || v.length > 20 || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_@#$%&*]{6,20}$/.test(v)) return cb(new Error('密码需 6-20 位且需同时包含字母与数字')); cb(); }, trigger: 'blur' }],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: (_r, v: string, cb) => (v !== regForm.password ? cb(new Error('两次输入的密码不一致')) : cb()), trigger: 'blur' },
