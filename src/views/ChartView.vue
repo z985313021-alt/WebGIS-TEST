@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .chart-page { padding: 16px; max-width: 1100px; }
-.desc { color: #888; font-size: 13px; margin: 4px 0 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.desc { color: #6c5f47; font-size: 13px; margin: 4px 0 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .chart-grid { row-gap: 16px; }
 .chart-card { margin-bottom: 4px; }
 .chart-box { width: 100%; height: 300px; }
