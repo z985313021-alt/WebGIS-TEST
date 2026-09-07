@@ -46,14 +46,6 @@
         <blockquote class="brand-quote">
           非遗不在橱窗里——<br />在你长大的老城南、在你听过的乡音里。
         </blockquote>
-
-        <div class="demo-tip">
-          <div class="demo-title">✨ 演示账号（未创建则一键初始化）</div>
-          <div class="demo-line">管理员：<b>admin</b> / <b>admin123</b></div>
-          <el-button size="small" type="primary" plain class="setup-btn" :loading="setupLoading" @click="onSetupAdmin">
-            点我创建“管理员”演示账号
-          </el-button>
-        </div>
         <div class="brand-note">— 免费注册 · 即刻云赏齐鲁非遗 —</div>
       </div>
 
@@ -74,6 +66,12 @@
             <el-button type="primary" class="submit-btn" :loading="submitting" @click="onLogin">登 录</el-button>
           </el-form>
           <p class="foot-tip">还没有账号？点击上方 <b>“注册”</b> 快速创建一个。</p>
+          <div class="demo-row">
+            <span>没有账号？可用演示管理员：<b>admin / admin123</b></span>
+            <el-button size="small" text type="primary" :loading="setupLoading" @click="onSetupAdmin">
+              一键创建并填入
+            </el-button>
+          </div>
         </template>
 
         <template v-else>
@@ -201,239 +199,75 @@ async function onSetupAdmin() {
 </script>
 
 <style scoped>
-.auth-page {
-  position: relative;
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  overflow: hidden;
-  background: linear-gradient(135deg, #0d1b2e 0%, #16365c 50%, #1d5a63 100%);
-}
-.deco { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.35; pointer-events: none; }
-.deco-1 { width: 460px; height: 460px; background: #2b6cb0; top: -140px; right: -100px; }
-.deco-2 { width: 400px; height: 400px; background: #1abc9c; bottom: -160px; left: -120px; }
-.deco-3 { width: 220px; height: 220px; background: #e67e22; top: 40%; left: 12%; opacity: 0.16; }
 
-.auth-card {
-  position: relative;
-  display: flex;
-  width: 100%;
-  max-width: 900px;
-  min-height: 560px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.38);
-  animation: rise 0.5s ease both;
-}
-@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-
-.brand-panel {
-  width: 42%;
-  padding: 40px 30px;
-  color: #fff;
-  background: linear-gradient(160deg, #12305f 0%, #1a4a7a 100%);
-  display: flex;
-  flex-direction: column;
-}
-.brand-logo { font-size: 42px; margin-bottom: 10px; }
-.brand-name { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-.brand-slogan { font-size: 13px; opacity: 0.85; margin-bottom: 24px; }
-.brand-features { list-style: none; padding: 0; margin: 0 0 24px; }
-.brand-features li { font-size: 13px; line-height: 1.6; padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
-.demo-tip {
-  margin-top: auto;
-  padding: 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px dashed rgba(255, 255, 255, 0.35);
-  font-size: 12.5px;
-}
-.demo-title { color: #ffd97a; margin-bottom: 6px; font-weight: 600; }
-.demo-line { line-height: 1.7; margin-bottom: 8px; }
-.setup-btn { --el-button-bg-color: rgba(255,255,255,0.14); --el-button-border-color: rgba(255,255,255,0.6); }
-
-.form-panel {
-  flex: 1;
-  padding: 30px 36px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.mode-tabs :deep(.el-tabs__nav-wrap::after) { height: 1px; background: #eee; }
-.mode-tabs :deep(.el-tabs__item) { font-size: 16px; font-weight: 600; }
-.submit-btn { width: 100%; margin-top: 2px; }
-.foot-tip { text-align: center; color: #8a7752; font-size: 13px; margin-top: 14px; }
-.back-home { text-align: center; margin-top: 12px; }
-
-@media (max-width: 720px) {
-  .brand-panel { display: none; }
-  .form-panel { padding: 24px 20px; }
-}
-
-/* ===== 非遗国潮 · 主题压盖层（覆盖上方默认科技蓝，统一样式）===== */
-.auth-page {
-  background: radial-gradient(1200px 600px at 15% 0%, #fdf6e2 0%, transparent 60%),
-    linear-gradient(155deg, #f5ecda 0%, #e6d7b2 55%, #dec89a 100%);
-}
-.deco { opacity: 0.5; filter: blur(90px); }
-.deco-1 { background: rgba(190, 90, 45, 0.30); }   /* 朱砂淡云 */
-.deco-2 { background: rgba(120, 90, 40, 0.22); }    /* 金褐淡云 */
-.deco-3 { background: rgba(70, 110, 80, 0.26); }    /* 松青淡云(点缀) */
-
-.auth-card {
-  background: #fffdf4;
-  box-shadow: 0 22px 60px rgba(105, 55, 22, 0.24);
-}
-.brand-panel {
+.auth-page{position:relative;min-height:100vh;display:block;text-align:left;overflow-x:hidden;
+  padding:clamp(46px,7vh,90px) clamp(22px,5vw,110px) 130px;
   background:
-    radial-gradient(220px 220px at 85% 12%, rgba(255, 235, 190, 0.18), transparent 70%),
-    linear-gradient(160deg, #8f2317 0%, #a33021 55%, #7a240f 100%);
-  border-right: 6px solid #c99b3f;       /* 描金分隔边 */
-}
-.brand-name { letter-spacing: 0.14em; }
-.brand-logo { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
-.brand-features li { border-top-color: rgba(255, 240, 200, 0.30); }
-.feature-ico-seal { color: #3c6a50; }      /* 松青仅点缀图标/徽记 */
-.demo-tip { border-color: rgba(255, 232, 170, 0.55); background: rgba(255, 240, 200, 0.10); }
+    radial-gradient(1100px 560px at 12% -6%,#fef7e0 0%,transparent 58%),
+    linear-gradient(158deg,#f6edda 0%,#e4d3ac 60%,#dac697 100%);}
+.deco{position:fixed;border-radius:50%;filter:blur(96px);pointer-events:none;opacity:.5;z-index:0}
+.deco-1{width:560px;height:560px;top:-170px;right:-150px;background:rgba(190,90,45,.28)}
+.deco-2{width:480px;height:480px;bottom:-190px;left:-150px;background:rgba(120,90,40,.22)}
+.deco-3{width:300px;height:300px;top:44%;left:10%;background:rgba(66,108,84,.22);opacity:.3}
 
-/* ============================================================
-   登录页 = 网站信息浏览层（居左·类 About·精简） + 悬浮登录卡（右侧）
-   ============================================================ */
-.auth-page {
-  overflow-y: auto; overflow-x: hidden;
-  display: block; padding: 8px;
-  text-align: left;
-}
-.auth-card {
-  margin: 0 auto;
-  width: min(1200px, 100%);
-  display: flex; align-items: flex-start; gap: clamp(26px, 5vw, 74px);
-  min-height: auto;
-  background: transparent; box-shadow: none;
-}
+.login-wrap{position:relative;z-index:1;margin:0 auto;width:100%}
+.auth-card{position:relative;z-index:1;margin:0 auto;width:100%;max-width:1360px;
+  display:grid;grid-template-columns:minmax(0,1fr) clamp(350px,27vw,412px);
+  column-gap:clamp(36px,6vw,104px);align-items:start;}
 
-/* —— 左侧：网站信息浏览（浅宣纸底 · 仿 About · 信息精简） —— */
-.brand-panel {
-  position: relative; flex: 1 1 0; min-width: 0; width: auto;
-  margin: 0; padding: 14px 0 48px;
-  background: none; border-right: none;
-}
-.brand-eyebrow {
-  display: inline-block; margin-bottom: 18px;
-  border: 1px solid #cdb37a; border-radius: 999px;
-  color: #9c5a20; background: rgba(255, 236, 205, 0.34);
-  padding: 5px 14px; font-size: 12px; letter-spacing: 0.2em;
-}
-.brand-logo { font-size: 46px; line-height: 1; filter: none; margin-bottom: 14px; }
-.brand-title { font-size: 44px; color: #4a2413; margin: 0 0 14px; font-weight: 800; letter-spacing: 0.05em; }
-.brand-lead { margin: 0 0 34px; max-width: 660px; font-size: 16px; line-height: 1.95; color: #6a5236; }
+/* ---- LEFT : browse infos ---- */
+.brand-panel{min-width:0;color:#3a2418;padding:2px 0 20px}
+.brand-eyebrow{display:inline-block;margin:0 0 20px;border:1px solid #cdb37a;border-radius:999px;
+  color:#9c5a20;background:rgba(255,236,205,.42);padding:6px 16px;font-size:12.5px;letter-spacing:.2em}
+.brand-logo{font-size:46px;line-height:1;margin:0 0 13px}
+.brand-title{font-size:clamp(36px,4.6vw,58px);color:#431f10;font-weight:800;letter-spacing:.04em;line-height:1.14;margin:0 0 18px}
+.brand-lead{max-width:56ch;font-size:16.5px;line-height:2;color:#6a5236;margin:0 0 38px}
 
-.brand-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin: 0 0 30px; padding: 0; }
-.brand-list li {
-  display: grid; grid-template-areas: 'i c' 'i d'; grid-template-columns: auto 1fr;
-  column-gap: 16px; padding: 18px; border: 1px solid #e6d6ac; border-radius: 12px;
-  background: #fffdf5;
-}
-.brand-list li .bl-ico { grid-area: i; font-size: 22px; line-height: 1.3; }
-.brand-list li b { grid-area: c; font-size: 16px; color: #4b2b18; font-weight: 700; letter-spacing: 0.02em; }
-.brand-list li .bl-desc { grid-area: d; margin-top: 6px; width: auto; padding-left: 0; font-size: 13px; line-height: 1.7; color: #6b5638; }
+.brand-list{list-style:none;margin:0 0 30px;padding:0;display:grid;gap:18px;
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr))}
+.brand-list li{margin:0;padding:20px;border:1px solid #e6d6ac;border-radius:14px;background:#fffdf5;
+  box-shadow:0 6px 18px rgba(120,84,30,.07)}
+.brand-list li .bl-ico{font-size:24px;line-height:1;display:block;margin-bottom:12px}
+.brand-list li b{display:block;font-size:16.5px;color:#4a2716;font-weight:700;margin-bottom:8px}
+.brand-list li .bl-desc{font-size:13.5px;line-height:1.75;color:#6b5638;display:block;margin:0}
 
-.demo-tip {
-  border: 1px dashed #cbb27c; background: rgba(255, 243, 205, 0.5);
-  padding: 14px 16px; border-radius: 10px; text-align: left;
-}
-.demo-tip .demo-title { color: #9c5a20; font-weight: 700; }
-.demo-tip .demo-line { color: #7a6130; }
+.cat-wrap{margin:0 0 28px}
+.cat-title{font-size:14px;color:#5c4527;font-weight:700;letter-spacing:.08em;margin:0 0 13px}
+.cat-row{display:flex;flex-wrap:wrap;gap:9px}
+.cat-row span{border:1px solid #dcc8a0;background:#fffdf6;border-radius:999px;padding:6px 14px;font-size:12.5px;color:#6a4f2a}
+.brand-quote{margin:6px 0 32px;padding:18px 22px;border-left:5px solid #b93b22;background:#f6e6c7;border-radius:0 14px 14px 0;font-size:15.5px;line-height:2;color:#6b462a;font-style:italic}
+.brand-note{margin:28px 0 0;color:#7a623c;font-size:13px;letter-spacing:.08em;text-align:center}
 
-.brand-note { margin: 26px 0 0; color: #6b5638; font-size: 13px; letter-spacing: 0.06em; }
+/* demo admin */
+.demo-tip{margin:0;border:1px dashed #c8ad72;background:rgba(255,244,208,.5);padding:14px 16px;border-radius:12px}
+.demo-tip .demo-title{color:#9c5a20;font-weight:700;margin:0 0 6px}
+.demo-tip .demo-line{color:#7a6130}
+.demo-tip .setup-btn{margin-top:10px}
 
-/* —— 登录区外层（信息列左 + 固定悬浮登录卡，互不遮挡） —— */
-.auth-page {
-  overflow-y: auto; overflow-x: hidden;
-  display: block; text-align: left;
-  padding: 64px clamp(26px, 5vw, 96px) 96px clamp(26px, 5vw, 96px);
-}
-.auth-card {
-  margin: 0; width: auto; max-width: 1280px;
-  display: block; background: transparent; box-shadow: none;
+/* ---- RIGHT : login card (sticky float) ---- */
+.form-panel{position:sticky;top:clamp(20px,7vh,58px);width:100%;box-sizing:border-box;
+  padding:30px 30px 26px;background:#fffdf4;border:1px solid #e7d8b2;border-radius:20px;
+  box-shadow:0 34px 80px rgba(78,40,15,.30)}
+.mode-tabs{margin-bottom:6px}
+.mode-tabs :deep(.el-tabs__item){font-weight:600;letter-spacing:.2em}
+.mode-tabs :deep(.el-tabs__item.is-active){color:#b22618}
+.mode-tabs :deep(.el-tabs__active-bar){background-color:#b22618}
+.mode-tabs :deep(.el-tabs__nav-wrap::after){height:1px;background:#e7d8b2}
+.form-panel .el-form{background:transparent}
+.form-panel .el-form-item{margin-bottom:20px}
+.form-panel .submit-btn{width:100%;font-weight:600;border-radius:10px}
+.form-panel .foot-tip{margin:16px 0 0;text-align:center;font-size:13px;color:#8a7752;line-height:1.8}
+.demo-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px dashed #dfcf9f;font-size:12.5px;color:#7a623c;line-height:1.6}
+.demo-row b{color:#9c5a20}
+.demo-row .el-button{height:auto;min-height:0;padding:2px 4px}
+.back-home{text-align:center;margin-top:14px}
+.back-home .el-link{color:#a76a34}
+
+@media (max-width:1020px){
+  .auth-card{grid-template-columns:minmax(0,1fr);row-gap:26px}
+  .form-panel{position:static;top:auto}
+  .brand-title{font-size:38px}
+  .auth-page{padding:20px 16px 70px}
 }
 
-/* —— 左侧：多卡信息浏览（滚动随页面，右侧留空不被登录卡压住） —— */
-.brand-panel {
-  width: min(calc(100vw - 620px), 1000px);
-  max-width: 100%;
-  margin: 0; padding: 0 0 60px;
-  background: none; border-right: none;
-}
-.brand-eyebrow {
-  display: inline-block; margin-bottom: 20px;
-  border: 1px solid #cdb37a; border-radius: 999px;
-  color: #9c5a20; background: rgba(255, 236, 205, 0.4);
-  padding: 6px 16px; font-size: 12px; letter-spacing: 0.2em;
-}
-.brand-logo { font-size: 46px; line-height: 1; filter: none; margin-bottom: 14px; }
-.brand-title { font-size: 46px; color: #4a2413; margin: 0 0 16px; font-weight: 800; letter-spacing: 0.05em; }
-.brand-lead { margin: 0 0 34px; max-width: 60ch; font-size: 16px; line-height: 1.95; color: #6a5236; }
-
-.brand-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 0 0 28px; padding: 0; }
-.brand-list li {
-  display: grid; grid-template-areas: 'i c' 'i d'; grid-template-columns: auto 1fr;
-  column-gap: 16px; padding: 18px; border: 1px solid #e6d6ac; border-radius: 12px;
-  background: #fffdf5; box-shadow: 0 4px 14px rgba(122, 84, 30, 0.06);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-.brand-list li:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(122, 84, 30, 0.12); }
-.brand-list li .bl-ico { grid-area: i; font-size: 24px; line-height: 1.3; }
-.brand-list li b { grid-area: c; font-size: 16px; color: #4b2b18; font-weight: 700; letter-spacing: 0.02em; }
-.brand-list li .bl-desc { grid-area: d; margin-top: 6px; width: auto; padding-left: 0; font-size: 13px; line-height: 1.7; color: #6b5638; }
-
-.cat-wrap { margin: 0 0 26px; }
-.cat-title { font-size: 14px; color: #5c4527; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 12px; }
-.cat-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.cat-row span {
-  border: 1px solid #dcc8a0; background: rgba(255, 253, 244, 0.7);
-  border-radius: 999px; padding: 6px 13px; font-size: 12.5px; color: #6b5230;
-}
-.brand-quote {
-  margin: 4px 0 26px; padding: 16px 22px; border-left: 4px solid #b93b22;
-  background: #f7ead0; border-radius: 0 12px 12px 0;
-  font-size: 16px; line-height: 1.9; color: #6b462a; font-style: italic; letter-spacing: 0.03em;
-}
-
-.demo-tip {
-  border: 1px dashed #cbb27c; background: rgba(255, 243, 205, 0.5);
-  padding: 14px 16px; border-radius: 10px; text-align: left;
-}
-.demo-tip .demo-title { color: #9c5a20; font-weight: 700; }
-.demo-tip .demo-line { color: #7a6130; }
-
-.brand-note { margin: 26px 0 0; color: #6b5638; font-size: 13px; letter-spacing: 0.06em; }
-
-/* —— 登录卡：固定于视口右侧、始终垂直居中（滚动时保持悬浮，不随内容滚动） —— */
-.form-panel {
-  position: fixed;
-  top: 50%;
-  right: clamp(18px, 4.5vw, 84px);
-  transform: translateY(-50%);
-  width: 380px; max-width: min(90vw, 380px);
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  padding: 26px 28px 22px;
-  background: #fffdf4;
-  border: 1px solid #e7d8b2; border-radius: 16px;
-  box-shadow: 0 30px 70px rgba(78, 40, 15, 0.30);
-  z-index: 40;
-}
-.form-panel .submit-btn { width: 100%; font-weight: 600; }
-.form-panel .foot-tip { color: #8a7752; }
-
-@media (max-width: 1040px) {
-  .form-panel { position: static; top: auto; right: auto; transform: none; width: min(100%, 520px); margin: 8px auto 0; max-height: none; overflow: visible; }
-  .brand-panel { width: 100%; }
-  .auth-page { padding: 30px 16px 60px; }
-  .brand-title { font-size: 36px; }
-}
 </style>
