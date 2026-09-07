@@ -239,4 +239,30 @@ async function onSetupAdmin() {
   .brand-panel { display: none; }
   .form-panel { padding: 24px 20px; }
 }
+
+/* ===== 非遗国潮 · 主题压盖层（覆盖上方默认科技蓝，统一样式）===== */
+.auth-page {
+  background: radial-gradient(1200px 600px at 15% 0%, #fdf6e2 0%, transparent 60%),
+    linear-gradient(155deg, #f5ecda 0%, #e6d7b2 55%, #dec89a 100%);
+}
+.deco { opacity: 0.5; filter: blur(90px); }
+.deco-1 { background: rgba(190, 90, 45, 0.30); }   /* 朱砂淡云 */
+.deco-2 { background: rgba(120, 90, 40, 0.22); }    /* 金褐淡云 */
+.deco-3 { background: rgba(70, 110, 80, 0.26); }    /* 松青淡云(点缀) */
+
+.auth-card {
+  background: #fffdf4;
+  box-shadow: 0 22px 60px rgba(105, 55, 22, 0.24);
+}
+.brand-panel {
+  background:
+    radial-gradient(220px 220px at 85% 12%, rgba(255, 235, 190, 0.18), transparent 70%),
+    linear-gradient(160deg, #8f2317 0%, #a33021 55%, #7a240f 100%);
+  border-right: 6px solid #c99b3f;       /* 描金分隔边 */
+}
+.brand-name { letter-spacing: 0.14em; }
+.brand-logo { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
+.brand-features li { border-top-color: rgba(255, 240, 200, 0.30); }
+.feature-ico-seal { color: #3c6a50; }      /* 松青仅点缀图标/徽记 */
+.demo-tip { border-color: rgba(255, 232, 170, 0.55); background: rgba(255, 240, 200, 0.10); }
 </style>

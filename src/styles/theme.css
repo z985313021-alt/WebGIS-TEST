@@ -1,0 +1,80 @@
+/* ============================================================
+   WebGIS-App 非遗国潮主题基座 (global design token layer)
+   所有页面统一引用此层的配色/字体/Element 主色覆盖，
+   避免各页面各自配色造成视觉分裂。
+   ============================================================ */
+
+:root {
+  /* ---- 纸 · 墨 · 金 · 红 · 青 调色板 ---- */
+  --zi-bg:        #f4eddc;   /* 宣纸底色（页面底） */
+  --zi-bg-deep:   #eadfbe;   /* 稍深的米金 */
+  --zi-panel:     #fffdf4;   /* 卡片/面板纸面 */
+  --zi-ink:       #3a3125;   /* 墨色（正文） */
+  --zi-ink-soft:  #6c5f47;   /* 墨灰（次级文字） */
+  --zi-ink-faint: #8d8266;   /* 弱文字 */
+  --zi-red:       #a03526;   /* 朱砂赭红（主色） */
+  --zi-red-deep:  #7f271c;   /* 深朱砂 */
+  --zi-gold:      #b4861f;   /* 描金/秋黄 */
+  --zi-green:     #3c6a50;   /* 松青墨绿 */
+  --zi-green-deep:#2e523d;
+  --zi-line:      #d8c9a3;   /* 分隔细线（藤黄） */
+
+  /* ---- 中文字体栈：衬线/书法感优先 ---- */
+  --zi-font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC",
+                   "STSong", "SimSun", "KaiTi", "serif";
+  --zi-font-sans:  "MiSans", "PingFang SC", "Microsoft YaHei", "Helvetica", sans-serif;
+
+  /* ===== Element Plus 主色覆盖 → 沉稳的朱砂赭红 ===== */
+  --el-color-primary:        #a03526;
+  --el-color-primary-dark-2: #7f271c;
+  --el-color-primary-light-3: #ba6a5a;
+  --el-color-primary-light-5: #cf9a8d;
+  --el-color-primary-light-7: #e3c3ba;
+  --el-color-primary-light-8: #ecD6cf;
+  --el-color-primary-light-9: #f6e8e4;
+
+  /* 次要语义色适度偏国画感 */
+  --el-color-success:          #3c6a50;
+  --el-color-success-light-3:  #6f907a;
+  --el-color-success-light-9:  #e6efe8;
+  --el-color-warning:          #b4861f;
+  --el-color-warning-light-9:  #f5eeda;
+  --el-color-error:            #a03526;
+  --el-color-error-light-9:    #f6e6e2;
+
+  --el-text-color-primary:   #3a3125;
+  --el-text-color-regular:   #513f2f;
+  --el-text-color-secondary: #6c5f47;
+  --el-text-color-placeholder:#9c8d68;
+  --el-border-color:         #dccfa6;
+  --el-border-color-light:   #e6dcbd;
+  --el-border-color-lighter: #ece2c7;
+  --el-fill-color-blank:     #fffdf4;
+  --el-fill-color-light:     #f7f0e0;
+  --el-bg-color:             #fffdf4;
+  --el-bg-color-page:        #f4eddc;
+  --el-border-radius-base:   6px;
+}
+
+/* 全局基底 */
+html, body {
+  background-color: var(--zi-bg);
+  color: var(--zi-ink);
+  font-family: var(--zi-font-sans);
+}
+#app {
+  background: var(--zi-bg);
+}
+
+/* 统一标题略有书法衬线气息（可被局部样式覆盖） */
+h1, h2, h3, h4 { font-family: var(--zi-font-serif); letter-spacing: 0.02em; }
+
+/* 滚动条温和处理 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cdbf93; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Element 弹窗/抽屉/卡片纸张感 */
+.el-card, .el-dialog, .el-drawer, .el-message-box {
+  background: var(--zi-panel);
+}

@@ -120,4 +120,35 @@ onMounted(async () => {
 @media (max-width: 980px) {
   .nav-menu { display: none; }
 }
+
+/* ===== 非遗国潮 · 顶栏（朱砂红主调 + 描金点缀）===== */
+.top-nav {
+  background:
+    linear-gradient(90deg, #8f2317 0%, #a33021 46%, #7f1f14 100%);
+  border-bottom: 1px solid #d4a84e;
+  box-shadow: 0 2px 12px rgba(97, 25, 15, 0.35);
+}
+.brand { color: #f9edc8; font-family: var(--zi-font-serif); letter-spacing: 0.1em; }
+.brand::before {
+  content: "❖ ";
+  color: #e9c86a;
+}
+.nav-menu :deep(.el-menu-item) { color: #f2e4c4; }
+.nav-menu :deep(.el-menu-item:hover) { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.nav-menu :deep(.el-menu-item.is-active) {
+  color: #fff;
+  background: linear-gradient(180deg, rgba(212, 168, 78, 0.45), rgba(212, 168, 78, 0.08));
+  border-bottom-color: #f0d48a;
+}
+.user-area .el-link { color: #f0d48a; }
+.who { color: #f7edda; }
+.avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #7a120a, #b0371f), #c9a24a;
+  background-blend-mode: overlay;
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  box-shadow: 0 0 0 1.5px rgba(240, 212, 138, 0.7), 0 1px 4px rgba(0, 0, 0, 0.3);
+}
 </style>
