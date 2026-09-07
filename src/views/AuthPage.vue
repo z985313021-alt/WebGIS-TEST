@@ -9,7 +9,7 @@
       <div class="brand-panel">
         <div class="brand-eyebrow">山东 · 非物质文化遗产数字地图</div>
         <div class="brand-logo">🗺️</div>
-        <h1 class="brand-title">WebGIS 实习平台</h1>
+        <h1 class="brand-title">遗蕴齐鲁</h1>
         <p class="brand-lead">让散落在齐鲁大地的非遗，汇成一张可以“逛”的数字图谱 —— 看、查、算、买，一站完成。</p>
 
         <ul class="brand-list">
@@ -34,6 +34,18 @@
             <span class="bl-desc">选购由非遗衍生的文创好物，支持在线下单。</span>
           </li>
         </ul>
+
+        <div class="cat-wrap">
+          <div class="cat-title">听山东 · 十大非遗门类，正一一走上地图</div>
+          <div class="cat-row">
+            <span>民间文学</span><span>传统音乐</span><span>传统舞蹈</span><span>传统戏剧</span><span>曲艺</span>
+            <span>游艺与杂技</span><span>传统美术</span><span>传统技艺</span><span>传统医药</span><span>民俗</span>
+          </div>
+        </div>
+
+        <blockquote class="brand-quote">
+          非遗不在橱窗里——<br />在你长大的老城南、在你听过的乡音里。
+        </blockquote>
 
         <div class="demo-tip">
           <div class="demo-title">✨ 演示账号（未创建则一键初始化）</div>
@@ -338,21 +350,90 @@ async function onSetupAdmin() {
 
 .brand-note { margin: 26px 0 0; color: #6b5638; font-size: 13px; letter-spacing: 0.06em; }
 
-/* —— 右侧：悬浮登录卡（精简） —— */
+/* —— 登录区外层（信息列左 + 固定悬浮登录卡，互不遮挡） —— */
+.auth-page {
+  overflow-y: auto; overflow-x: hidden;
+  display: block; text-align: left;
+  padding: 64px clamp(26px, 5vw, 96px) 96px clamp(26px, 5vw, 96px);
+}
+.auth-card {
+  margin: 0; width: auto; max-width: 1280px;
+  display: block; background: transparent; box-shadow: none;
+}
+
+/* —— 左侧：多卡信息浏览（滚动随页面，右侧留空不被登录卡压住） —— */
+.brand-panel {
+  width: min(calc(100vw - 620px), 1000px);
+  max-width: 100%;
+  margin: 0; padding: 0 0 60px;
+  background: none; border-right: none;
+}
+.brand-eyebrow {
+  display: inline-block; margin-bottom: 20px;
+  border: 1px solid #cdb37a; border-radius: 999px;
+  color: #9c5a20; background: rgba(255, 236, 205, 0.4);
+  padding: 6px 16px; font-size: 12px; letter-spacing: 0.2em;
+}
+.brand-logo { font-size: 46px; line-height: 1; filter: none; margin-bottom: 14px; }
+.brand-title { font-size: 46px; color: #4a2413; margin: 0 0 16px; font-weight: 800; letter-spacing: 0.05em; }
+.brand-lead { margin: 0 0 34px; max-width: 60ch; font-size: 16px; line-height: 1.95; color: #6a5236; }
+
+.brand-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 0 0 28px; padding: 0; }
+.brand-list li {
+  display: grid; grid-template-areas: 'i c' 'i d'; grid-template-columns: auto 1fr;
+  column-gap: 16px; padding: 18px; border: 1px solid #e6d6ac; border-radius: 12px;
+  background: #fffdf5; box-shadow: 0 4px 14px rgba(122, 84, 30, 0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.brand-list li:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(122, 84, 30, 0.12); }
+.brand-list li .bl-ico { grid-area: i; font-size: 24px; line-height: 1.3; }
+.brand-list li b { grid-area: c; font-size: 16px; color: #4b2b18; font-weight: 700; letter-spacing: 0.02em; }
+.brand-list li .bl-desc { grid-area: d; margin-top: 6px; width: auto; padding-left: 0; font-size: 13px; line-height: 1.7; color: #6b5638; }
+
+.cat-wrap { margin: 0 0 26px; }
+.cat-title { font-size: 14px; color: #5c4527; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 12px; }
+.cat-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-row span {
+  border: 1px solid #dcc8a0; background: rgba(255, 253, 244, 0.7);
+  border-radius: 999px; padding: 6px 13px; font-size: 12.5px; color: #6b5230;
+}
+.brand-quote {
+  margin: 4px 0 26px; padding: 16px 22px; border-left: 4px solid #b93b22;
+  background: #f7ead0; border-radius: 0 12px 12px 0;
+  font-size: 16px; line-height: 1.9; color: #6b462a; font-style: italic; letter-spacing: 0.03em;
+}
+
+.demo-tip {
+  border: 1px dashed #cbb27c; background: rgba(255, 243, 205, 0.5);
+  padding: 14px 16px; border-radius: 10px; text-align: left;
+}
+.demo-tip .demo-title { color: #9c5a20; font-weight: 700; }
+.demo-tip .demo-line { color: #7a6130; }
+
+.brand-note { margin: 26px 0 0; color: #6b5638; font-size: 13px; letter-spacing: 0.06em; }
+
+/* —— 登录卡：固定于视口右侧、始终垂直居中（滚动时保持悬浮，不随内容滚动） —— */
 .form-panel {
-  flex: 0 0 400px; width: 400px; max-width: 100%;
-  padding: 26px 28px 24px;
+  position: fixed;
+  top: 50%;
+  right: clamp(18px, 4.5vw, 84px);
+  transform: translateY(-50%);
+  width: 380px; max-width: min(90vw, 380px);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 26px 28px 22px;
   background: #fffdf4;
   border: 1px solid #e7d8b2; border-radius: 16px;
-  box-shadow: 0 26px 60px rgba(96, 52, 20, 0.22);
-  position: sticky; top: 26px;
+  box-shadow: 0 30px 70px rgba(78, 40, 15, 0.30);
+  z-index: 40;
 }
 .form-panel .submit-btn { width: 100%; font-weight: 600; }
+.form-panel .foot-tip { color: #8a7752; }
 
-@media (max-width: 980px) {
-  .auth-page { padding: 24px 14px; }
-  .auth-card { flex-direction: column; gap: 22px; }
-  .form-panel { flex: 1 1 auto; width: 100%; position: static; }
+@media (max-width: 1040px) {
+  .form-panel { position: static; top: auto; right: auto; transform: none; width: min(100%, 520px); margin: 8px auto 0; max-height: none; overflow: visible; }
+  .brand-panel { width: 100%; }
+  .auth-page { padding: 30px 16px 60px; }
   .brand-title { font-size: 36px; }
 }
 </style>

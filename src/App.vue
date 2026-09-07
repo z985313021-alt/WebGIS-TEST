@@ -1,7 +1,7 @@
 <template>
   <el-container class="app-root">
     <el-header class="top-nav">
-      <div class="brand">WebGIS 实习平台</div>
+      <div class="brand">遗蕴齐鲁</div>
       <el-menu mode="horizontal" :router="true" :default-active="route.path" class="nav-menu">
         <el-menu-item index="/">地图主页</el-menu-item>
         <el-menu-item index="/data">数据管理</el-menu-item>

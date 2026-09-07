@@ -16,12 +16,13 @@
       <div class="hero-inner">
         <div class="hero-badge">
           <span class="badge-dot"></span>
-          WebGIS 实习平台 · 使用指南
+          遗蕴齐鲁 · 平台介绍
         </div>
-        <h1 class="hero-title">通用地图可视化平台</h1>
+        <h1 class="hero-title">山东非遗，一张图走读千年</h1>
         <p class="hero-sub">
-          基于 Vue3 + OpenLayers 构建的 WebGIS 实习系统，集非遗数据展示、多维筛选、
-          空间分析与图表联动于一体，帮助你快速认识山东非遗的分布与脉络。
+          这是个以山东非物质文化遗产为核心的数字地图平台：把 185+ 项名录与传承人
+          落到一张地图上，支持按地市 / 类别 / 批次浏览、空间分析、图表联动与旅行路线规划。
+          在这里，非遗不再是名录里的名字，而是可看、可查、可逛的大地图。
         </p>
         <div class="hero-actions">
           <el-button type="primary" size="large" round @click="go('/')">🚀 进入地图体验</el-button>
@@ -112,7 +113,7 @@
     </section>
 
     <footer class="about-footer">
-      <p>WebGIS 实习平台 · Vue3 + OpenLayers + ECharts · 祝你使用愉快 🗺️</p>
+      <p>遗蕴齐鲁 · 山东非遗数字地图 · Vue3 + OpenLayers + ECharts · 愿与你同行 🗺️</p>
     </footer>
   </div>
 </template>
