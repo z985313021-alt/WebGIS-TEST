@@ -92,7 +92,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="收货人" required><el-input v-model="form.receiver" placeholder="姓名" /></el-form-item>
-        <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="11 位手机号" maxlength="11" /></el-form-item>
+        <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="11 位手机号" maxlength="11" @input="onPhInput" /></el-form-item>
         <el-form-item label="收货地址" required><el-input v-model="form.address" type="textarea" :rows="2" placeholder="省 / 市 / 区 / 详细地址" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" placeholder="选填" /></el-form-item>
       </el-form>
@@ -184,6 +184,9 @@ async function removeIt(pid: number) {
 }
 const addrOptions = ref<AddressItem[]>([]);
 const picking = ref<number | null>(null);
+function onPhInput() {
+  form.phone = form.phone.replace(/\D/g, '').slice(0, 11);
+}
 function fillFrom(a: AddressItem) {
   form.receiver = a.receiver;
   form.phone = a.phone;
@@ -208,8 +211,16 @@ async function placeOrder() {
     ElMessage.warning('请完整填写收货人、手机号与地址');
     return;
   }
-  if (form.receiver.length > 30 || !/^1\d{10}$/.test(form.phone)) {
-    ElMessage.warning('请检查手机号是否为 11 位');
+  if (form.receiver.trim().length > 30) {
+    ElMessage.warning('收货人姓名不能超过 30 字');
+    return;
+  }
+  if (!/^1[3-9]\d{9}$/.test(form.phone)) {
+    ElMessage.warning('请输入 11 位有效手机号（1 开头，第二位 3-9）');
+    return;
+  }
+  if (form.address.trim().length < 5) {
+    ElMessage.warning('收货地址至少 5 个字');
     return;
   }
   submitting.value = true;
