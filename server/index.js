@@ -7,7 +7,8 @@ import multer from 'multer';
 import { extname } from 'node:path';
 import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } from './scripts/upload-utils.mjs';
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
-import { registerUser } from './scripts/user-db.mjs';
+import { registerUser, loginUser, getUserByToken, logoutByToken, getUserById, setUserRole, ensureAdmin, listUsers, rehashPassword } from './scripts/user-db.mjs';
+import * as shop from './scripts/shop-db.mjs';
 import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
 import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCode, stationName, cityPos } from './scripts/train12306.mjs';
 
@@ -177,15 +178,265 @@ app.post('/api/health-check', (req, res) => {
 
 // ============ 用户注册（SQLite） ============
 
-// 注册新用户
+// ============ 鉴权工具 ============
+function bearerToken(req) {
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Bearer ')) return null;
+  return h.slice(7).trim();
+}
+/** 解析当前登录用户；未登录时返回 null（不抛错） */
+function currentUser(req) {
+  const token = bearerToken(req);
+  return token ? getUserByToken(token) : null;
+}
+/** 必须登录 */
+function requireAuth(req, res, next) {
+  const token = bearerToken(req);
+  const user = token ? getUserByToken(token) : null;
+  if (!user) return res.status(401).json({ msg: '请先登录' });
+  req.user = user;
+  req.token = token;
+  next();
+}
+/** 必须为管理员 */
+function requireAdmin(req, res, next) {
+  const token = bearerToken(req);
+  const user = token ? getUserByToken(token) : null;
+  if (!user) return res.status(401).json({ msg: '请先登录' });
+  if (user.role !== 'admin') return res.status(403).json({ msg: '需要管理员权限' });
+  req.user = user;
+  req.token = token;
+  next();
+}
+
+// ============ AUTH：注册 / 登录 / 会话 ============
+
+function publicUser(u) {
+  if (!u) return null;
+  return { id: u.id, username: u.username, email: u.email, role: u.role, createdAt: u.createdAt };
+}
+
+// 注册新用户（成功即签发 token：注册后自动进入系统）
 app.post('/api/auth/register', (req, res) => {
   const { username, email, password } = req.body ?? {};
   try {
     const user = registerUser(username, email, password);
-    res.json({ ok: true, user });
+    const sess = loginUser(user.username, password);
+    res.json({ ok: true, token: sess.token, user: publicUser(sess.user) });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
   }
+});
+
+// 登录：账号 = 用户名或邮箱
+app.post('/api/auth/login', (req, res) => {
+  const { account, password } = req.body ?? {};
+  try {
+    const sess = loginUser(account, password);
+    res.json({ ok: true, token: sess.token, user: publicUser(sess.user) });
+  } catch (e) {
+    res.status(e.code === 'BAD_CREDENTIALS' ? 400 : 500).json({ ok: false, msg: e.message });
+  }
+});
+
+// 当前登录用户
+app.get('/api/auth/me', (req, res) => {
+  const user = currentUser(req);
+  res.json({ ok: true, user: user ? publicUser(user) : null });
+});
+
+// 退出登录（使 token 失效）
+app.post('/api/auth/logout', (req, res) => {
+  const token = bearerToken(req);
+  if (token) logoutByToken(token);
+  res.json({ ok: true });
+});
+
+// 修改密码
+app.post('/api/auth/change-password', requireAuth, (req, res) => {
+  const { oldPassword, newPassword } = req.body ?? {};
+  if (!oldPassword || String(newPassword || '').length < 6) {
+    return res.status(400).json({ ok: false, msg: '新密码至少 6 位' });
+  }
+  try {
+    loginUser(req.user.username, oldPassword); // 校验原密码
+  } catch (e) {
+    return res.status(400).json({ ok: false, msg: '原密码不正确' });
+  }
+  try {
+    rehashPassword(Number(req.user.id), newPassword);
+    res.json({ ok: true, msg: '密码已更新' });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// 管理员：用户列表
+app.get('/api/auth/users', requireAdmin, (req, res) => {
+  res.json({ ok: true, users: listUsers() });
+});
+
+// 管理员：设置用户角色
+app.post('/api/auth/users/:id/role', requireAdmin, (req, res) => {
+  try {
+    const user = setUserRole(req.params.id, req.body?.role);
+    res.json({ ok: true, user: publicUser(user) });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// 引导：若系统尚无任何用户，允许通过默认引导账号快速登录演示
+app.post('/api/setup/admin', (req, res) => {
+  const { username = 'admin', email = 'admin@webgis.test', password = 'admin123' } = req.body ?? {};
+  try {
+    const result = ensureAdmin(username, email, password);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// ============ 文创商城：非遗 / 商品 / 购物车 / 订单 ============
+const parsePosInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+
+// 非遗全景（公开，供后台 / 关联用）
+app.get('/api/shop/heritage', (req, res) => res.json({ ok: true, items: shop.listHeritage() }));
+
+// 商品分类（公开）
+app.get('/api/shop/categories', (req, res) => res.json({ ok: true, categories: shop.productCategories() }));
+
+// 商品列表（公开；?category= 过滤）
+app.get('/api/shop/products', (req, res) => {
+  const category = String(req.query.category || '');
+  res.json({ ok: true, count: shop.listProducts({ category }).length, products: shop.listProducts({ category }) });
+});
+
+// 商品详情（公开）
+app.get('/api/shop/products/:id', (req, res) => {
+  const p = shop.getProductById(req.params.id);
+  if (!p) return res.status(404).json({ msg: '商品不存在' });
+  if (!p.onSale) return res.status(404).json({ msg: '商品已下架' });
+  res.json({ ok: true, product: p });
+});
+
+// ---- 购物车（登录） ----
+app.get('/api/shop/cart', requireAuth, (req, res) => {
+  res.json({
+    ok: true,
+    items: shop.getCart(req.user.id).map((c) => ({
+      productId: c.productId, qty: c.qty, name: c.name, subtitle: c.subtitle,
+      price: c.price, image: c.image, stock: c.stock,
+    })),
+  });
+});
+app.post('/api/shop/cart', requireAuth, (req, res) => {
+  const { productId, qty } = req.body ?? {};
+  try {
+    const cart = shop.setCartQty(req.user.id, productId, qty);
+    res.json({ ok: true, items: cart });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+app.delete('/api/shop/cart/:productId', requireAuth, (req, res) => {
+  try {
+    const items = shop.setCartQty(req.user.id, req.params.productId, 0);
+    res.json({ ok: true, items });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// ---- 订单（用户） ----
+app.post('/api/shop/orders', requireAuth, (req, res) => {
+  const { receiver, phone, address, remark } = req.body ?? {};
+  try {
+    const order = shop.createOrder(req.user.id, { receiver, phone, address, remark });
+    res.json({ ok: true, status: order.status, order: { ...order, statusCn: shop.orderStatusChinese[order.status] || order.status } });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+app.get('/api/shop/orders', requireAuth, (req, res) => {
+  const orders = shop.getOrdersByUser(req.user.id).map((o) => ({
+    ...o, statusCn: shop.orderStatusChinese[o.status] || o.status,
+  }));
+  res.json({ ok: true, orders });
+});
+app.post('/api/shop/orders/:orderNo/pay', requireAuth, (req, res) => {
+  try {
+    const order = shop.payOrder(req.user.id, req.params.orderNo);
+    res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+app.post('/api/shop/orders/:orderNo/cancel', requireAuth, (req, res) => {
+  try {
+    const order = shop.cancelOrder(req.user.id, req.params.orderNo);
+    res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+app.post('/api/shop/orders/:orderNo/confirm', requireAuth, (req, res) => {
+  try {
+    const order = shop.confirmOrder(req.user.id, req.params.orderNo);
+    res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// ---- 订单（管理员：发货 / 数据） ----
+app.get('/api/shop/orders/admin', requireAdmin, (req, res) => {
+  try {
+    const userMap = {}; for (const u of listUsers()) userMap[u.id] = u.username;
+    const orders = shop.getAllOrdersRaw().map((o) => ({
+      ...o, username: userMap[o.userId] ?? '已注销用户',
+      statusCn: shop.orderStatusChinese[o.status] || o.status,
+    }));
+    res.json({ ok: true, orders, stat: shop.orderStat() });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: e.message });
+  }
+});
+app.post('/api/shop/orders/:orderNo/ship', requireAdmin, (req, res) => {
+  try {
+    shop.shipOrder(req.params.orderNo, req.body?.trackingNo);
+    res.json({ ok: true, msg: '已发货' });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// ---- 商品管理（管理员） ----
+app.post('/api/shop/products', requireAdmin, (req, res) => {
+  try {
+    res.json({ ok: true, product: shop.addProduct(req.body) });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+app.put('/api/shop/products/:id', requireAdmin, (req, res) => {
+  try {
+    res.json({ ok: true, product: shop.updateProduct(req.params.id, req.body) });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+app.delete('/api/shop/products/:id', requireAdmin, (req, res) => {
+  try {
+    res.json({ ok: true, ...shop.deleteProduct(req.params.id) });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// 电商订单流转状态汇总中文映射（公开）
+app.get('/api/shop/flow', (req, res) => {
+  res.json({ ok: true, statusCn: shop.orderStatusChinese });
 });
 
 // 体检报告导出 Excel
