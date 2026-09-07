@@ -86,6 +86,11 @@
     <!-- 结算对话框 -->
     <el-dialog v-model="checkoutOpen" title="填写收货信息并下单" width="440px" :close-on-click-modal="false">
       <el-form :model="form" label-width="76px">
+        <el-form-item v-if="addrOptions.length" label="已存地址">
+          <el-select v-model="picking" placeholder="从收货地址簿选择" style="width:100%" @change="(v:any)=>onPick(Number(v))">
+            <el-option v-for="a in addrOptions" :key="a.id" :label="a.receiver + ' · ' + a.phone + ' · ' + a.region + a.detail" :value="a.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="收货人" required><el-input v-model="form.receiver" placeholder="姓名" /></el-form-item>
         <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="11 位手机号" maxlength="11" /></el-form-item>
         <el-form-item label="收货地址" required><el-input v-model="form.address" type="textarea" :rows="2" placeholder="省 / 市 / 区 / 详细地址" /></el-form-item>
@@ -109,6 +114,8 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import * as api from '@/data/api/shop';
 import type { Product, CategoryCnt, CartItem } from '@/data/api/shop';
+import * as acct from '@/data/api/account';
+import type { AddressItem } from '@/data/api/account';
 import { useCartStore } from '@/services/stores/cartStore';
 
 const cartS = useCartStore();
@@ -175,9 +182,26 @@ async function syncQty(pid: number, q: number | undefined) {
 async function removeIt(pid: number) {
   try { cart.value = await api.removeCart(pid); cartS.refresh(); } catch (e: any) { ElMessage.error(e.response?.data?.msg); }
 }
-function openCheckout() {
+const addrOptions = ref<AddressItem[]>([]);
+const picking = ref<number | null>(null);
+function fillFrom(a: AddressItem) {
+  form.receiver = a.receiver;
+  form.phone = a.phone;
+  form.address = a.region ? `${a.region} ${a.detail}` : a.detail;
+}
+function onPick(v: number) {
+  const a = addrOptions.value.find((x) => x.id === v);
+  if (a) fillFrom(a);
+}
+async function openCheckout() {
   if (!form.receiver) form.receiver = '';
   checkoutOpen.value = true;
+  try {
+    addrOptions.value = await acct.listAddresses();
+    const def = addrOptions.value.find((a) => a.isDefault);
+    if (def) { picking.value = def.id; fillFrom(def); }
+    else picking.value = null;
+  } catch { addrOptions.value = []; picking.value = null; }
 }
 async function placeOrder() {
   if (!form.receiver || !form.phone || !form.address) {
