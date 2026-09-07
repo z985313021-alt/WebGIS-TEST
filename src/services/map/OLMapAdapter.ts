@@ -175,6 +175,19 @@ export class OLMapAdapter implements MapAdapter {
         this.clickCb?.(null);
         return;
       }
+      // 热力图模式：原始图层不可见，需用 layerFilter 强制检测 heritage 图层
+      if (this.displayMode === 'heatmap') {
+        const heritageLayer = this.layers.get('heritage');
+        const feature = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+          layerFilter: (l) => l === heritageLayer,
+        });
+        if (feature) {
+          this.clickCb?.(feature.getProperties() as Record<string, unknown>);
+        } else {
+          this.clickCb?.(null);
+        }
+        return;
+      }
       const feature = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f);
       if (feature) {
         this.clickCb?.(feature.getProperties() as Record<string, unknown>);
@@ -380,8 +393,10 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.get(id)?.changed();
     // 筛选变化时聚合/热力图也需要刷新（基于同一 source）
     if (id === 'heritage') {
+      // 聚合：Cluster source 重新计算聚类（geometryFunction 依赖筛选结果）
       this.clusterLayer?.getSource()?.refresh();
-      this.heatmapLayer?.getSource()?.changed();
+      // 热力图：weight 函数依赖筛选结果，触发图层重绘
+      this.heatmapLayer?.changed();
     }
   }
 
@@ -523,6 +538,15 @@ export class OLMapAdapter implements MapAdapter {
   // 成员2（地图模块）：点位聚合 + 密度热力图
   // ============================================================
 
+  /** 判断 feature 是否通过所有筛选（聚合/热力图模式下复用） */
+  private passFilter(feature: Feature): boolean {
+    const props = (feature.get('_props') as Record<string, unknown>) ?? feature.getProperties();
+    for (const predicate of this.filters.values()) {
+      if (!predicate(props)) return false;
+    }
+    return true;
+  }
+
   /** 构建聚合要素样式：圆形 + 数量文字，颜色/半径随数量变化 */
   private buildClusterStyle(feature: Feature): Style {
     const features = feature.get('features') as Feature[] | undefined;
@@ -551,6 +575,12 @@ export class OLMapAdapter implements MapAdapter {
     const clusterSource = new Cluster({
       distance: this.clusterDistance,
       source: this.heritageSource,
+      // 筛选过滤：不满足筛选条件的点返回 null，不参与聚合
+      geometryFunction: (feature) => {
+        if (!this.passFilter(feature as Feature)) return null;
+        const geom = feature.getGeometry();
+        return geom && geom.getType() === 'Point' ? (geom as Point) : null;
+      },
     });
     this.clusterLayer = new VectorLayer({
       source: clusterSource,
@@ -575,7 +605,9 @@ export class OLMapAdapter implements MapAdapter {
       source: this.heritageSource,
       blur: 22,
       radius: 14,
-      // 权重统一为 1（等权密度），渐变从透明→蓝→青→绿→黄→红
+      // 权重：通过筛选的点权重为1，被筛选隐藏的点权重为0（不贡献热力）
+      weight: (feature) => (this.passFilter(feature as Feature) ? 1 : 0),
+      // 渐变从透明→蓝→青→绿→黄→红
       gradient: [
         'rgba(0,0,255,0)',
         'rgba(0,0,255,0.5)',
