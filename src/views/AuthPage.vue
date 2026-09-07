@@ -287,60 +287,72 @@ async function onSetupAdmin() {
 .feature-ico-seal { color: #3c6a50; }      /* 松青仅点缀图标/徽记 */
 .demo-tip { border-color: rgba(255, 232, 170, 0.55); background: rgba(255, 240, 200, 0.10); }
 
-/* ===== 登录页“合而为一”信息浏览增强 ===== */
-.auth-page { overflow-y: auto; align-items: flex-start; padding: 40px 20px; }
+/* ============================================================
+   登录页 = 网站信息浏览层（居左·类 About·精简） + 悬浮登录卡（右侧）
+   ============================================================ */
+.auth-page {
+  overflow-y: auto; overflow-x: hidden;
+  display: block; padding: 8px;
+  text-align: left;
+}
 .auth-card {
-  width: min(1060px, 94vw);
+  margin: 0 auto;
+  width: min(1200px, 100%);
+  display: flex; align-items: flex-start; gap: clamp(26px, 5vw, 74px);
   min-height: auto;
-  display: flex;
-  align-items: stretch;
+  background: transparent; box-shadow: none;
 }
-.brand-panel { position: relative; width: 58%; padding: 34px 32px; }
-.form-panel { width: 42%; padding: 40px 34px; }
 
+/* —— 左侧：网站信息浏览（浅宣纸底 · 仿 About · 信息精简） —— */
+.brand-panel {
+  position: relative; flex: 1 1 0; min-width: 0; width: auto;
+  margin: 0; padding: 14px 0 48px;
+  background: none; border-right: none;
+}
 .brand-eyebrow {
-  display: inline-block;
-  padding: 4px 12px;
-  border: 1px solid rgba(247, 226, 176, 0.6);
-  border-radius: 999px;
-  color: #f4ddae;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  margin-bottom: 14px;
+  display: inline-block; margin-bottom: 18px;
+  border: 1px solid #cdb37a; border-radius: 999px;
+  color: #9c5a20; background: rgba(255, 236, 205, 0.34);
+  padding: 5px 14px; font-size: 12px; letter-spacing: 0.2em;
 }
-.brand-title {
-  font-size: 30px;
-  color: #fff;
-  margin: 10px 0 8px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-.brand-lead {
-  font-size: 14px;
-  line-height: 1.7;
-  color: rgba(255, 236, 200, 0.92);
-  margin: 0 0 18px;
-}
-.brand-list {
-  list-style: none;
-  margin: 0 0 22px;
-  padding: 0;
-}
+.brand-logo { font-size: 46px; line-height: 1; filter: none; margin-bottom: 14px; }
+.brand-title { font-size: 44px; color: #4a2413; margin: 0 0 14px; font-weight: 800; letter-spacing: 0.05em; }
+.brand-lead { margin: 0 0 34px; max-width: 660px; font-size: 16px; line-height: 1.95; color: #6a5236; }
+
+.brand-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin: 0 0 30px; padding: 0; }
 .brand-list li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 10px 0;
-  border-top: 1px solid rgba(255, 240, 200, 0.28);
+  display: grid; grid-template-areas: 'i c' 'i d'; grid-template-columns: auto 1fr;
+  column-gap: 16px; padding: 18px; border: 1px solid #e6d6ac; border-radius: 12px;
+  background: #fffdf5;
 }
-.brand-list li b { width: 168px; color: #fff; font-size: 14px; }
-.brand-list li .bl-ico { font-size: 18px; width: 22px; text-align: center; }
-.brand-list li .bl-desc { width: 100%; padding-left: 32px; color: rgba(255, 240, 210, 0.82); font-size: 12.5px; line-height: 1.6; }
-.demo-tip { margin-top: 4px; }
-.brand-note { margin-top: 18px; color: rgba(255, 239, 203, 0.8); font-size: 12.5px; letter-spacing: 0.06em; text-align: center; }
-@media (max-width: 900px) {
-  .auth-card { flex-direction: column; }
-  .brand-panel, .form-panel { width: 100%; }
+.brand-list li .bl-ico { grid-area: i; font-size: 22px; line-height: 1.3; }
+.brand-list li b { grid-area: c; font-size: 16px; color: #4b2b18; font-weight: 700; letter-spacing: 0.02em; }
+.brand-list li .bl-desc { grid-area: d; margin-top: 6px; width: auto; padding-left: 0; font-size: 13px; line-height: 1.7; color: #6b5638; }
+
+.demo-tip {
+  border: 1px dashed #cbb27c; background: rgba(255, 243, 205, 0.5);
+  padding: 14px 16px; border-radius: 10px; text-align: left;
+}
+.demo-tip .demo-title { color: #9c5a20; font-weight: 700; }
+.demo-tip .demo-line { color: #7a6130; }
+
+.brand-note { margin: 26px 0 0; color: #6b5638; font-size: 13px; letter-spacing: 0.06em; }
+
+/* —— 右侧：悬浮登录卡（精简） —— */
+.form-panel {
+  flex: 0 0 400px; width: 400px; max-width: 100%;
+  padding: 26px 28px 24px;
+  background: #fffdf4;
+  border: 1px solid #e7d8b2; border-radius: 16px;
+  box-shadow: 0 26px 60px rgba(96, 52, 20, 0.22);
+  position: sticky; top: 26px;
+}
+.form-panel .submit-btn { width: 100%; font-weight: 600; }
+
+@media (max-width: 980px) {
+  .auth-page { padding: 24px 14px; }
+  .auth-card { flex-direction: column; gap: 22px; }
+  .form-panel { flex: 1 1 auto; width: 100%; position: static; }
+  .brand-title { font-size: 36px; }
 }
 </style>
