@@ -86,4 +86,12 @@ const mapStore = useMapStore();
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .legend-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .legend-count { color: #999; }
+
+/* ===== 国潮微调（仅中性文字/分隔线；图例语义色保留）===== */
+.label { color: #6c5f47; }
+.basemap-hint { color: #b4861f; }
+.count { color: #8d8266; }
+.legend { border-top-color: #d9c9a0; }
+.legend-item { color: #513f2f; }
+.legend-count { color: #8d8266; }
 </style>
