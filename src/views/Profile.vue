@@ -123,7 +123,7 @@
           />
         </el-form-item>
         <el-form-item label="详细地址">
-          <el-input v-model="addrForm.detail" type="textarea" :rows="2" maxlength="100" show-word-limit placeholder="街道、门牌号、楼栋等（请填写，100 字内）" />
+          <el-input v-model="addrForm.detail" type="textarea" :autosize="{ minRows: 1, maxRows: 6 }" maxlength="100" show-word-limit placeholder="街道、门牌号、楼栋等（100 字内，多行自动增高）" />
         </el-form-item>
         <el-form-item label="设为默认">
           <el-switch v-model="addrForm.isDefault" />

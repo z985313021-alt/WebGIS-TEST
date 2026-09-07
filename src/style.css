@@ -4,3 +4,9 @@ html, body, #app {
   padding: 0;
 }
 * { box-sizing: border-box; }
+
+/* 文本域：禁止右下角手动拖拽改大小，改为由内容自动增高（搭配 :autosize） */
+.el-textarea__inner {
+  resize: none;
+}
+.el-cascader { width: 100%; }
