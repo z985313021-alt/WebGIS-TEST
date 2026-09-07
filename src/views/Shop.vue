@@ -234,7 +234,7 @@ onMounted(async () => {
 .shop-page { padding: 20px 24px 40px; max-width: 1180px; margin: 0 auto; }
 .shop-hero {
   display: flex; align-items: center; justify-content: space-between;
-  background: linear-gradient(135deg, #1743a0, #1d5a63);
+  background: linear-gradient(135deg, #1743a0, #2f5b43);
   color: #fff; border-radius: 14px; padding: 20px 24px; margin-bottom: 18px;
 }
 .shop-title { font-size: 22px; font-weight: 700; }

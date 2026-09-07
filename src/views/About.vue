@@ -128,8 +128,8 @@ const features: Array<{
 }> = [
   {
     icon: '🗺️',
-    accent: '#1890ff',
-    color: 'linear-gradient(135deg, #1890ff, #36cfc9)',
+    accent: '#a03526',
+    color: 'linear-gradient(135deg, #a03526, #3f7a6f)',
     title: '地图主页',
     brief: '基于 OpenLayers 的交互式地图，直观呈现山东非遗的空间分布。',
     points: [
@@ -142,8 +142,8 @@ const features: Array<{
   },
   {
     icon: '📁',
-    accent: '#52c41a',
-    color: 'linear-gradient(135deg, #52c41a, #95de64)',
+    accent: '#4c7a3f',
+    color: 'linear-gradient(135deg, #4c7a3f, #7fae6d)',
     title: '数据管理',
     brief: '上传自己的空间数据，转换体检后叠加到地图展示。',
     points: [
@@ -155,8 +155,8 @@ const features: Array<{
   },
   {
     icon: '📐',
-    accent: '#722ed1',
-    color: 'linear-gradient(135deg, #722ed1, #b37feb)',
+    accent: '#7a3548',
+    color: 'linear-gradient(135deg, #7a3548, #b98a9a)',
     title: '空间分析',
     brief: '内置四项常用空间分析工具，探索数据背后的规律。',
     points: [
@@ -169,8 +169,8 @@ const features: Array<{
   },
   {
     icon: '📊',
-    accent: '#fa8c16',
-    color: 'linear-gradient(135deg, #fa8c16, #ffc53d)',
+    accent: '#b4861f',
+    color: 'linear-gradient(135deg, #b4861f, #d9ab3f)',
     title: '图表可视化',
     brief: 'ECharts 多图联动，点击图表即可反查筛选。',
     points: [
@@ -259,7 +259,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .about-page {
   min-height: 100%;
-  background: linear-gradient(180deg, #eef4ff 0%, #f7f9fc 26%, #ffffff 52%);
+  background: linear-gradient(180deg, #f4ecda 0%, #f7f9fc 26%, #ffffff 52%);
   overflow: hidden;
 }
 
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(24, 144, 255, 0.1);
   border: 1px solid rgba(24, 144, 255, 0.25);
-  color: #1890ff;
+  color: #a03526;
   font-size: 13px;
   font-weight: 600;
   animation: rise 0.7s ease both;
@@ -344,7 +344,7 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #1890ff;
+  background: #a03526;
   animation: pulse 1.6s ease-in-out infinite;
 }
 @keyframes pulse {
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
   font-size: 42px;
   line-height: 1.2;
   margin: 18px 0 12px;
-  background: linear-gradient(120deg, #1890ff, #722ed1);
+  background: linear-gradient(120deg, #a03526, #7a3548);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
 .stat-num {
   font-size: 28px;
   font-weight: 800;
-  color: #1890ff;
+  color: #a03526;
 }
 .stat-label {
   font-size: 12px;
@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
 .feature-card {
   position: relative;
   background: #fff;
-  border: 1px solid #eef1f6;
+  border: 1px solid #eadfc6;
   border-radius: 14px;
   padding: 22px 20px 18px;
   cursor: pointer;
@@ -454,7 +454,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--fc, #1890ff);
+  background: var(--fc, #a03526);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -503,12 +503,12 @@ onBeforeUnmount(() => {
   content: '✓';
   position: absolute;
   left: 0;
-  color: #52c41a;
+  color: #4c7a3f;
   font-weight: 700;
 }
 .feature-cta {
   font-size: 13px;
-  color: #1890ff;
+  color: #a03526;
   font-weight: 600;
   opacity: 0.85;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -526,7 +526,7 @@ onBeforeUnmount(() => {
 }
 .step {
   background: #fff;
-  border: 1px solid #eef1f6;
+  border: 1px solid #eadfc6;
   border-radius: 14px;
   padding: 22px 20px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -539,7 +539,7 @@ onBeforeUnmount(() => {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1890ff, #36cfc9);
+  background: linear-gradient(135deg, #a03526, #3f7a6f);
   color: #fff;
   font-weight: 700;
   display: flex;
@@ -558,8 +558,8 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
 }
 .step-code {
-  background: #0f172a;
-  color: #7dd3fc;
+  background: #2a3a31;
+  color: #c99b3f;
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 12px;
@@ -579,14 +579,14 @@ onBeforeUnmount(() => {
   gap: 12px;
   align-items: flex-start;
   background: #fff;
-  border: 1px dashed #d9e2f0;
+  border: 1px dashed #d8cba6;
   border-radius: 12px;
   padding: 16px;
   transition: border-color 0.25s ease, background 0.25s ease;
 }
 .tip:hover {
-  border-color: #1890ff;
-  background: #f7fbff;
+  border-color: #a03526;
+  background: #f7f1e0;
 }
 .tip-icon {
   font-size: 20px;
@@ -613,7 +613,7 @@ onBeforeUnmount(() => {
   background: #fff;
   border-radius: 14px;
   padding: 20px;
-  border: 1px solid #eef1f6;
+  border: 1px solid #eadfc6;
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -624,7 +624,7 @@ onBeforeUnmount(() => {
 .arch-name {
   font-size: 16px;
   font-weight: 700;
-  color: #1890ff;
+  color: #a03526;
   margin-bottom: 4px;
 }
 .arch-dir {
@@ -649,15 +649,15 @@ onBeforeUnmount(() => {
   padding: 6px 14px;
   border-radius: 999px;
   background: #fff;
-  border: 1px solid #e5eaf2;
+  border: 1px solid #e6dbc0;
   font-size: 12.5px;
   color: #4b5563;
   transition: all 0.25s ease;
 }
 .tech-tag:hover {
-  border-color: #1890ff;
-  color: #1890ff;
-  background: #f0f7ff;
+  border-color: #a03526;
+  color: #a03526;
+  background: #f0e7cd;
   transform: translateY(-2px);
 }
 
