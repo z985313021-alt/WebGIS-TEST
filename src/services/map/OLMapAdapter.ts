@@ -1,5 +1,6 @@
 // 逻辑层：OpenLayers 实现的 MapAdapter
 // 合并自：队友 T2（天地图 WMTS + 投影切换）+ T3（GeoJSON 图层/筛选/高亮/点击）+ T7（量算绘制）
+// 成员2（地图模块）新增：点位聚合（Cluster）+ 密度热力图（Heatmap）
 // 注意：ol 的 Map 导入别名 OMap，避免遮蔽全局 Map（new Map() 必须指向 JS Map）
 import OMap from 'ol/Map';
 import View from 'ol/View';
@@ -12,6 +13,8 @@ import Draw from 'ol/interaction/Draw';
 import ImageLayer from 'ol/layer/Image';
 import type ImageSource from 'ol/source/Image';
 import ImageWMS from 'ol/source/ImageWMS';
+import Cluster from 'ol/source/Cluster';
+import HeatmapLayer from 'ol/layer/Heatmap';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
@@ -62,6 +65,20 @@ function easeOutBack(t: number): number {
   return 1 + c3 * u * u * u + c1 * u * u;
 }
 
+// ---- 聚合样式辅助 ----
+/** 聚合圆颜色：数量越多颜色越暖（蓝→绿→黄→橙→红） */
+function clusterColor(count: number): string {
+  if (count < 5) return '#3b82f6';
+  if (count < 15) return '#10b981';
+  if (count < 30) return '#f59e0b';
+  if (count < 60) return '#f97316';
+  return '#ef4444';
+}
+/** 聚合圆半径：数量越大圆越大（14~26px） */
+function clusterRadius(count: number): number {
+  return Math.min(26, 14 + Math.sqrt(count) * 2.2);
+}
+
 export class OLMapAdapter implements MapAdapter {
   private map: OMap | null = null;
   private baseLayer: ReturnType<typeof createBaseMapLayer> | null = null;
@@ -80,6 +97,18 @@ export class OLMapAdapter implements MapAdapter {
   /** 本次出生动画要弹出的 feature 集合（空 = 全部可见点都弹） */
   private birthTargets = new Map<Feature, boolean>();
 
+  // ---- 成员2：聚合 / 热力图状态 ----
+  /** 当前显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 */
+  private displayMode: 'normal' | 'cluster' | 'heatmap' = 'normal';
+  /** 聚合距离（像素） */
+  private clusterDistance = 60;
+  /** 聚合图层（基于 heritage 原始 source 做 Cluster 包装） */
+  private clusterLayer: VectorLayer<Cluster> | null = null;
+  /** 热力图图层 */
+  private heatmapLayer: HeatmapLayer | null = null;
+  /** 记录 heritage 图层的原始 VectorSource，供聚合/热力图复用 */
+  private heritageSource: VectorSource | null = null;
+
   mount(target: HTMLElement, provider: BaseMapProvider = 'osm'): void {
     this.provider = provider;
     this.baseMapType = 'vec';
@@ -96,10 +125,42 @@ export class OLMapAdapter implements MapAdapter {
     // zoom 变化时重算样式（非遗点标注在小/大比例之间切换 icon 与图片+名称）
     this.map.getView().on('change:resolution', () => {
       this.layers.forEach((layer) => layer.changed());
+      this.clusterLayer?.changed();
     });
     this.map.on('singleclick', (evt) => {
       // 量算绘制中：抑制要素点击，避免与绘制冲突
       if (this.measuring) return;
+      // 聚合模式：优先检测聚合点，点击聚合圆则放大展开
+      if (this.displayMode === 'cluster' && this.clusterLayer) {
+        const clusterFeat = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+          layerFilter: (l) => l === this.clusterLayer,
+        });
+        if (clusterFeat) {
+          const features = clusterFeat.get('features') as Feature[] | undefined;
+          if (features && features.length > 1) {
+            // 多个点聚合 → 飞到聚合中心并放大一级展开
+            const geom = clusterFeat.getGeometry();
+            if (geom && geom.getType() === 'Point') {
+              const coord = (geom as any).getCoordinates();
+              const view = this.map!.getView();
+              view.animate({
+                center: coord,
+                zoom: Math.min((view.getZoom() ?? 7) + 2, 18),
+                duration: 500,
+              });
+            }
+            return;
+          }
+          // 单点聚合 → 透传到普通点击回调
+          if (features && features.length === 1) {
+            const props = (features[0].get('_props') as Record<string, unknown>) ?? features[0].getProperties();
+            this.clickCb?.(props);
+            return;
+          }
+        }
+        this.clickCb?.(null);
+        return;
+      }
       const feature = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f);
       if (feature) {
         this.clickCb?.(feature.getProperties() as Record<string, unknown>);
@@ -162,13 +223,21 @@ export class OLMapAdapter implements MapAdapter {
       f.set('_props', f.getProperties());
       if (f.get('id') == null && f.get('_id') == null) f.set('_id', f.getId());
     });
+    const source = new VectorSource({ features });
     const layer = new VectorLayer({
-      source: new VectorSource({ features }),
+      source,
       style: (feature) => this.buildStyle(feature as Feature),
     });
     this.map.addLayer(layer);
     this.layers.set(id, layer);
     if (styleFn) this.styleFns.set(id, styleFn);
+    // 记录 heritage 图层 source，供聚合/热力图复用
+    if (id === 'heritage') {
+      this.heritageSource = source;
+      // 如果当前处于聚合/热力图模式，重建对应图层
+      if (this.displayMode === 'cluster') this.setupClusterLayer();
+      else if (this.displayMode === 'heatmap') this.setupHeatmapLayer();
+    }
   }
 
   /** 兼容旧接口：无样式/筛选的普通矢量图层 */
@@ -228,6 +297,11 @@ export class OLMapAdapter implements MapAdapter {
   setLayerFilter(id: string, predicate: (props: Record<string, unknown>) => boolean): void {
     this.filters.set(id, predicate);
     this.layers.get(id)?.changed();
+    // 筛选变化时聚合/热力图也需要刷新（基于同一 source）
+    if (id === 'heritage') {
+      this.clusterLayer?.getSource()?.refresh();
+      this.heatmapLayer?.getSource()?.changed();
+    }
   }
 
   setHighlightId(id: string | number | null): void {
@@ -254,6 +328,14 @@ export class OLMapAdapter implements MapAdapter {
     const wmsLayer = this.wmsLayers.get(id);
     if (wmsLayer && this.map) this.map.removeLayer(wmsLayer);
     this.wmsLayers.delete(id);
+
+    // 移除 heritage 时同步清理聚合/热力图
+    if (id === 'heritage') {
+      this.heritageSource = null;
+      this.disposeClusterLayer();
+      this.disposeHeatmapLayer();
+      this.displayMode = 'normal';
+    }
   }
 
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
@@ -356,8 +438,135 @@ export class OLMapAdapter implements MapAdapter {
     return this.measuring;
   }
 
+  // ============================================================
+  // 成员2（地图模块）：点位聚合 + 密度热力图
+  // ============================================================
+
+  /** 构建聚合要素样式：圆形 + 数量文字，颜色/半径随数量变化 */
+  private buildClusterStyle(feature: Feature): Style {
+    const features = feature.get('features') as Feature[] | undefined;
+    const count = features ? features.length : 1;
+    const color = clusterColor(count);
+    const radius = clusterRadius(count);
+    return new Style({
+      image: new CircleStyle({
+        radius,
+        fill: new Fill({ color: color + 'dd' }),
+        stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
+      }),
+      text: new Text({
+        text: String(count),
+        font: 'bold 13px "Microsoft YaHei", "PingFang SC", sans-serif',
+        fill: new Fill({ color: '#ffffff' }),
+        stroke: new Stroke({ color: 'rgba(0,0,0,0.3)', width: 2 }),
+      }),
+    });
+  }
+
+  /** 创建并挂载聚合图层（基于 heritage 原始 source） */
+  private setupClusterLayer(): void {
+    if (!this.map || !this.heritageSource) return;
+    this.disposeClusterLayer();
+    const clusterSource = new Cluster({
+      distance: this.clusterDistance,
+      source: this.heritageSource,
+    });
+    this.clusterLayer = new VectorLayer({
+      source: clusterSource,
+      style: (feature) => this.buildClusterStyle(feature as Feature),
+    });
+    this.map.addLayer(this.clusterLayer);
+  }
+
+  /** 移除并销毁聚合图层 */
+  private disposeClusterLayer(): void {
+    if (this.clusterLayer && this.map) {
+      this.map.removeLayer(this.clusterLayer);
+    }
+    this.clusterLayer = null;
+  }
+
+  /** 创建并挂载热力图图层（基于 heritage 原始 source） */
+  private setupHeatmapLayer(): void {
+    if (!this.map || !this.heritageSource) return;
+    this.disposeHeatmapLayer();
+    this.heatmapLayer = new HeatmapLayer({
+      source: this.heritageSource,
+      blur: 22,
+      radius: 14,
+      // 权重统一为 1（等权密度），渐变从透明→蓝→青→绿→黄→红
+      gradient: [
+        'rgba(0,0,255,0)',
+        'rgba(0,0,255,0.5)',
+        'rgba(0,255,255,0.6)',
+        'rgba(0,255,0,0.7)',
+        'rgba(255,255,0,0.8)',
+        'rgba(255,128,0,0.85)',
+        'rgba(255,0,0,0.9)',
+      ],
+      opacity: 0.85,
+    });
+    this.map.addLayer(this.heatmapLayer);
+  }
+
+  /** 移除并销毁热力图图层 */
+  private disposeHeatmapLayer(): void {
+    if (this.heatmapLayer && this.map) {
+      this.map.removeLayer(this.heatmapLayer);
+    }
+    this.heatmapLayer = null;
+  }
+
+  /** 切换普通标注图层可见性（聚合/热力图模式下隐藏原始点图层） */
+  private setHeritageLayerVisible(visible: boolean): void {
+    const layer = this.layers.get('heritage');
+    if (layer) layer.setVisible(visible);
+  }
+
+  setClusterMode(enabled: boolean): void {
+    if (!this.map) return;
+    if (enabled) {
+      // 开启聚合：关闭热力图，隐藏原始点图层，显示聚合图层
+      this.disposeHeatmapLayer();
+      this.setupClusterLayer();
+      this.setHeritageLayerVisible(false);
+      this.displayMode = 'cluster';
+    } else {
+      // 关闭聚合：恢复普通标注
+      this.disposeClusterLayer();
+      this.setHeritageLayerVisible(true);
+      this.displayMode = 'normal';
+    }
+  }
+
+  setHeatmapMode(enabled: boolean): void {
+    if (!this.map) return;
+    if (enabled) {
+      // 开启热力图：关闭聚合，隐藏原始点图层，显示热力图
+      this.disposeClusterLayer();
+      this.setupHeatmapLayer();
+      this.setHeritageLayerVisible(false);
+      this.displayMode = 'heatmap';
+    } else {
+      // 关闭热力图：恢复普通标注
+      this.disposeHeatmapLayer();
+      this.setHeritageLayerVisible(true);
+      this.displayMode = 'normal';
+    }
+  }
+
+  setClusterDistance(distance: number): void {
+    this.clusterDistance = Math.max(10, Math.min(200, distance));
+    // 聚合模式下重建图层使新距离生效
+    if (this.displayMode === 'cluster') {
+      this.setupClusterLayer();
+    }
+  }
+
   destroy(): void {
     this.stopBirthAnimation();
+    this.disposeClusterLayer();
+    this.disposeHeatmapLayer();
     this.map?.setTarget(undefined);
     this.map = null;
   }
