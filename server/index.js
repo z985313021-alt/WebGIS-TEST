@@ -9,6 +9,7 @@ import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } f
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
 import { registerUser, loginUser, getUserByToken, logoutByToken, getUserById, setUserRole, ensureAdmin, listUsers, rehashPassword } from './scripts/user-db.mjs';
 import * as shop from './scripts/shop-db.mjs';
+import * as account from './scripts/account-db.mjs';
 import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
 import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCode, stationName, cityPos } from './scripts/train12306.mjs';
 
@@ -449,6 +450,66 @@ app.post('/api/health-check/export', (req, res) => {
     res.send(buffer);
   } catch (e) {
     res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ 个人资料 & 收货地址（account-db） ============
+
+// 读取当前登录用户的资料（含昵称/头像/手机）
+app.get('/api/profile/me', requireAuth, (req, res) => {
+  const u = account.getPublicUser(req.user.id);
+  res.json({ ok: true, profile: u });
+});
+
+// 更新资料（可只传要改的字段）
+app.put('/api/profile/me', requireAuth, (req, res) => {
+  const { nickname, phone, avatarUrl } = req.body ?? {};
+  try {
+    const profile = account.updateUserProfile(req.user.id, { nickname, phone, avatarUrl });
+    res.json({ ok: true, profile });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// 收货地址簿 CRUD
+app.get('/api/addresses', requireAuth, (req, res) => {
+  res.json({ ok: true, items: account.listAddresses(req.user.id) });
+});
+
+app.post('/api/addresses', requireAuth, (req, res) => {
+  try {
+    const item = account.createAddress(req.user.id, req.body ?? {});
+    res.json({ ok: true, item, items: account.listAddresses(req.user.id) });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+app.put('/api/addresses/:id', requireAuth, (req, res) => {
+  try {
+    const item = account.updateAddress(req.user.id, Number(req.params.id), req.body ?? {});
+    res.json({ ok: true, item, items: account.listAddresses(req.user.id) });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+app.post('/api/addresses/:id/default', requireAuth, (req, res) => {
+  try {
+    const items = account.setDefaultAddress(req.user.id, Number(req.params.id));
+    res.json({ ok: true, items });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+app.delete('/api/addresses/:id', requireAuth, (req, res) => {
+  try {
+    const items = account.deleteAddress(req.user.id, Number(req.params.id));
+    res.json({ ok: true, items });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
   }
 });
 
