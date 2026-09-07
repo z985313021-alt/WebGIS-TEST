@@ -59,6 +59,35 @@
       <el-button size="small" :type="showTimeSlider ? 'warning' : ''" @click="showTimeSlider = !showTimeSlider">
         时空演变
       </el-button>
+      <!-- 成员2：点位聚合切换 -->
+      <el-button
+        size="small"
+        :type="mapStore.displayMode === 'cluster' ? 'success' : ''"
+        @click="mapStore.setDisplayMode('cluster')"
+      >
+        点位聚合
+      </el-button>
+      <!-- 成员2：密度热力图切换 -->
+      <el-button
+        size="small"
+        :type="mapStore.displayMode === 'heatmap' ? 'danger' : ''"
+        @click="mapStore.setDisplayMode('heatmap')"
+      >
+        密度热力
+      </el-button>
+    </div>
+
+    <!-- 成员2：聚合模式下的距离调节滑块 -->
+    <div v-if="mapStore.displayMode === 'cluster'" class="cluster-control">
+      <span class="cluster-label">聚合距离</span>
+      <el-slider
+        v-model="mapStore.clusterDistance"
+        :min="20"
+        :max="120"
+        :step="5"
+        style="width: 140px"
+      />
+      <span class="cluster-value">{{ mapStore.clusterDistance }}px</span>
     </div>
   </div>
 </template>
@@ -139,5 +168,14 @@ watch(
 .item-sub { font-size: 11px; color: #999; }
 .list-more { font-size: 12px; color: #aaa; text-align: center; padding: 6px 0; }
 .list-empty { font-size: 12px; color: #bbb; text-align: center; padding: 20px 0; }
-.map-quick-btns { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; }
+.map-quick-btns { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 90%; }
+/* 成员2：聚合距离浮动控制条 */
+.cluster-control {
+  position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+  z-index: 9; display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.95); padding: 6px 14px; border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+}
+.cluster-label { font-size: 12px; color: #666; white-space: nowrap; }
+.cluster-value { font-size: 12px; color: #333; font-weight: bold; min-width: 36px; }
 </style>

@@ -34,6 +34,18 @@ export interface MapAdapter {
   stopMeasure(): void;
   /** 是否正在量算绘制中 */
   isMeasuring(): boolean;
+  /**
+   * 点位聚合模式：小比例尺下将邻近点合并为带数字的聚合圆，
+   * 放大后自动拆分为单点。与热力图模式互斥，传 false 恢复普通标注。
+   */
+  setClusterMode(enabled: boolean): void;
+  /**
+   * 密度热力图模式：以点密度渲染高斯模糊热力图，颜色越亮表示越密集。
+   * 与聚合模式互斥，传 false 恢复普通标注。
+   */
+  setHeatmapMode(enabled: boolean): void;
+  /** 设置聚合距离（像素，默认 60），仅聚合模式下生效 */
+  setClusterDistance(distance: number): void;
   destroy(): void;
 }
 

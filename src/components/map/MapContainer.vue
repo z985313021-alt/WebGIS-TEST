@@ -165,6 +165,26 @@ watch(() => mapStore.baseMap, (t) => adapter?.setBaseMap(t));
 // 底图提供商切换（天地图 / OSM）
 watch(() => mapStore.provider, (p) => adapter?.setProvider(p));
 
+// 成员2：地图显示模式切换（普通/点位聚合/密度热力图，三种互斥）
+watch(
+  () => mapStore.displayMode,
+  (mode) => {
+    if (!adapter) return;
+    if (mode === 'cluster') {
+      adapter.setHeatmapMode(false);
+      adapter.setClusterMode(true);
+    } else if (mode === 'heatmap') {
+      adapter.setClusterMode(false);
+      adapter.setHeatmapMode(true);
+    } else {
+      adapter.setClusterMode(false);
+      adapter.setHeatmapMode(false);
+    }
+  },
+);
+// 成员2：聚合距离变化
+watch(() => mapStore.clusterDistance, (d) => adapter?.setClusterDistance(d));
+
 onBeforeUnmount(() => {
   adapter?.destroy();
   (window as any).__mapAdapter = null;
