@@ -62,8 +62,8 @@ onMounted(async () => {
   await mapStore.checkTianditu();
   // 默认 OSM 底图（无需密钥，始终可加载）；天地图由侧边栏手动切换
   adapter = new OLMapAdapter();
-  // 主页使用无底图模式：省界+市界 GeoJSON 铺底（非遗平台风格），不加载在线瓦片
-  adapter.mount(mapEl.value, 'none');
+  // 默认使用 store 中配置的底图（osm / tianditu / none）
+  adapter.mount(mapEl.value, mapStore.provider);
   // 山东省边界高亮（合并地市界 → 单一省界，加粗描边）
   adapter.addBoundaryLayer(loadShandongBoundary(), 'shandong-boundary');
   adapter.addCityBoundaryLayer(loadShandongCityBoundary(), 'shandong-city');
