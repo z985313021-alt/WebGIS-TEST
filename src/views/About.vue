@@ -1,5 +1,11 @@
 <template>
   <div class="about-page">
+    <!-- 未登录时的顶栏：免登录浏览后返回登录 -->
+    <header v-if="!userStore.isLoggedIn" class="guest-bar">
+      <a class="guest-back" @click.prevent="tryLogin()" href="#">← 返回登录</a>
+      <span class="guest-tip">正在以访客身份浏览平台介绍</span>
+      <a class="guest-login" @click.prevent="tryLogin()" href="#">登录 / 注册体验完整功能 →</a>
+    </header>
     <!-- ============ Hero ============ -->
     <section class="hero">
       <div class="hero-bg" aria-hidden="true">
@@ -114,8 +120,13 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, type RouteLocationRaw } from 'vue-router';
+import { useUserStore } from '@/services/stores/userStore';
 
 const router = useRouter();
+const userStore = useUserStore();
+function tryLogin() {
+  router.push({ path: '/login' });
+}
 
 const features: Array<{
   icon: string;
@@ -697,4 +708,30 @@ onBeforeUnmount(() => {
 .orb-1 { background: radial-gradient(circle at 30% 30%, rgba(184, 134, 31, 0.30), transparent 70%); }
 .orb-2 { background: radial-gradient(circle at 60% 40%, rgba(63, 122, 111, 0.26), transparent 70%); }
 .orb-3 { background: radial-gradient(circle at 50% 50%, rgba(122, 53, 72, 0.22), transparent 70%); }
+
+/* ===== 访客顶栏（免登录浏览 About 时返回登录）===== */
+.guest-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 22px;
+  background: var(--zi-bg, #f4ecda);
+  border-bottom: 1px solid #d9c9a0;
+}
+.guest-bar .guest-back,
+.guest-bar .guest-login { cursor: pointer; }
+.guest-back { color: #6c2c1c; font-weight: 600; text-decoration: none; }
+.guest-login {
+  color: #fff;
+  background: #8f2317;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  text-decoration: none;
+}
+.guest-tip { color: #6c5f47; font-size: 13px; }
 </style>

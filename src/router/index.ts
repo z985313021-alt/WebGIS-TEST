@@ -14,7 +14,7 @@ const router = createRouter({
     // 空间分析已整合进地图主页（?tool=analysis 自动打开分析面板）
     { path: '/analysis', redirect: () => ({ path: '/', query: { tool: 'analysis' } }), meta: { requiresAuth: true } },
     { path: '/chart', name: 'chart', component: () => import('@/views/ChartView.vue') , meta: { requiresAuth: true } },
-    { path: '/about', name: 'about', component: () => import('@/views/About.vue'), meta: { requiresAuth: true } },
+    { path: '/about', name: 'about', component: () => import('@/views/About.vue'), meta: { anonView: true } },
     { path: '/travel', name: 'travel', component: () => import('@/views/TravelRoute.vue'), meta: { requiresAuth: true } },
 
     // 文创商城

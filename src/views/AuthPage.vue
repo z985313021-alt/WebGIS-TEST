@@ -15,6 +15,7 @@
           <li>🗂️ 类别 · 地市 · 批次多维筛选与空间分析</li>
           <li>🛍️ 逛文创 · 选购心仪非遗周边</li>
         </ul>
+        <a href="/about" style="display:inline-block;margin:8px 0 14px;color:#f5e4bd;font-size:13px;text-decoration:none;border-bottom:1px dashed rgba(245,228,189,.55)">🏮 还不了解？先免登录浏览「平台介绍」→</a>
         <div class="demo-tip">
           <div class="demo-title">✨ 演示账号（一键初始化）</div>
           <div class="demo-line">管理员：<b>admin</b> / <b>admin123</b></div>
