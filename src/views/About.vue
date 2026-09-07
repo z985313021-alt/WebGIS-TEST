@@ -678,4 +678,23 @@ onBeforeUnmount(() => {
   color: #8a94a6;
   font-size: 13px;
 }
+
+/* ===== 非遗国潮 · 对比度修正（冷灰字 -> 暖墨，浅底可读性）===== */
+.hero-badge {
+  background: rgba(184, 134, 31, 0.14);
+  border-color: rgba(184, 134, 31, 0.35);
+}
+.hero-sub { color: #5a4a33; }
+.stat-label { color: #6c5f47; }
+.section-desc { color: #6c5f47; }
+.feature-brief { color: #4f4634; }
+.feature-list li { color: #4a3f2e; }
+.feature-cta { opacity: 1; }
+.about-footer { color: #6c5f47; }
+.hero-bg::before {
+  background: radial-gradient(ellipse at 50% -20%, rgba(184, 134, 31, 0.14), transparent 62%);
+}
+.orb-1 { background: radial-gradient(circle at 30% 30%, rgba(184, 134, 31, 0.30), transparent 70%); }
+.orb-2 { background: radial-gradient(circle at 60% 40%, rgba(63, 122, 111, 0.26), transparent 70%); }
+.orb-3 { background: radial-gradient(circle at 50% 50%, rgba(122, 53, 72, 0.22), transparent 70%); }
 </style>
