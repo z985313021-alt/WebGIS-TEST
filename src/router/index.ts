@@ -20,6 +20,7 @@ const router = createRouter({
     // 文创商城
     { path: '/shop', name: 'shop', component: () => import('@/views/Shop.vue'), meta: { requiresAuth: true } },
     { path: '/orders', name: 'orders', component: () => import('@/views/MyOrders.vue'), meta: { requiresAuth: true } },
+    { path: '/profile', name: 'profile', component: () => import('@/views/Profile.vue'), meta: { requiresAuth: true } },
     { path: '/admin-shop', name: 'admin-shop', component: () => import('@/views/AdminShop.vue'), meta: { requiresAuth: true, adminOnly: true } },
   ],
 });

@@ -31,8 +31,9 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="profile">👤 个人中心</el-dropdown-item>
                 <el-dropdown-item command="orders">📦 我的订单</el-dropdown-item>
-                <el-dropdown-item v-if="user.isAdmin" command="admin">🧑‍💼 文创后台</el-dropdown-item>
+                <el-dropdown-item v-if="user.isAdmin" command="admin">⚙ 文创后台</el-dropdown-item>
                 <el-dropdown-item divided command="pwd">🔑 修改密码</el-dropdown-item>
                 <el-dropdown-item divided command="logout">↪ 退出登录</el-dropdown-item>
               </el-dropdown-menu>
@@ -63,7 +64,8 @@ const avatarText = computed(() => (user.displayName || '?').slice(0, 1).toUpperC
 const cartN = computed(() => cartS.count);
 
 function onCommand(cmd: string) {
-  if (cmd === 'orders') window.location.href = '/orders';
+  if (cmd === 'profile') window.location.href = '/profile';
+  else if (cmd === 'orders') window.location.href = '/orders';
   else if (cmd === 'admin') window.location.href = '/admin-shop';
   else if (cmd === 'pwd') changePwd();
   else if (cmd === 'logout') doLogout();

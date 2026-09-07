@@ -6,6 +6,9 @@ export interface UserInfo {
   username: string;
   email: string;
   role: 'user' | 'admin';
+  nickname?: string;
+  phone?: string;
+  avatarUrl?: string;
   createdAt?: string;
 }
 
