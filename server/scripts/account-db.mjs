@@ -132,7 +132,8 @@ export function updateAddress(userId, id, { receiver, phone, region, detail, isD
   if (!NAME_RE.test(na.receiver)) throw new Error('请填写正确的收货人姓名');
   if (!PHONE_RE.test(na.phone)) throw new Error('请输入正确的 11 位手机号');
   if (!na.region) throw new Error('请选择所在地区');
-  if (na.detail.length < 5) throw new Error('请填写详细地址（不少于 5 字）');
+  if (!na.detail) throw new Error('请填写详细地址');
+  if (na.detail.length > 100) throw new Error('详细地址请控制在 100 字以内');
 
   const def = isDefault === undefined ? !!row.is_default : !!isDefault;
   if (def) emptyDefaultFor(userId);

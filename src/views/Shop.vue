@@ -104,7 +104,7 @@
             @change="onRegionChange"
           />
         </el-form-item>
-        <el-form-item label="详细地址" required><el-input v-model="form.detail" placeholder="街道、门牌号、楼栋等（不少于 5 字）" /></el-form-item>
+        <el-form-item label="详细地址" required><el-input v-model="form.detail" maxlength="100" show-word-limit placeholder="街道、门牌号、楼栋等（请填写，100 字内）" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" placeholder="选填" /></el-form-item>
       </el-form>
       <div class="ckout-tip">
@@ -251,7 +251,7 @@ async function placeOrder() {
   const region = regionText.value;
   if (!region) { ElMessage.warning('请选择 省 / 市 / 区县'); return; }
   if (!form.detail.trim()) { ElMessage.warning('请填写详细地址（街道 / 门牌）'); return; }
-  if (form.detail.trim().length < 5) { ElMessage.warning('详细地址至少 5 个字'); return; }
+  if (form.detail.trim().length > 100) { ElMessage.warning('详细地址请控制在 100 字以内'); return; }
   form.address = `${region} ${form.detail.trim()}`;
   if (!form.receiver || !form.phone || !form.address) {
     ElMessage.warning('请完整填写收货人、手机号与地址');

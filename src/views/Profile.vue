@@ -123,7 +123,7 @@
           />
         </el-form-item>
         <el-form-item label="详细地址">
-          <el-input v-model="addrForm.detail" type="textarea" :rows="2" placeholder="街道、门牌号、楼栋等（不少于 5 字）" />
+          <el-input v-model="addrForm.detail" type="textarea" :rows="2" maxlength="100" show-word-limit placeholder="街道、门牌号、楼栋等（请填写，100 字内）" />
         </el-form-item>
         <el-form-item label="设为默认">
           <el-switch v-model="addrForm.isDefault" />
@@ -264,7 +264,8 @@ async function saveAddr() {
   if (!receiver.trim()) { ElMessage.warning('请填写收货人'); return; }
   if (!phoneOk(phone)) { ElMessage.warning('请输入正确的 11 位手机号'); return; }
   if (!region.trim()) { ElMessage.warning('请填写所在地区'); return; }
-  if (detail.trim().length < 5) { ElMessage.warning('请填写详细地址（不少于 5 字）'); return; }
+  if (!detail.trim()) { ElMessage.warning('请填写详细地址'); return; }
+  if (detail.trim().length > 100) { ElMessage.warning('详细地址请控制在 100 字以内'); return; }
   savingAddr.value = true;
   try {
     const payload = { receiver: receiver.trim(), phone, region: region.trim(), detail: detail.trim(), isDefault };
