@@ -5,24 +5,44 @@
     <div class="deco deco-3"></div>
 
     <div class="auth-card">
-      <!-- 左侧品牌区 -->
+      <!-- 左侧品牌区（平台信息浏览） -->
       <div class="brand-panel">
+        <div class="brand-eyebrow">山东 · 非物质文化遗产数字地图</div>
         <div class="brand-logo">🗺️</div>
-        <div class="brand-name">WebGIS 实习平台</div>
-        <div class="brand-slogan">山东省非物质文化遗产数字地图 · 文创商城</div>
-        <ul class="brand-features">
-          <li>📍 全省 185+ 非遗项目精准落图</li>
-          <li>🗂️ 类别 · 地市 · 批次多维筛选与空间分析</li>
-          <li>🛍️ 逛文创 · 选购心仪非遗周边</li>
+        <h1 class="brand-title">WebGIS 实习平台</h1>
+        <p class="brand-lead">让散落在齐鲁大地的非遗，汇成一张可以“逛”的数字图谱 —— 看、查、算、买，一站完成。</p>
+
+        <ul class="brand-list">
+          <li>
+            <span class="bl-ico">🗺️</span>
+            <b>一张图看懂非遗</b>
+            <span class="bl-desc">185+ 项国家级 / 省级非遗按图索骥，覆盖全省。</span>
+          </li>
+          <li>
+            <span class="bl-ico">🧮</span>
+            <b>能筛能算能分析</b>
+            <span class="bl-desc">按类别 · 地市 · 批次筛选，叠加空间分析与统计图表。</span>
+          </li>
+          <li>
+            <span class="bl-ico">🧭</span>
+            <b>规划非遗之旅</b>
+            <span class="bl-desc">一键生成路线，串联沿途遗产点与行程建议。</span>
+          </li>
+          <li>
+            <span class="bl-ico">🛍️</span>
+            <b>把匠心带回家</b>
+            <span class="bl-desc">选购由非遗衍生的文创好物，支持在线下单。</span>
+          </li>
         </ul>
-        <a href="/about" style="display:inline-block;margin:8px 0 14px;color:#f5e4bd;font-size:13px;text-decoration:none;border-bottom:1px dashed rgba(245,228,189,.55)">🏮 还不了解？先免登录浏览「平台介绍」→</a>
+
         <div class="demo-tip">
-          <div class="demo-title">✨ 演示账号（一键初始化）</div>
+          <div class="demo-title">✨ 演示账号（未创建则一键初始化）</div>
           <div class="demo-line">管理员：<b>admin</b> / <b>admin123</b></div>
           <el-button size="small" type="primary" plain class="setup-btn" :loading="setupLoading" @click="onSetupAdmin">
             点我创建“管理员”演示账号
           </el-button>
         </div>
+        <div class="brand-note">— 免费注册 · 即刻云赏齐鲁非遗 —</div>
       </div>
 
       <!-- 右侧表单区 -->
@@ -233,7 +253,7 @@ async function onSetupAdmin() {
 .mode-tabs :deep(.el-tabs__nav-wrap::after) { height: 1px; background: #eee; }
 .mode-tabs :deep(.el-tabs__item) { font-size: 16px; font-weight: 600; }
 .submit-btn { width: 100%; margin-top: 2px; }
-.foot-tip { text-align: center; color: #999; font-size: 13px; margin-top: 14px; }
+.foot-tip { text-align: center; color: #8a7752; font-size: 13px; margin-top: 14px; }
 .back-home { text-align: center; margin-top: 12px; }
 
 @media (max-width: 720px) {
@@ -266,4 +286,61 @@ async function onSetupAdmin() {
 .brand-features li { border-top-color: rgba(255, 240, 200, 0.30); }
 .feature-ico-seal { color: #3c6a50; }      /* 松青仅点缀图标/徽记 */
 .demo-tip { border-color: rgba(255, 232, 170, 0.55); background: rgba(255, 240, 200, 0.10); }
+
+/* ===== 登录页“合而为一”信息浏览增强 ===== */
+.auth-page { overflow-y: auto; align-items: flex-start; padding: 40px 20px; }
+.auth-card {
+  width: min(1060px, 94vw);
+  min-height: auto;
+  display: flex;
+  align-items: stretch;
+}
+.brand-panel { position: relative; width: 58%; padding: 34px 32px; }
+.form-panel { width: 42%; padding: 40px 34px; }
+
+.brand-eyebrow {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid rgba(247, 226, 176, 0.6);
+  border-radius: 999px;
+  color: #f4ddae;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  margin-bottom: 14px;
+}
+.brand-title {
+  font-size: 30px;
+  color: #fff;
+  margin: 10px 0 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.brand-lead {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255, 236, 200, 0.92);
+  margin: 0 0 18px;
+}
+.brand-list {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+}
+.brand-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 240, 200, 0.28);
+}
+.brand-list li b { width: 168px; color: #fff; font-size: 14px; }
+.brand-list li .bl-ico { font-size: 18px; width: 22px; text-align: center; }
+.brand-list li .bl-desc { width: 100%; padding-left: 32px; color: rgba(255, 240, 210, 0.82); font-size: 12.5px; line-height: 1.6; }
+.demo-tip { margin-top: 4px; }
+.brand-note { margin-top: 18px; color: rgba(255, 239, 203, 0.8); font-size: 12.5px; letter-spacing: 0.06em; text-align: center; }
+@media (max-width: 900px) {
+  .auth-card { flex-direction: column; }
+  .brand-panel, .form-panel { width: 100%; }
+}
 </style>

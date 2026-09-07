@@ -498,7 +498,7 @@ onBeforeUnmount(() => {
 .date-picker { width: 140px; }
 .arrow { font-size: 15px; color: #b08d57; font-weight: 700; }
 .mb8 { margin-bottom: 8px; }
-.train-count { font-size: 12px; color: #666; margin-bottom: 6px; }
+.train-count { font-size: 12px; color: #574b36; margin-bottom: 6px; }
 .train-table { width: 100%; }
 .train-row-mapped { background: #f0f7ff !important; }
 .detail-box { padding: 6px 12px 10px; background: #faf8f2; }
@@ -512,17 +512,17 @@ onBeforeUnmount(() => {
 .stop-dot.highlight { background: #f6a623; box-shadow: 0 0 4px rgba(246,166,35,0.8); }
 .stop-info { min-width: 0; }
 .stop-name { font-size: 12px; color: #333; font-weight: 600; }
-.stop-time { color: #999; font-weight: 400; }
+.stop-time { color: #7a6946; font-weight: 400; }
 .stop-extra { font-size: 11px; color: #8a7148; }
 .no-seat { color: #bbb; }
-.detail-empty { font-size: 12px; color: #999; padding: 4px 0; }
-.tip { font-size: 12px; color: #999; margin: 0 0 8px; }
+.detail-empty { font-size: 12px; color: #7a6946; padding: 4px 0; }
+.tip { font-size: 12px; color: #7a6946; margin: 0 0 8px; }
 .route-result { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .route-card { flex: 1; min-width: 200px; border-radius: 8px; padding: 10px 12px; border: 1px solid #e5dcc3; }
 .route-card.time { background: #f0f7ff; }
 .route-card.cost { background: #fdf6ec; }
 .rc-title { font-size: 13px; font-weight: 700; color: #4a3a1f; margin-bottom: 6px; }
-.rc-line { font-size: 12px; color: #555; margin: 3px 0; }
+.rc-line { font-size: 12px; color: #4d4231; margin: 3px 0; }
 .route-note { width: 100%; font-size: 11px; color: #8a7148; }
-.stops-text { color: #666; line-height: 1.5; }
+.stops-text { color: #574b36; line-height: 1.5; }
 </style>

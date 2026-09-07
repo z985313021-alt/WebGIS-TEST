@@ -286,8 +286,8 @@ async function onProbeWms() {
 
 <style scoped>
 .data-manage { padding: 16px; max-width: 860px; }
-.desc { color: #888; font-size: 13px; margin: 4px 0 16px; }
-.upload-tip { color: #666; font-size: 13px; }
+.desc { color: #6a5a3e; font-size: 13px; margin: 4px 0 16px; }
+.upload-tip { color: #574b36; font-size: 13px; }
 .file-preview { margin-top: 8px; font-size: 13px; color: #67c23a; }
 .column-map { margin-top: 12px; }
 .actions { margin: 16px 0; }
@@ -298,5 +298,5 @@ async function onProbeWms() {
 .report-header { display: flex; justify-content: space-between; align-items: center; }
 .dataset-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; border-bottom: 1px solid #f0f0f0; }
 .dataset-name { font-size: 13px; color: #333; }
-.dataset-meta { font-size: 12px; color: #999; }
+.dataset-meta { font-size: 12px; color: #7a6946; }
 </style>

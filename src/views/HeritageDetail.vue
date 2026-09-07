@@ -223,7 +223,7 @@ function viewOnMap() {
 /* ---- T11 互动区 ---- */
 .interact-card { margin-top: 20px; }
 .interact-head { display: flex; align-items: center; gap: 16px; }
-.interact-tip { font-size: 13px; color: #999; }
+.interact-tip { font-size: 13px; color: #7a6946; }
 .comment-form { margin-bottom: 8px; }
 .nick-input { width: 240px; margin-bottom: 10px; }
 .comment-row { display: flex; gap: 10px; align-items: flex-end; }

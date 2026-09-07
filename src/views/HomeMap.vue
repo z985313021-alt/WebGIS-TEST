@@ -152,9 +152,9 @@ watch(
 
 <style scoped>
 .home-wrap { position: relative; width: 100%; height: 100%; }
-.basemap-tip { font-size: 12px; color: #888; margin-bottom: 8px; }
+.basemap-tip { font-size: 12px; color: #6a5c40; margin-bottom: 8px; }
 .list-section { margin-top: 12px; border-top: 1px solid #eee; padding-top: 8px; }
-.list-header { font-size: 12px; color: #999; margin-bottom: 6px; }
+.list-header { font-size: 12px; color: #7a6946; margin-bottom: 6px; }
 .list-items { max-height: 340px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
 .list-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -165,7 +165,7 @@ watch(
 .item-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 2px rgba(0,0,0,0.15); }
 .item-info { min-width: 0; }
 .item-name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.item-sub { font-size: 11px; color: #999; }
+.item-sub { font-size: 11px; color: #7a6946; }
 .list-more { font-size: 12px; color: #aaa; text-align: center; padding: 6px 0; }
 .list-empty { font-size: 12px; color: #bbb; text-align: center; padding: 20px 0; }
 .map-quick-btns { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 9; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 90%; }
