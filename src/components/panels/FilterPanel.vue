@@ -4,14 +4,14 @@
       <span class="label">底图</span>
       <el-radio-group v-model="mapStore.provider" size="small" style="width: 100%">
         <el-radio-button value="none">无底图</el-radio-button>
-        <el-radio-button value="osm">浅色</el-radio-button>
+        <el-radio-button value="osm">OSM</el-radio-button>
         <el-radio-button value="tianditu" :disabled="!mapStore.tiandituConfigured">
           天地图
         </el-radio-button>
       </el-radio-group>
     </div>
     <div v-if="!mapStore.tiandituConfigured" class="basemap-hint">
-      ⚠️ 天地图未启用：.env 未配置 TIANDITU_TK，当前使用无底图（省界图）
+      ⚠️ 天地图未启用：.env 未配置 TIANDITU_TK，当前使用 OSM 底图
     </div>
 
     <div class="filter-row">
