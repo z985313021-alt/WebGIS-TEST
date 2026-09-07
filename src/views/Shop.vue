@@ -93,7 +93,18 @@
         </el-form-item>
         <el-form-item label="收货人" required><el-input v-model="form.receiver" placeholder="姓名" /></el-form-item>
         <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="11 位手机号" maxlength="11" @input="onPhInput" /></el-form-item>
-        <el-form-item label="收货地址" required><el-input v-model="form.address" type="textarea" :rows="2" placeholder="省 / 市 / 区 / 详细地址" /></el-form-item>
+        <el-form-item label="所在地区" required>
+          <el-cascader
+            v-model="regionSel"
+            class="region-cascader"
+            :options="regionOptions"
+            :props="{ expandTrigger: 'hover', checkStrictly: false, emitPath: true }"
+            placeholder="选择 省 / 市 / 区县"
+            filterable clearable
+            @change="onRegionChange"
+          />
+        </el-form-item>
+        <el-form-item label="详细地址" required><el-input v-model="form.detail" placeholder="街道、门牌号、楼栋等（不少于 5 字）" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" placeholder="选填" /></el-form-item>
       </el-form>
       <div class="ckout-tip">
@@ -116,6 +127,8 @@ import * as api from '@/data/api/shop';
 import type { Product, CategoryCnt, CartItem } from '@/data/api/shop';
 import * as acct from '@/data/api/account';
 import type { AddressItem } from '@/data/api/account';
+import { regionData } from 'element-china-area-data';
+
 import { useCartStore } from '@/services/stores/cartStore';
 
 const cartS = useCartStore();
@@ -131,7 +144,32 @@ const cart = ref<CartItem[]>([]);
 const cartOpen = ref(false);
 const checkoutOpen = ref(false);
 const submitting = ref(false);
-const form = reactive({ receiver: '', phone: '', address: '', remark: '' });
+const form = reactive({ receiver: '', phone: '', address: '', detail: '', remark: '' });
+
+/* 省 / 市 / 区县 三级联动 */
+const regionOptions = regionData as unknown as any[];
+const codeLabel = new Map<string, string>();
+(function () {
+  const walk = (arr: any[]) => { for (const n of arr || []) { codeLabel.set(String(n.value), n.label); if (n.children) walk(n.children); } };
+  walk(regionData);
+})();
+const regionSel = ref<string[]>([]);
+const regionText = ref('');
+function resolveRegionCodes(text: string): string[] {
+  const parts = (text || '').trim().split(/[\s,，、]+/).filter(Boolean);
+  if (!parts.length) return [];
+  let layer: any[] = regionData; const codes: string[] = [];
+  for (const p of parts) {
+    const hit = (layer || []).find((n: any) => n.label === p || n.label?.includes(p) || p.includes(n.label));
+    if (!hit) break;
+    codes.push(String(hit.value)); layer = hit.children;
+  }
+  return codes;
+}
+function onRegionChange() {
+  regionText.value = (regionSel.value || []).map((c) => codeLabel.get(String(c)) || '').filter(Boolean).join(' ');
+}
+
 
 const cartTotal = computed(() => cart.value.reduce((s, i) => s + i.price * i.qty, 0));
 const cartTotalQty = computed(() => cart.value.reduce((s, i) => s + i.qty, 0));
@@ -190,7 +228,9 @@ function onPhInput() {
 function fillFrom(a: AddressItem) {
   form.receiver = a.receiver;
   form.phone = a.phone;
-  form.address = a.region ? `${a.region} ${a.detail}` : a.detail;
+  form.detail = a.detail || '';
+  regionSel.value = a.region ? resolveRegionCodes(a.region) : [];
+  onRegionChange();
 }
 function onPick(v: number) {
   const a = addrOptions.value.find((x) => x.id === v);
@@ -207,6 +247,12 @@ async function openCheckout() {
   } catch { addrOptions.value = []; picking.value = null; }
 }
 async function placeOrder() {
+  onRegionChange();
+  const region = regionText.value;
+  if (!region) { ElMessage.warning('请选择 省 / 市 / 区县'); return; }
+  if (!form.detail.trim()) { ElMessage.warning('请填写详细地址（街道 / 门牌）'); return; }
+  if (form.detail.trim().length < 5) { ElMessage.warning('详细地址至少 5 个字'); return; }
+  form.address = `${region} ${form.detail.trim()}`;
   if (!form.receiver || !form.phone || !form.address) {
     ElMessage.warning('请完整填写收货人、手机号与地址');
     return;
@@ -219,13 +265,9 @@ async function placeOrder() {
     ElMessage.warning('请输入 11 位有效手机号（1 开头，第二位 3-9）');
     return;
   }
-  if (form.address.trim().length < 5) {
-    ElMessage.warning('收货地址至少 5 个字');
-    return;
-  }
   submitting.value = true;
   try {
-    const order = await api.submitOrder({ ...form });
+    const order = await api.submitOrder({ receiver: form.receiver.trim(), phone: form.phone, address: form.address, remark: form.remark });
     checkoutOpen.value = false;
     cart.value = [];
     cartS.refresh();

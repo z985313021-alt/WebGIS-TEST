@@ -112,7 +112,15 @@
           <div class="tip" v-if="addrForm.phone && !phoneOk(addrForm.phone)">请输入 11 位有效手机号</div>
         </el-form-item>
         <el-form-item label="所在地区">
-          <el-input v-model="addrForm.region" placeholder="如：山东省 济南市 历下区" />
+          <el-cascader
+            v-model="addrRegionSel"
+            class="region-cascader"
+            :options="regionOptions"
+            :props="{ expandTrigger: 'hover', checkStrictly: false, emitPath: true }"
+            placeholder="选择 省 / 市 / 区县"
+            filterable clearable
+            @change="onRegionChange"
+          />
         </el-form-item>
         <el-form-item label="详细地址">
           <el-input v-model="addrForm.detail" type="textarea" :rows="2" placeholder="街道、门牌号、楼栋等（不少于 5 字）" />
@@ -134,6 +142,30 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { fetchProfile, updateProfile, listAddresses, createAddress, updateAddress, setDefaultAddress, deleteAddress, type AddressItem } from '@/data/api/account';
 import type { UserInfo } from '@/data/api/auth';
+import { regionData } from 'element-china-area-data';
+
+// —— 省 / 市 / 区县 三级联动 ——
+const regionOptions = regionData as unknown as any[];
+const codeLabel = new Map<string, string>();
+((function build() {
+  const walk = (arr: any[]) => { for (const n of arr || []) { codeLabel.set(String(n.value), n.label); if (n.children) walk(n.children); } };
+  walk(regionData);
+})());
+const addrRegionSel = ref<string[]>([]);
+function resolveRegionCodes(text: string): string[] {
+  const parts = (text || '').trim().split(/[\s,，、]+/).filter(Boolean);
+  if (!parts.length) return [];
+  let layer: any[] = regionData; const codes: string[] = [];
+  for (const p of parts) {
+    const hit = (layer || []).find((n: any) => n.label === p || n.label?.includes(p) || p.includes(n.label));
+    if (!hit) break;
+    codes.push(String(hit.value)); layer = hit.children;
+  }
+  return codes;
+}
+function onRegionChange() {
+  addrForm.region = (addrRegionSel.value || []).map((c: any) => codeLabel.get(String(c)) || '').filter(Boolean).join(' ');
+}
 
 const loading = ref(true);
 const profile = ref<UserInfo | null>(null);
@@ -210,6 +242,7 @@ function resetAddrForm() {
   addrForm.region = '';
   addrForm.detail = '';
   addrForm.isDefault = false;
+  addrRegionSel.value = [];
 }
 function openAddr(a?: AddressItem) {
   editingAddr.value = a ?? null;
@@ -218,6 +251,7 @@ function openAddr(a?: AddressItem) {
     addrForm.receiver = a.receiver;
     addrForm.phone = a.phone;
     addrForm.region = a.region;
+    addrRegionSel.value = resolveRegionCodes(a.region);
     addrForm.detail = a.detail;
     addrForm.isDefault = !!a.isDefault;
   } else {
