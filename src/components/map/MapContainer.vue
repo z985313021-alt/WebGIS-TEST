@@ -72,8 +72,7 @@ onMounted(async () => {
   adapter.onFeatureClick((props) => {
     dataStore.select(props ? (props.id as number) : null);
   });
-  (window as any).__mapAdapter = adapter;
-  (window as any).__dataStore = dataStore;
+  mapStore.setMapAdapter(adapter);
   // 挂载后同步一次已存在的数据集（从数据管理页跳转过来的场景）
   syncUserDatasets();
   // 关键：详情页跳转回来时 pendingFlyTo 可能早已设好（watch 不会对旧值触发），
@@ -128,8 +127,12 @@ async function consumePendingFlyTo() {
   const target = dataStore.pendingFlyTo;
   if (!target || !adapter) return;
   await nextTick();
-  dataStore.select(target.id);
-  zoomToItem(target.id, target.zoom);
+  if (target.id != null) {
+    dataStore.select(target.id);
+    zoomToItem(target.id, target.zoom);
+  } else if (target.coord) {
+    adapter.zoomTo(target.coord, target.zoom);
+  }
   dataStore.pendingFlyTo = null;
 }
 watch(
@@ -186,9 +189,9 @@ watch(
 watch(() => mapStore.clusterDistance, (d) => adapter?.setClusterDistance(d));
 
 onBeforeUnmount(() => {
+  mapStore.setMapAdapter(null);
   adapter?.destroy();
-  (window as any).__mapAdapter = null;
-  (window as any).__dataStore = null;
+  adapter = null;
 });
 
 // 供父组件调用：定位到某要素（列表点击）

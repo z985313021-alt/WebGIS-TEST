@@ -21,7 +21,7 @@
           <div class="o-items">
             <div v-for="(it, i) in o.items" :key="i" class="o-item">
               <el-image v-if="it.image" :src="it.image" fit="cover" class="o-img" />
-              <div v-else class="o-img">🏺</div>
+              <img v-else :src="HD_ASSETS.placeholderPorcelain" class="o-img" alt="商品" />
               <div class="oi-name">{{ it.productName }}</div>
               <div class="oi-price">¥{{ it.price }} × {{ it.qty }}</div>
             </div>
@@ -60,6 +60,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import * as api from '@/data/api/shop';
 import type { Order } from '@/data/api/shop';
+import { HD_ASSETS } from '@/data/sources/assets';
 
 const router = useRouter();
 const orders = ref<Order[]>([]);

@@ -3,11 +3,15 @@
     <!-- 顶栏 -->
     <div class="shop-hero">
       <div class="shop-hero-inner">
-        <div class="shop-title">🛍️ 非遗文创商城</div>
+        <div class="shop-title">
+          <el-icon class="title-icon"><ShoppingBag /></el-icon> 非遗文创商城
+        </div>
         <p class="shop-sub">把山东的匠心带回家 · 每件商品都源自一项国家级/省级非物质文化遗产，结算由管理员负责发货</p>
       </div>
       <el-badge :value="cartTotalQty" :hidden="!cartTotalQty" class="cart-badge">
-        <el-button type="primary" plain @click="cartOpen = true">🛒 购物车</el-button>
+        <el-button type="primary" plain @click="cartOpen = true">
+          <el-icon><ShoppingCart /></el-icon> 购物车
+        </el-button>
       </el-badge>
     </div>
 
@@ -31,9 +35,11 @@
       <div v-for="p in products" :key="p.id" class="p-card">
         <div class="p-img">
           <el-image v-if="p.image" :src="p.image" fit="cover" lazy>
-            <template #error><div class="img-ph">🏺</div></template>
+            <template #error>
+              <img :src="HD_ASSETS.placeholderPorcelain" class="img-ph-cover" alt="文创" />
+            </template>
           </el-image>
-          <div v-else class="img-ph">🏺</div>
+          <img v-else :src="HD_ASSETS.placeholderPorcelain" class="img-ph-cover" alt="文创" />
           <el-tag v-if="p.stock <= 0" size="small" type="danger" effect="dark" class="sold-tag">已售罄</el-tag>
         </div>
         <div class="p-body">
@@ -64,13 +70,13 @@
     </div>
 
     <!-- 购物车抽屉 -->
-    <el-drawer v-model="cartOpen" :size="380" title="🛒 我的购物车" direction="rtl">
+    <el-drawer v-model="cartOpen" :size="380" title="我的购物车" direction="rtl">
       <div v-if="!cart.length" class="cart-empty">购物车是空的，去挑几件带回家吧～</div>
       <template v-else>
         <div class="cart-list">
           <div v-for="it in cart" :key="it.productId" class="cart-row">
             <el-image v-if="it.image" :src="it.image" fit="cover" class="cart-img" />
-            <div v-else class="cart-img">🏺</div>
+            <img v-else :src="HD_ASSETS.placeholderPorcelain" class="cart-img" alt="商品" />
             <div class="ci-info">
               <div class="ci-name">{{ it.name }}</div>
               <div class="ci-like">¥{{ it.price.toFixed(0) }} × <el-input-number :model-value="it.qty" :min="1" :max="it.stock" size="small" @change="(v: number | undefined) => syncQty(it.productId, v)" /></div>
@@ -123,11 +129,13 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { ShoppingBag, ShoppingCart } from '@element-plus/icons-vue';
 import * as api from '@/data/api/shop';
 import type { Product, CategoryCnt, CartItem } from '@/data/api/shop';
 import * as acct from '@/data/api/account';
 import type { AddressItem } from '@/data/api/account';
 import { regionData } from 'element-china-area-data';
+import { HD_ASSETS } from '@/data/sources/assets';
 
 import { useCartStore } from '@/services/stores/cartStore';
 
@@ -315,32 +323,68 @@ onMounted(async () => {
   color: #fff; border-radius: 14px; padding: 20px 24px; margin-bottom: 18px;
   box-shadow: 0 6px 18px rgba(120, 60, 20, 0.18);
 }
-.shop-title { font-size: 22px; font-weight: 700; }
+.shop-title { font-size: 22px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.title-icon { font-size: 24px; }
 .shop-sub { margin: 6px 0 0; font-size: 13px; opacity: 0.88; max-width: 720px; }
 
-.cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.cat-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.cat-bar :deep(.el-check-tag) {
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255, 253, 245, 0.9);
+  border: 1px solid rgba(212, 168, 78, 0.35);
+  color: #6d5b45;
+  transition: all 200ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.cat-bar :deep(.el-check-tag:hover) {
+  background: #fffdf5;
+  border-color: rgba(180, 134, 31, 0.6);
+  transform: translateY(-1px);
+}
+.cat-bar :deep(.el-check-tag.is-checked) {
+  background: #9a281c !important;
+  color: #fffaf0 !important;
+  border-color: #9a281c !important;
+  box-shadow: 0 4px 12px -2px rgba(154, 40, 28, 0.35);
+}
 
 .loading, .empty { min-height: 180px; display: flex; align-items: center; justify-content: center; color: #6b5b3f; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
 .p-card {
-  border: 1px solid #eef0f4; border-radius: 12px; overflow: hidden;
-  background: #fff; transition: box-shadow 0.2s, transform 0.2s;
+  border: 1px solid rgba(212, 168, 78, 0.32);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fffdf6;
+  box-shadow: 0 4px 14px -3px rgba(90, 60, 20, 0.05);
+  transition: box-shadow 240ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+              transform 240ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+              border-color 240ms ease;
+  display: flex;
+  flex-direction: column;
 }
-.p-card:hover { box-shadow: 0 8px 26px rgba(24, 51, 115, 0.12); transform: translateY(-3px); }
-.p-img { position: relative; height: 178px; background: #f2f4f8; }
+.p-card:hover {
+  box-shadow: 0 16px 32px -6px rgba(180, 134, 31, 0.16);
+  transform: translateY(-4px);
+  border-color: rgba(212, 168, 78, 0.65);
+}
+.p-img { position: relative; height: 184px; background: #f5f0e1; overflow: hidden; }
 .p-img :deep(.el-image), .p-img .el-image { width: 100%; height: 100%; display: block; }
+.img-ph-cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 300ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)); }
+.p-card:hover .img-ph-cover { transform: scale(1.04); }
 .img-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 44px; color: #b6c2d9; }
-.sold-tag { position: absolute; top: 8px; right: 8px; }
-.p-body { padding: 12px 14px 14px; }
-.p-cat { margin-bottom: 6px; }
-.p-name { font-weight: 600; font-size: 15px; margin: 4px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-sub { color: #8792a5; font-size: 12px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-desc { color: #5c6675; font-size: 12px; line-height: 1.5; height: 36px; overflow: hidden; margin-bottom: 8px; }
-.p-foot { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.p-price { color: #d4380d; font-size: 19px; font-weight: 700; }
-.p-stock { color: #98a2b3; font-size: 12px; }
-.p-add { margin-top: 4px; }
+.sold-tag { position: absolute; top: 8px; right: 8px; border-radius: 999px; }
+.p-body { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+.p-cat { margin-bottom: 6px; border-radius: 999px; align-self: flex-start; }
+.p-name { font-weight: 600; font-size: 15px; margin: 4px 0 2px; color: #2b2218; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-sub { color: #8a7a60; font-size: 12px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-desc { color: #6d5b45; font-size: 12px; line-height: 1.5; height: 36px; overflow: hidden; margin-bottom: 8px; }
+.p-foot { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; margin-top: auto; }
+.p-price { color: #9a281c; font-size: 20px; font-weight: 700; font-family: var(--zi-font-serif, serif); }
+.p-stock { color: #9c8d68; font-size: 12px; }
+.p-add { margin-top: 4px; border-radius: 999px !important; }
 
 .cart-empty { text-align: center; color: #98a2b3; padding: 60px 0; }
 .cart-list { display: flex; flex-direction: column; gap: 12px; }

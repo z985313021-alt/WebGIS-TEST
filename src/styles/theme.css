@@ -53,7 +53,53 @@
   --el-fill-color-light:     #f7f0e0;
   --el-bg-color:             #fffdf4;
   --el-bg-color-page:        #f4eddc;
-  --el-border-radius-base:   6px;
+  --el-border-radius-base:   8px;
+
+  /* ===== 借鉴 antigravity 设计系统 — 间距 / 圆角 / 动效 tokens ===== */
+
+  /* ---- 4px 间距网格 ---- */
+  --zi-space-xs: 4px;
+  --zi-space-sm: 8px;
+  --zi-space-base: 16px;
+  --zi-space-lg: 24px;
+  --zi-space-xl: 32px;
+  --zi-space-2xl: 48px;
+  --zi-space-3xl: 64px;
+  --zi-space-section: 96px;
+
+  /* ---- 成熟工程化圆角体系（弃绝 999px 泛滥，回归严谨 4px/2px 工业标准）---- */
+  --zi-radius-xs: 2px;
+  --zi-radius-sm: 4px;
+  --zi-radius-md: 6px;
+  --zi-radius-lg: 8px;
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 2px;
+
+  /* ---- 表面层级（用色差替代阴影堆叠）---- */
+  --zi-surface-1: var(--zi-bg);
+  --zi-surface-2: var(--zi-bg-deep);
+  --zi-surface-3: var(--zi-panel);
+  --zi-surface-strong: #e8dfc8;
+
+  /* ---- 轻盈边框（标准分割线）---- */
+  --zi-line-soft: rgba(58, 49, 37, 0.08);
+  --zi-line-medium: rgba(58, 49, 37, 0.14);
+  --zi-line-strong: rgba(58, 49, 37, 0.22);
+
+  /* ---- 动效预设 ---- */
+  --zi-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --zi-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --zi-duration-fast: 150ms;
+  --zi-duration-normal: 240ms;
+
+  /* ===== 严谨文博与专业 GIS 设计系统 Tokens ===== */
+  --zi-dock-bg:        #1c1815;                  /* 工具栏深黑漆色 */
+  --zi-surface-light:  #fffdf8;                  /* 工作台温润面板纸面 */
+  --zi-card-bg:        #ffffff;                  /* 卡片纯白玉底 */
+  --zi-border-light:   #e5dcce;                  /* 文博金褐细线 */
+  --zi-border-strong:  #d5c8b2;                  /* 结构描边 */
+  --zi-shadow-subtle:  0 1px 4px rgba(44, 36, 27, 0.05); /* 工整微漫反射 */
+  --zi-shadow-panel:   0 4px 16px rgba(44, 36, 27, 0.08);
 }
 
 /* 全局基底 */

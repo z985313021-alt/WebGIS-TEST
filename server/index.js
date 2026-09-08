@@ -17,6 +17,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const TIANDITU_TK = process.env.TIANDITU_TK || '';
+const AMAP_WEB_KEY = process.env.AMAP_WEB_KEY || '';
+const AMAP_JS_KEY = process.env.AMAP_JS_KEY || '';
+const AMAP_SECURITY_CODE = process.env.AMAP_SECURITY_CODE || '';
 const TDT_SUBDOMAINS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'];
 const TDT_TYPES = ['vec_w', 'img_w', 'cva_w', 'cia_w', 'vec_c', 'img_c', 'cva_c', 'cia_c'];
 const TDT_LAYER = {
@@ -685,9 +688,77 @@ app.get('/api/train/station-code', (req, res) => {
   res.json({ name: q, code: ensureCode(q), station: q ? stationName(ensureCode(q) || '') : '' });
 });
 
+// 高德开放平台配置与状态
+app.get('/api/amap/config', (req, res) => {
+  res.json({
+    configured: !!AMAP_WEB_KEY,
+    hasJsKey: !!AMAP_JS_KEY,
+    jsKey: AMAP_JS_KEY,
+    securityCode: AMAP_SECURITY_CODE,
+  });
+});
+
+// 高德驾车/自驾研学路线规划代理
+app.get('/api/amap/direction/driving', async (req, res) => {
+  const { origin, destination, waypoints, strategy } = req.query;
+  if (!origin || !destination) {
+    return res.json({ status: '0', info: '缺少 origin 或 destination 参数' });
+  }
+  if (!AMAP_WEB_KEY) {
+    return res.json({ status: '0', info: '服务端未配置 AMAP_WEB_KEY' });
+  }
+  try {
+    let url = `https://restapi.amap.com/v3/direction/driving?key=${AMAP_WEB_KEY}&origin=${origin}&destination=${destination}&extensions=base&output=json`;
+    if (waypoints) url += `&waypoints=${waypoints}`;
+    if (strategy) url += `&strategy=${strategy}`;
+    const upstreamRes = await fetch(url);
+    const data = await upstreamRes.json();
+    res.json(data);
+  } catch (err) {
+    res.json({ status: '0', info: '高德接口调用失败: ' + err.message });
+  }
+});
+
+// 高德实时气象代理（非遗地天气与出行适宜度）
+app.get('/api/amap/weather', async (req, res) => {
+  const city = String(req.query.city || '山东');
+  if (!AMAP_WEB_KEY) {
+    return res.json({ status: '0', info: '服务端未配置 AMAP_WEB_KEY' });
+  }
+  try {
+    const url = `https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_WEB_KEY}&city=${encodeURIComponent(city)}&extensions=base&output=json`;
+    const upstreamRes = await fetch(url);
+    const data = await upstreamRes.json();
+    res.json(data);
+  } catch (err) {
+    res.json({ status: '0', info: '高德天气接口失败: ' + err.message });
+  }
+});
+
+// 高德输入提示与 POI 搜索代理
+app.get('/api/amap/inputtips', async (req, res) => {
+  const keywords = String(req.query.keywords || '');
+  const city = String(req.query.city || '山东');
+  if (!keywords) return res.json({ status: '1', tips: [] });
+  if (!AMAP_WEB_KEY) {
+    return res.json({ status: '0', info: '服务端未配置 AMAP_WEB_KEY' });
+  }
+  try {
+    const url = `https://restapi.amap.com/v3/assistant/inputtips?key=${AMAP_WEB_KEY}&keywords=${encodeURIComponent(keywords)}&city=${encodeURIComponent(city)}&output=json`;
+    const upstreamRes = await fetch(url);
+    const data = await upstreamRes.json();
+    res.json(data);
+  } catch (err) {
+    res.json({ status: '0', info: '高德联想接口失败: ' + err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`);
   if (!tdtConfigured()) {
     console.warn('[server] 警告：TIANDITU_TK 未配置，天地图底图不可用（前端自动用 OSM 兜底）');
+  }
+  if (AMAP_WEB_KEY) {
+    console.log('[server] 高德开放平台 Web 服务 Key 已就绪');
   }
 });

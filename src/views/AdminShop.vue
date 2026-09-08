@@ -57,7 +57,7 @@
           <el-table-column label="图片" width="70">
             <template #default="{ row }">
               <el-image v-if="row.image" :src="row.image" fit="cover" style="width:44px;height:44px;border-radius:6px" />
-              <span v-else>🏺</span>
+              <img v-else :src="HD_ASSETS.placeholderPorcelain" style="width:44px;height:44px;border-radius:6px;object-fit:cover;display:block" alt="商品" />
             </template>
           </el-table-column>
           <el-table-column label="名称" min-width="170">
@@ -130,6 +130,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import * as api from '@/data/api/shop';
 import type { Order, Product } from '@/data/api/shop';
+import { HD_ASSETS } from '@/data/sources/assets';
 
 const tab = ref('orders');
 const orders = ref<Order[]>([]);

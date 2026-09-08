@@ -29,15 +29,26 @@ export const useUserStore = defineStore('user', {
       token: stored?.token ?? ('' as string),
       user: stored?.user ?? (null as UserInfo | null),
       checked: false as boolean, // 是否已完成启动时 me 校验
+      isGuest: localStorage.getItem('webgis_guest') === '1', // 游客模式（免登录浏览公开地图）
     };
   },
   getters: {
     isLoggedIn: (s) => !!s.token && !!s.user,
     isAdmin: (s) => s.user?.role === 'admin',
-    displayName: (s) => s.user?.username ?? '',
+    displayName: (s) => s.user?.username ?? (s.isGuest ? '游客' : ''),
   },
   actions: {
+    enterGuestMode() {
+      this.isGuest = true;
+      localStorage.setItem('webgis_guest', '1');
+    },
+    exitGuestMode() {
+      this.isGuest = false;
+      localStorage.removeItem('webgis_guest');
+    },
     persist(token: string, user: UserInfo) {
+      this.isGuest = false;
+      localStorage.removeItem('webgis_guest');
       this.token = token;
       this.user = user;
       localStorage.setItem(AUTH_TOKEN_KEY, token);
@@ -66,6 +77,7 @@ export const useUserStore = defineStore('user', {
         /* 忽略网络错误 */
       }
       this.clear();
+      this.exitGuestMode();
     },
     /** 启动时或刷新后：携带 token 询问后端当前用户，校验会话有效性 */
     async bootstrap() {

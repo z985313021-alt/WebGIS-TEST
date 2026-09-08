@@ -64,5 +64,19 @@ defineEmits<{ (e: 'close'): void }>();
   color: #b4861f;
   font-size: 12px;
 }
+
+/* ===== 窄屏自适应：面板全宽 + 限高，避免遮挡地图 ===== */
+@media (max-width: 980px) {
+  .collapsible-panel {
+    width: calc(100% - 24px) !important;
+    left: 12px !important;
+    right: 12px !important;
+    max-height: 45% !important;
+  }
+  .panel-right {
+    left: 12px !important;
+    right: 12px !important;
+  }
+}
 .panel-body { background: rgba(255, 253, 244, 0.55); }
 </style>
