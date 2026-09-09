@@ -46,6 +46,16 @@ export interface MapAdapter {
   setHeatmapMode(enabled: boolean): void;
   /** 设置聚合距离（像素，默认 60），仅聚合模式下生效 */
   setClusterDistance(distance: number): void;
+  /**
+   * 行政区域热力图模式（Choropleth）：按行政区域统计数量，用色阶填充区域，
+   * 颜色越深表示数量越多。与聚合/密度热力图互斥，传 false 恢复普通标注。
+   */
+  setChoroplethMode(enabled: boolean): void;
+  /**
+   * 设置行政区域统计数据（城市名 -> 数量），用于计算色阶。
+   * 筛选变化时应重新统计并调用此方法更新热力图。
+   */
+  setChoroplethData(data: Record<string, number>): void;
   destroy(): void;
 }
 

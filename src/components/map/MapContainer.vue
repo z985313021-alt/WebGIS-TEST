@@ -67,6 +67,8 @@ onMounted(async () => {
   // 山东省边界高亮（合并地市界 → 单一省界，加粗描边）
   adapter.addBoundaryLayer(loadShandongBoundary(), 'shandong-boundary');
   adapter.addCityBoundaryLayer(loadShandongCityBoundary(), 'shandong-city');
+  // 成员2：设置行政热力图的市界数据
+  adapter.setChoroplethBoundary(loadShandongCityBoundary());
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
   adapter.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
   adapter.onFeatureClick((props) => {
@@ -78,19 +80,34 @@ onMounted(async () => {
   // 关键：详情页跳转回来时 pendingFlyTo 可能早已设好（watch 不会对旧值触发），
   // 这里主动消费一次，让"在地图上查看"真正执行飞行定位动画。
   consumePendingFlyTo();
+  // 成员2：首次统计行政热力图数据（按城市统计非遗数量）
+  updateChoroplethData();
   // 首次挂载全图"生长"一遍：所有点按确定性延迟逐个弹出，一进页面即有代入感。
   // 若非时空演变打点(first-load)则整层重播；因 batch 未设，等价于全部可见点生长。
   await nextTick();
   adapter?.playBirthAnimation();
 });
 
-// 筛选条件变化 → 地图图层筛选
+// 筛选条件变化 → 地图图层筛选 + 行政热力图数据更新
 watch(
   () => dataStore.filteredItems,
   () => {
     adapter?.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
+    updateChoroplethData();
   },
 );
+
+// 成员2：按城市统计当前筛选后的非遗数量，更新行政热力图
+function updateChoroplethData() {
+  if (!adapter) return;
+  const counts: Record<string, number> = {};
+  for (const item of dataStore.filteredItems) {
+    // city 字段可能是"济南市"或"济南"，市界数据用的是简称"济南"
+    const city = (item.city || '').replace(/市$/, '');
+    if (city) counts[city] = (counts[city] || 0) + 1;
+  }
+  adapter.setChoroplethData(counts);
+}
 
 // 时空演变（批次上限变化）→ 仅新出现的点触发"出生"生长动画
 // 记录上次可见 id 集合，diff 出本次新增的点（第一批出现/批次上调才弹；回退/清空不弹）
@@ -168,20 +185,24 @@ watch(() => mapStore.baseMap, (t) => adapter?.setBaseMap(t));
 // 底图提供商切换（天地图 / OSM）
 watch(() => mapStore.provider, (p) => adapter?.setProvider(p));
 
-// 成员2：地图显示模式切换（普通/点位聚合/密度热力图，三种互斥）
+// 成员2：地图显示模式切换（普通/点位聚合/密度热力图/行政区域热力图，四种互斥）
 watch(
   () => mapStore.displayMode,
   (mode) => {
     if (!adapter) return;
+    // 先关闭所有特殊模式
+    adapter.setClusterMode(false);
+    adapter.setHeatmapMode(false);
+    adapter.setChoroplethMode(false);
+    // 再开启目标模式
     if (mode === 'cluster') {
-      adapter.setHeatmapMode(false);
       adapter.setClusterMode(true);
     } else if (mode === 'heatmap') {
-      adapter.setClusterMode(false);
       adapter.setHeatmapMode(true);
-    } else {
-      adapter.setClusterMode(false);
-      adapter.setHeatmapMode(false);
+    } else if (mode === 'choropleth') {
+      // 开启前确保数据最新
+      updateChoroplethData();
+      adapter.setChoroplethMode(true);
     }
   },
 );

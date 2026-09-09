@@ -5,8 +5,8 @@ import type { BaseMapType, BaseMapProvider } from '@/data/sources/tianditu';
 import { fetchTiandituStatus } from '@/data/api/tianditu';
 import type { MapAdapter } from '@/services/map/MapAdapter';
 
-/** 地图显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 */
-export type MapDisplayMode = 'normal' | 'cluster' | 'heatmap';
+/** 地图显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 / choropleth=行政区域热力图 */
+export type MapDisplayMode = 'normal' | 'cluster' | 'heatmap' | 'choropleth';
 
 export const useMapStore = defineStore('map', {
   state: () => ({

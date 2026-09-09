@@ -47,6 +47,26 @@ function pinIconDataUri(color: string): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
+// ---- 行政热力图色阶辅助 ----
+/** 行政热力图色阶：数量从少到多，颜色从浅米黄到深红（非遗主题色） */
+const CHOROPLETH_COLORS = [
+  '#f5ecd7', // 0-10% 极浅
+  '#e8d5a8', // 10-25% 浅黄
+  '#d9b877', // 25-40% 金黄
+  '#c9944a', // 40-55% 琥珀
+  '#b8702e', // 55-70% 橙棕
+  '#a04d22', // 70-85% 深橙
+  '#8f2317', // 85-100% 深红（品牌主色）
+];
+
+/** 根据数量和最大值计算色阶颜色 */
+function choroplethColor(count: number, max: number): string {
+  if (max <= 0 || count <= 0) return CHOROPLETH_COLORS[0];
+  const ratio = count / max;
+  const idx = Math.min(CHOROPLETH_COLORS.length - 1, Math.floor(ratio * CHOROPLETH_COLORS.length));
+  return CHOROPLETH_COLORS[idx];
+}
+
 /** 出生动画参数 */
 const BIRTH_DELAY_MAX = 450; // 每个点最大随机延迟(ms)，让一批点错落弹出
 const BIRTH_DURATION = 620; // 单个点弹性放大时长(ms)
@@ -103,7 +123,7 @@ export class OLMapAdapter implements MapAdapter {
 
   // ---- 成员2：聚合 / 热力图状态 ----
   /** 当前显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 */
-  private displayMode: 'normal' | 'cluster' | 'heatmap' = 'normal';
+  private displayMode: 'normal' | 'cluster' | 'heatmap' | 'choropleth' = 'normal';
   /** 聚合距离（像素） */
   private clusterDistance = 60;
   /** 聚合图层（基于 heritage 原始 source 做 Cluster 包装） */
@@ -112,6 +132,16 @@ export class OLMapAdapter implements MapAdapter {
   private heatmapLayer: HeatmapLayer | null = null;
   /** 记录 heritage 图层的原始 VectorSource，供聚合/热力图复用 */
   private heritageSource: VectorSource | null = null;
+
+  // ---- 成员2：行政区域热力图（Choropleth）状态 ----
+  /** 行政热力图图层（基于市界 GeoJSON，按数量色阶填充） */
+  private choroplethLayer: VectorLayer | null = null;
+  /** 行政区域统计数据：城市名 -> 数量 */
+  private choroplethData: Record<string, number> = {};
+  /** 市界 GeoJSON 数据（由 MapContainer 设置） */
+  private choroplethBoundary: object | null = null;
+  /** 当前 hover 的城市名（用于高亮） */
+  private hoveredCity: string | null = null;
 
   mount(target: HTMLElement, provider: BaseMapProvider = 'osm'): void {
     this.provider = provider;
@@ -141,9 +171,38 @@ export class OLMapAdapter implements MapAdapter {
       this.layers.forEach((layer) => layer.changed());
       this.clusterLayer?.changed();
     });
+    // 行政热力图模式：hover 高亮城市边界
+    this.map.on('pointermove', (evt) => {
+      if (this.displayMode !== 'choropleth' || !this.choroplethLayer) return;
+      const cityFeat = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+        layerFilter: (l) => l === this.choroplethLayer,
+      });
+      const cityName = cityFeat
+        ? ((cityFeat.get('_props') as Record<string, unknown>) ?? cityFeat.getProperties())['name'] as string
+        : null;
+      if (cityName !== this.hoveredCity) {
+        this.hoveredCity = cityName;
+        this.choroplethLayer!.changed();
+        this.map!.getTargetElement().style.cursor = cityFeat ? 'pointer' : '';
+      }
+    });
     this.map.on('singleclick', (evt) => {
       // 量算绘制中：抑制要素点击，避免与绘制冲突
       if (this.measuring) return;
+      // 行政热力图模式：点击城市区域放大到该市
+      if (this.displayMode === 'choropleth' && this.choroplethLayer) {
+        const cityFeat = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+          layerFilter: (l) => l === this.choroplethLayer,
+        });
+        if (cityFeat) {
+          const props = (cityFeat.get('_props') as Record<string, unknown>) ?? cityFeat.getProperties();
+          const center = props['center'] as [number, number] | undefined;
+          if (center) {
+            this.zoomTo(center, 9.5);
+          }
+          return;
+        }
+      }
       // 聚合模式：优先检测聚合点，点击聚合圆则放大展开
       if (this.displayMode === 'cluster' && this.clusterLayer) {
         const clusterFeat = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
@@ -425,11 +484,12 @@ export class OLMapAdapter implements MapAdapter {
     if (wmsLayer && this.map) this.map.removeLayer(wmsLayer);
     this.wmsLayers.delete(id);
 
-    // 移除 heritage 时同步清理聚合/热力图
+    // 移除 heritage 时同步清理聚合/热力图/行政热力图
     if (id === 'heritage') {
       this.heritageSource = null;
       this.disposeClusterLayer();
       this.disposeHeatmapLayer();
+      this.disposeChoroplethLayer();
       this.displayMode = 'normal';
     }
   }
@@ -674,6 +734,87 @@ export class OLMapAdapter implements MapAdapter {
     if (this.displayMode === 'cluster') {
       this.setupClusterLayer();
     }
+  }
+
+  // ---- 成员2：行政区域热力图（Choropleth）----
+  /**
+   * 设置市界 GeoJSON 数据（由 MapContainer 在加载市界后调用）。
+   * 行政热力图基于此数据创建面要素图层。
+   */
+  setChoroplethBoundary(geojson: object): void {
+    this.choroplethBoundary = geojson;
+    // 如果已经在行政热力图模式，重建图层
+    if (this.displayMode === 'choropleth') {
+      this.setupChoroplethLayer();
+    }
+  }
+
+  setChoroplethMode(enabled: boolean): void {
+    if (!this.map) return;
+    if (enabled) {
+      // 开启行政热力图：关闭聚合/热力图，隐藏原始点图层
+      this.disposeClusterLayer();
+      this.disposeHeatmapLayer();
+      this.setupChoroplethLayer();
+      this.setHeritageLayerVisible(false);
+      this.displayMode = 'choropleth';
+    } else {
+      // 关闭行政热力图：恢复普通标注
+      this.disposeChoroplethLayer();
+      this.setHeritageLayerVisible(true);
+      this.displayMode = 'normal';
+    }
+  }
+
+  setChoroplethData(data: Record<string, number>): void {
+    this.choroplethData = { ...data };
+    // 行政热力图模式下刷新图层样式
+    if (this.displayMode === 'choropleth' && this.choroplethLayer) {
+      this.choroplethLayer.changed();
+    }
+  }
+
+  /** 创建并挂载行政热力图图层（基于市界 GeoJSON） */
+  private setupChoroplethLayer(): void {
+    if (!this.map || !this.choroplethBoundary) return;
+    this.disposeChoroplethLayer();
+    const source = new VectorSource({
+      features: new GeoJSON().readFeatures(this.choroplethBoundary, {
+        featureProjection: 'EPSG:3857',
+      }),
+    });
+    this.choroplethLayer = new VectorLayer({
+      source,
+      style: (feature) => this.choroplethStyle(feature as Feature),
+    });
+    this.map.addLayer(this.choroplethLayer);
+  }
+
+  /** 移除并销毁行政热力图图层 */
+  private disposeChoroplethLayer(): void {
+    if (this.choroplethLayer && this.map) {
+      this.map.removeLayer(this.choroplethLayer);
+    }
+    this.choroplethLayer = null;
+    this.hoveredCity = null;
+  }
+
+  /** 行政热力图样式：按城市数量计算填充色，hover 高亮描边 */
+  private choroplethStyle(feature: Feature): Style {
+    const props = (feature.get('_props') as Record<string, unknown>) ?? feature.getProperties();
+    const cityName = (props['name'] as string) || '';
+    const count = this.choroplethData[cityName] || 0;
+    const maxCount = Math.max(1, ...Object.values(this.choroplethData));
+    const fillColor = choroplethColor(count, maxCount);
+    const isHovered = this.hoveredCity === cityName;
+
+    return new Style({
+      fill: new Fill({ color: fillColor }),
+      stroke: new Stroke({
+        color: isHovered ? '#8f2317' : '#ffffff',
+        width: isHovered ? 2.5 : 1,
+      }),
+    });
   }
 
   destroy(): void {
