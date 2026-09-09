@@ -7,8 +7,8 @@
       <el-col :span="10">
         <el-card shadow="never">
           <div class="gallery">
-            <img :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
-            <div v-if="imgError" class="main-img placeholder" :style="{ background: color }">🏺</div>
+            <img v-if="!imgError && photos.length" :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
+            <img v-else :src="getHeritagePlaceholder(item.category)" class="main-img" :alt="item.name" />
             <div v-if="photos.length > 1" class="thumbs">
               <img
                 v-for="(p, i) in photos"
@@ -43,8 +43,29 @@
             <el-descriptions-item label="项目编号">{{ item.code || '—' }}</el-descriptions-item>
             <el-descriptions-item label="保护单位">{{ item.protectUnit || '—' }}</el-descriptions-item>
           </el-descriptions>
+
+          <!-- 高德开放平台：当地实况气象 -->
+          <div v-if="weatherInfo" class="weather-box">
+            <div class="wb-header">❖ 当地实况气象（高德开放平台）</div>
+            <div class="wb-content">
+              <div class="wb-primary">
+                <span class="wb-temp">{{ weatherInfo.temperature }}℃</span>
+                <span class="wb-cond">{{ weatherInfo.weather }}</span>
+              </div>
+              <div class="wb-details">
+                <span>风向风力：{{ weatherInfo.winddirection }}风 {{ weatherInfo.windpower }}级</span>
+                <span>空气湿度：{{ weatherInfo.humidity }}%</span>
+              </div>
+            </div>
+            <div class="wb-advice">
+              <span class="wb-icon">❖</span>
+              <span>走访出行建议：{{ weatherAdvice }}</span>
+            </div>
+          </div>
+
           <div class="actions">
-            <el-button type="primary" @click="viewOnMap">📍 在地图上查看</el-button>
+            <el-button type="primary" @click="viewOnMap">❖ 在地图上查看</el-button>
+            <el-button type="warning" @click="goTravelRoute">❖ 自驾研学导航（高德规划）</el-button>
             <el-button @click="$router.push('/')">返回地图</el-button>
           </div>
         </el-card>
@@ -62,7 +83,8 @@
           :loading="liking"
           @click="handleLike"
         >
-          {{ liked ? '❤️ 已点赞' : '🤍 点赞' }} · {{ likeCount }}
+          <el-icon style="margin-right: 4px;"><StarFilled v-if="liked" /><Star v-else /></el-icon>
+          {{ liked ? '已点赞' : '点赞' }} · {{ likeCount }}
         </el-button>
         <span class="interact-tip">为这项非遗点个赞吧～</span>
       </div>
@@ -89,7 +111,7 @@
       <div v-if="comments.length" class="comment-list">
         <div v-for="c in comments" :key="c.id" class="comment-item">
           <div class="comment-meta">
-            <span class="comment-nick">🧑 {{ c.nickname }}</span>
+            <span class="comment-nick"><el-icon><User /></el-icon> {{ c.nickname }}</span>
             <span class="comment-time">{{ formatTime(c.createdAt) }}</span>
           </div>
           <div class="comment-content">{{ c.content }}</div>
@@ -108,8 +130,10 @@
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { User, Star, StarFilled } from '@element-plus/icons-vue';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
+import { getHeritagePlaceholder } from '@/data/sources/assets';
 import {
   fetchLikeCount,
   postLike,
@@ -198,6 +222,44 @@ function formatTime(t: string): string {
 
 watch(item, loadInteract, { immediate: true });
 
+const weatherInfo = ref<any>(null);
+
+const weatherAdvice = computed(() => {
+  if (!weatherInfo.value) return '';
+  const temp = Number(weatherInfo.value.temperature);
+  const w = weatherInfo.value.weather || '';
+  if (w.includes('雨')) return '今日当地有降雨，建议携带雨具，室内非遗展馆走访为佳。';
+  if (w.includes('雪')) return '当地有降雪，道路或湿滑，注意行车与研学安全。';
+  if (temp >= 32) return '气温较高，走访户外非遗民俗活动请注意防暑防晒。';
+  if (temp <= 5) return '气温偏低，建议添衣保暖，适宜探访非遗手工作坊。';
+  return '当前齐鲁大地气候宜人、微风习习，极佳适合开展非遗田野调查与自驾研学。';
+});
+
+async function loadWeather(city: string) {
+  if (!city) return;
+  try {
+    const res = await fetch(`/api/amap/weather?city=${encodeURIComponent(city)}`);
+    const d = await res.json();
+    if (d.status === '1' && d.lives && d.lives.length) {
+      weatherInfo.value = d.lives[0];
+    }
+  } catch {}
+}
+
+watch(
+  () => item.value?.city,
+  (city) => {
+    if (city) loadWeather(city);
+  },
+  { immediate: true }
+);
+
+function goTravelRoute() {
+  if (item.value) {
+    router.push({ path: '/travel', query: { toId: item.value.id } });
+  }
+}
+
 function viewOnMap() {
   if (!item.value) return;
   store.select(item.value.id);
@@ -217,13 +279,68 @@ function viewOnMap() {
 .thumb.active { border-color: #409eff; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .fields { font-size: 13px; }
+
+/* 高德气象实况卡片 */
+.weather-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(180, 134, 31, 0.08);
+  border: 1px solid rgba(180, 134, 31, 0.25);
+  border-radius: 6px;
+}
+.wb-header {
+  font-family: var(--zi-font-serif, "STSong", serif);
+  font-weight: bold;
+  font-size: 13px;
+  color: var(--zi-ink, #2b2218);
+  margin-bottom: 8px;
+}
+.wb-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+.wb-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.wb-temp {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--zi-red, #8f2317);
+}
+.wb-cond {
+  font-size: 15px;
+  font-weight: 500;
+}
+.wb-details {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: #6d5b45;
+}
+.wb-advice {
+  font-size: 12px;
+  color: #5c4731;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px dashed rgba(180, 134, 31, 0.2);
+  padding-top: 6px;
+}
+.wb-icon {
+  color: var(--zi-gold, #b4861f);
+}
+
 .actions { margin-top: 16px; display: flex; gap: 10px; }
 .missing { padding: 60px 0; text-align: center; }
 
 /* ---- T11 互动区 ---- */
 .interact-card { margin-top: 20px; }
 .interact-head { display: flex; align-items: center; gap: 16px; }
-.interact-tip { font-size: 13px; color: #999; }
+.interact-tip { font-size: 13px; color: #7a6946; }
 .comment-form { margin-bottom: 8px; }
 .nick-input { width: 240px; margin-bottom: 10px; }
 .comment-row { display: flex; gap: 10px; align-items: flex-end; }

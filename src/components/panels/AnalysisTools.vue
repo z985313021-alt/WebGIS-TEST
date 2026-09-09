@@ -76,7 +76,7 @@
         </el-form>
         <el-alert v-if="routeResult" :title="routeResult" type="success" :closable="false" class="result" />
         <div v-if="routeStops.length" class="route-section">
-          <div class="route-title">🗺️ 行程单（{{ routeStops.length }} 站）</div>
+          <div class="route-title">❖ 行程单（{{ routeStops.length }} 站）</div>
           <div v-for="(s, idx) in routeStops" :key="s.id" class="route-stop">
             <span class="stop-no">{{ idx + 1 }}</span>
             <span class="stop-name">{{ s.name }}（{{ s.city }}）</span>

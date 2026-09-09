@@ -11,19 +11,19 @@
       >
         <el-carousel-item v-for="(p, i) in allPhotos" :key="i">
           <img :src="p" :alt="item.name" class="carousel-img" @error="handleImgError(i)" />
-          <div v-if="failedPhotos.includes(i)" class="photo-placeholder" :style="{ background: color }">
-            <span>🏺</span>
+          <div v-if="failedPhotos.includes(i)" class="photo-placeholder">
+            <img :src="getHeritagePlaceholder(item.category)" :alt="item.name" class="placeholder-hd-img" />
           </div>
         </el-carousel-item>
       </el-carousel>
       <div v-else-if="allPhotos.length === 1" class="single-photo">
-        <img :src="allPhotos[0]" :alt="item.name" @error="imgError = true" />
-        <div v-if="imgError" class="photo-placeholder" :style="{ background: color }">
-          <span>🏺</span>
+        <img v-if="!imgError" :src="allPhotos[0]" :alt="item.name" @error="imgError = true" />
+        <div v-else class="photo-placeholder">
+          <img :src="getHeritagePlaceholder(item.category)" :alt="item.name" class="placeholder-hd-img" />
         </div>
       </div>
-      <div v-else class="photo-placeholder" :style="{ background: color }">
-        <span>🏺</span>
+      <div v-else class="photo-placeholder">
+        <img :src="getHeritagePlaceholder(item.category)" :alt="item.name" class="placeholder-hd-img" />
       </div>
     </div>
     <h3 class="detail-name">{{ item.name }}</h3>
@@ -39,7 +39,13 @@
       <el-descriptions-item label="项目编号">{{ item.code || '—' }}</el-descriptions-item>
       <el-descriptions-item label="保护单位">{{ item.protectUnit || '—' }}</el-descriptions-item>
     </el-descriptions>
-    <el-button size="small" type="primary" plain class="detail-link" @click="goDetail">查看完整详情 →</el-button>
+    <div v-if="cityWeather" class="detail-weather-tag">
+      ❖ {{ cityWeather.city }}实况天气：{{ cityWeather.weather }} {{ cityWeather.temperature }}℃（湿度 {{ cityWeather.humidity }}%）
+    </div>
+    <div class="detail-actions-row">
+      <el-button size="small" type="primary" plain class="detail-link" @click="goDetail">查看完整详情 →</el-button>
+      <el-button size="small" type="warning" plain class="detail-route-btn" @click="goTravelRoute">❖ 自驾研学导航</el-button>
+    </div>
   </div>
   <div v-else class="detail-empty">
     <p>👆 点击地图上的非遗点位，或从左侧列表选择，查看详情</p>
@@ -51,6 +57,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
+import { getHeritagePlaceholder } from '@/data/sources/assets';
 
 const store = useDataStore();
 const router = useRouter();
@@ -73,8 +80,37 @@ watch(item, () => {
   failedPhotos.value = [];
 });
 
+const cityWeather = ref<any>(null);
+
+async function fetchCityWeather(city: string) {
+  if (!city) {
+    cityWeather.value = null;
+    return;
+  }
+  try {
+    const res = await fetch(`/api/amap/weather?city=${encodeURIComponent(city)}`);
+    const data = await res.json();
+    if (data.status === '1' && data.lives && data.lives.length) {
+      cityWeather.value = data.lives[0];
+    }
+  } catch {}
+}
+
+watch(
+  () => item.value?.city,
+  (c) => {
+    if (c) fetchCityWeather(c);
+    else cityWeather.value = null;
+  },
+  { immediate: true }
+);
+
 function goDetail() {
   if (item.value) router.push(`/heritage/${item.value.id}`);
+}
+
+function goTravelRoute() {
+  if (item.value) router.push({ path: '/travel', query: { toId: item.value.id } });
 }
 </script>
 
@@ -87,10 +123,31 @@ function goDetail() {
 .single-photo img { width: 100%; height: 100%; object-fit: cover; }
 .photo-placeholder {
   width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-  font-size: 48px; opacity: 0.85;
+  overflow: hidden;
 }
+.placeholder-hd-img { width: 100%; height: 100%; object-fit: cover; }
 .detail-name { margin: 4px 0 8px; font-size: 16px; }
 .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .detail-fields { font-size: 12px; }
+
+.detail-weather-tag {
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: rgba(180, 134, 31, 0.08);
+  border: 1px dashed rgba(180, 134, 31, 0.3);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--zi-ink, #3a3125);
+}
+
+.detail-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.detail-link, .detail-route-btn {
+  flex: 1;
+}
+
 .detail-empty { color: #999; font-size: 13px; line-height: 1.8; text-align: center; padding: 40px 0; }
 </style>

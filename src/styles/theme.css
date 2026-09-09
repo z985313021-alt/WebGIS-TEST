@@ -1,0 +1,126 @@
+/* ============================================================
+   WebGIS-App 非遗国潮主题基座 (global design token layer)
+   所有页面统一引用此层的配色/字体/Element 主色覆盖，
+   避免各页面各自配色造成视觉分裂。
+   ============================================================ */
+
+:root {
+  /* ---- 纸 · 墨 · 金 · 红 · 青 调色板 ---- */
+  --zi-bg:        #f4eddc;   /* 宣纸底色（页面底） */
+  --zi-bg-deep:   #eadfbe;   /* 稍深的米金 */
+  --zi-panel:     #fffdf4;   /* 卡片/面板纸面 */
+  --zi-ink:       #3a3125;   /* 墨色（正文） */
+  --zi-ink-soft:  #6c5f47;   /* 墨灰（次级文字） */
+  --zi-ink-faint: #8d8266;   /* 弱文字 */
+  --zi-red:       #a03526;   /* 朱砂赭红（主色） */
+  --zi-red-deep:  #7f271c;   /* 深朱砂 */
+  --zi-gold:      #b4861f;   /* 描金/秋黄 */
+  --zi-green:     #3c6a50;   /* 松青墨绿 */
+  --zi-green-deep:#2e523d;
+  --zi-line:      #d8c9a3;   /* 分隔细线（藤黄） */
+
+  /* ---- 中文字体栈：衬线/书法感优先 ---- */
+  --zi-font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC",
+                   "STSong", "SimSun", "KaiTi", "serif";
+  --zi-font-sans:  "MiSans", "PingFang SC", "Microsoft YaHei", "Helvetica", sans-serif;
+
+  /* ===== Element Plus 主色覆盖 → 沉稳的朱砂赭红 ===== */
+  --el-color-primary:        #a03526;
+  --el-color-primary-dark-2: #7f271c;
+  --el-color-primary-light-3: #ba6a5a;
+  --el-color-primary-light-5: #cf9a8d;
+  --el-color-primary-light-7: #e3c3ba;
+  --el-color-primary-light-8: #ecD6cf;
+  --el-color-primary-light-9: #f6e8e4;
+
+  /* 次要语义色适度偏国画感 */
+  --el-color-success:          #3c6a50;
+  --el-color-success-light-3:  #6f907a;
+  --el-color-success-light-9:  #e6efe8;
+  --el-color-warning:          #b4861f;
+  --el-color-warning-light-9:  #f5eeda;
+  --el-color-error:            #a03526;
+  --el-color-error-light-9:    #f6e6e2;
+
+  --el-text-color-primary:   #3a3125;
+  --el-text-color-regular:   #513f2f;
+  --el-text-color-secondary: #6c5f47;
+  --el-text-color-placeholder:#9c8d68;
+  --el-border-color:         #dccfa6;
+  --el-border-color-light:   #e6dcbd;
+  --el-border-color-lighter: #ece2c7;
+  --el-fill-color-blank:     #fffdf4;
+  --el-fill-color-light:     #f7f0e0;
+  --el-bg-color:             #fffdf4;
+  --el-bg-color-page:        #f4eddc;
+  --el-border-radius-base:   8px;
+
+  /* ===== 借鉴 antigravity 设计系统 — 间距 / 圆角 / 动效 tokens ===== */
+
+  /* ---- 4px 间距网格 ---- */
+  --zi-space-xs: 4px;
+  --zi-space-sm: 8px;
+  --zi-space-base: 16px;
+  --zi-space-lg: 24px;
+  --zi-space-xl: 32px;
+  --zi-space-2xl: 48px;
+  --zi-space-3xl: 64px;
+  --zi-space-section: 96px;
+
+  /* ---- 成熟工程化圆角体系（弃绝 999px 泛滥，回归严谨 4px/2px 工业标准）---- */
+  --zi-radius-xs: 2px;
+  --zi-radius-sm: 4px;
+  --zi-radius-md: 6px;
+  --zi-radius-lg: 8px;
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 2px;
+
+  /* ---- 表面层级（用色差替代阴影堆叠）---- */
+  --zi-surface-1: var(--zi-bg);
+  --zi-surface-2: var(--zi-bg-deep);
+  --zi-surface-3: var(--zi-panel);
+  --zi-surface-strong: #e8dfc8;
+
+  /* ---- 轻盈边框（标准分割线）---- */
+  --zi-line-soft: rgba(58, 49, 37, 0.08);
+  --zi-line-medium: rgba(58, 49, 37, 0.14);
+  --zi-line-strong: rgba(58, 49, 37, 0.22);
+
+  /* ---- 动效预设 ---- */
+  --zi-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --zi-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --zi-duration-fast: 150ms;
+  --zi-duration-normal: 240ms;
+
+  /* ===== 严谨文博与专业 GIS 设计系统 Tokens ===== */
+  --zi-dock-bg:        #1c1815;                  /* 工具栏深黑漆色 */
+  --zi-surface-light:  #fffdf8;                  /* 工作台温润面板纸面 */
+  --zi-card-bg:        #ffffff;                  /* 卡片纯白玉底 */
+  --zi-border-light:   #e5dcce;                  /* 文博金褐细线 */
+  --zi-border-strong:  #d5c8b2;                  /* 结构描边 */
+  --zi-shadow-subtle:  0 1px 4px rgba(44, 36, 27, 0.05); /* 工整微漫反射 */
+  --zi-shadow-panel:   0 4px 16px rgba(44, 36, 27, 0.08);
+}
+
+/* 全局基底 */
+html, body {
+  background-color: var(--zi-bg);
+  color: var(--zi-ink);
+  font-family: var(--zi-font-sans);
+}
+#app {
+  background: var(--zi-bg);
+}
+
+/* 统一标题略有书法衬线气息（可被局部样式覆盖） */
+h1, h2, h3, h4 { font-family: var(--zi-font-serif); letter-spacing: 0.02em; }
+
+/* 滚动条温和处理 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cdbf93; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Element 弹窗/抽屉/卡片纸张感 */
+.el-card, .el-dialog, .el-drawer, .el-message-box {
+  background: var(--zi-panel);
+}

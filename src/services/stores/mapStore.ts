@@ -1,7 +1,9 @@
 // 逻辑层：Pinia store —— 地图 UI 状态（面板折叠、底图类型、天地图状态、显示模式）
 import { defineStore } from 'pinia';
+import { markRaw } from 'vue';
 import type { BaseMapType, BaseMapProvider } from '@/data/sources/tianditu';
 import { fetchTiandituStatus } from '@/data/api/tianditu';
+import type { MapAdapter } from '@/services/map/MapAdapter';
 
 /** 地图显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 */
 export type MapDisplayMode = 'normal' | 'cluster' | 'heatmap';
@@ -9,8 +11,8 @@ export type MapDisplayMode = 'normal' | 'cluster' | 'heatmap';
 export const useMapStore = defineStore('map', {
   state: () => ({
     baseMap: 'vec' as BaseMapType,
-    /** 底图提供商：osm（OpenStreetMap，默认，无需密钥）/ tianditu（天地图，需在 .env 配置 tk） */
-    provider: 'osm' as BaseMapProvider,
+    /** 底图提供商：amap（高德地图，默认，国内访问快）/ tianditu（天地图）/ osm（OpenStreetMap）/ none（无底图） */
+    provider: 'amap' as BaseMapProvider,
     /** 后端天地图 tk 是否已配置（决定底图用 WMTS 还是 OSM 兜底） */
     tiandituConfigured: false,
     layerPanelVisible: true,
@@ -21,6 +23,8 @@ export const useMapStore = defineStore('map', {
     displayMode: 'normal' as MapDisplayMode,
     /** 聚合距离（像素，默认 60） */
     clusterDistance: 60,
+    /** 地图引擎适配器实例（markRaw 避免响应式开销） */
+    mapAdapter: null as MapAdapter | null,
   }),
   actions: {
     /** 查询后端天地图配置状态（逻辑层调数据层，不直接写 axios） */
@@ -57,6 +61,14 @@ export const useMapStore = defineStore('map', {
     /** 成员2：设置聚合距离 */
     setClusterDistance(distance: number) {
       this.clusterDistance = Math.max(10, Math.min(200, distance));
+    },
+    /** 设置地图引擎适配器（由 MapContainer 挂载/卸载时注册） */
+    setMapAdapter(adapter: MapAdapter | null) {
+      this.mapAdapter = adapter ? markRaw(adapter) : null;
+    },
+    /** 地图视口定位 */
+    zoomTo(lonlat: [number, number], zoom?: number) {
+      this.mapAdapter?.zoomTo(lonlat, zoom);
     },
   },
 });
