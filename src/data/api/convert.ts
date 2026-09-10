@@ -1,4 +1,4 @@
-// 数据层：数据转换/体检 API（T4）
+// 数据层：数据转换/体检 API（T4 + 成员6增强）
 import http from '../http';
 
 export interface HealthReport {
@@ -10,6 +10,25 @@ export interface HealthReport {
   emptyNameCount: number;
   duplicateNames: number;
   fields: string[];
+  issues?: HealthIssue[];
+}
+
+export interface HealthIssue {
+  name: string;
+  type: string;
+  desc: string;
+}
+
+export interface WmsLayer {
+  name: string;
+  title: string;
+}
+
+export interface WmsCapabilities {
+  ok: boolean;
+  url: string;
+  layerCount: number;
+  layers: WmsLayer[];
 }
 
 /** shp 多文件上传 → GeoJSON */
@@ -37,11 +56,12 @@ export async function checkHealth(geojson: object): Promise<HealthReport> {
   return data;
 }
 
-/** 下载 Excel / GeoJSON / SHP 模板 */
-export function downloadTemplate(type: 'excel' | 'geojson' | 'shp') {
+/** 下载 Excel / GeoJSON / SHP / 门类对照 / 地市对照 模板 */
+export function downloadTemplate(type: 'excel' | 'geojson' | 'shp' | 'category' | 'city') {
   const link = document.createElement('a');
   link.href = `/api/template/${type}`;
-  link.setAttribute('download', `template.${type === 'excel' ? 'xlsx' : type}`);
+  const ext = type === 'excel' ? 'xlsx' : type === 'geojson' ? 'geojson' : type === 'shp' ? 'zip' : 'xlsx';
+  link.setAttribute('download', `template.${ext}`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -63,8 +83,24 @@ export async function exportHealthReport(geojson: object) {
   window.URL.revokeObjectURL(url);
 }
 
+/** 导出数据体检报告为 CSV（成员6增强） */
+export async function exportHealthReportCSV(geojson: object) {
+  const res = await http.post('/health-check/export-csv', geojson, {
+    responseType: 'blob',
+  });
+  const blob = new Blob([res.data], { type: 'text/csv; charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `health_report_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
 /** WMS 能力探测 */
-export async function probeWms(url: string) {
+export async function probeWms(url: string): Promise<WmsCapabilities> {
   const { data } = await http.get('/wms/capabilities', { params: { url } });
   return data;
 }
