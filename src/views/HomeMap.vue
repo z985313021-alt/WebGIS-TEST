@@ -188,6 +188,30 @@
                     </div>
                     <div class="mc-desc">基于高斯核密度算法，可视化全鲁非遗要素在沿黄、沿运河及胶东的集聚态势。</div>
                   </div>
+
+                  <div
+                    class="mode-card"
+                    :class="{ active: mapStore.displayMode === 'choropleth' }"
+                    @click="mapStore.setDisplayMode('choropleth')"
+                  >
+                    <div class="mc-head">
+                      <span class="mc-title">❖ 行政区域热力 (Choropleth)</span>
+                      <span class="mc-tag" v-if="mapStore.displayMode === 'choropleth'">生效中</span>
+                    </div>
+                    <div class="mc-desc">按山东 16 地市聚合统计非遗数量，色阶深浅反映区域富集度，hover 查看明细，点击城市放大。</div>
+                    <div v-if="mapStore.displayMode === 'choropleth'" class="mc-legend-wrap" @click.stop>
+                      <div class="mc-legend-label">数量色阶（少 → 多）</div>
+                      <div class="mc-legend-bar">
+                        <span class="mc-legend-cell" style="background:#f5ecd7"></span>
+                        <span class="mc-legend-cell" style="background:#e8d5a8"></span>
+                        <span class="mc-legend-cell" style="background:#d9b877"></span>
+                        <span class="mc-legend-cell" style="background:#c9944a"></span>
+                        <span class="mc-legend-cell" style="background:#b8702e"></span>
+                        <span class="mc-legend-cell" style="background:#a04d22"></span>
+                        <span class="mc-legend-cell" style="background:#8f2317"></span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

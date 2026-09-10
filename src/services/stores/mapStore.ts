@@ -5,13 +5,13 @@ import type { BaseMapType, BaseMapProvider } from '@/data/sources/tianditu';
 import { fetchTiandituStatus } from '@/data/api/tianditu';
 import type { MapAdapter } from '@/services/map/MapAdapter';
 
-/** 地图显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 */
-export type MapDisplayMode = 'normal' | 'cluster' | 'heatmap';
+/** 地图显示模式：normal=普通标注 / cluster=点位聚合 / heatmap=密度热力图 / choropleth=行政区域热力图 */
+export type MapDisplayMode = 'normal' | 'cluster' | 'heatmap' | 'choropleth';
 
 export const useMapStore = defineStore('map', {
   state: () => ({
     baseMap: 'vec' as BaseMapType,
-    /** 底图提供商：osm（OpenStreetMap，默认，无需密钥）/ tianditu（天地图，需在 .env 配置 tk） */
+    /** 底图提供商：amap（高德地图，默认，国内访问快）/ tianditu（天地图）/ osm（OpenStreetMap）/ none（无底图） */
     provider: 'amap' as BaseMapProvider,
     /** 后端天地图 tk 是否已配置（决定底图用 WMTS 还是 OSM 兜底） */
     tiandituConfigured: false,
