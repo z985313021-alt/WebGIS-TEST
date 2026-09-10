@@ -26,13 +26,34 @@ import type { BaseMapProvider } from '@/data/sources/tianditu';
 const HIDDEN_STYLE = new Style({
   image: new CircleStyle({ radius: 0, fill: new Fill({ color: 'rgba(0,0,0,0)' }) }),
 });
-const HIGHLIGHT_STYLE = new Style({
-  image: new CircleStyle({
-    radius: 11,
-    fill: new Fill({ color: 'rgba(255, 200, 0, 0.95)' }),
-    stroke: new Stroke({ color: '#ffffff', width: 3 }),
-  }),
-});
+/** 高亮样式：三层醒目效果 — 大红外圈(脉冲感) + 亮黄内圈 + 白色描边 */
+function buildHighlightStyles(): Style[] {
+  return [
+    // 最外层：半透明大红圈，营造脉冲/聚焦感
+    new Style({
+      image: new CircleStyle({
+        radius: 22,
+        fill: new Fill({ color: 'rgba(255, 59, 48, 0.25)' }),
+        stroke: new Stroke({ color: 'rgba(255, 59, 48, 0.8)', width: 2 }),
+      }),
+    }),
+    // 中间层：亮黄色实心圆
+    new Style({
+      image: new CircleStyle({
+        radius: 14,
+        fill: new Fill({ color: 'rgba(255, 204, 0, 0.98)' }),
+        stroke: new Stroke({ color: '#ffffff', width: 3.5 }),
+      }),
+    }),
+    // 最内层：红色中心点
+    new Style({
+      image: new CircleStyle({
+        radius: 5,
+        fill: new Fill({ color: '#ff3b30' }),
+      }),
+    }),
+  ];
+}
 
 /** 山东中心（经纬度） */
 const SHANDONG_CENTER: [number, number] = [118.2, 36.3];
@@ -114,6 +135,8 @@ export class OLMapAdapter implements MapAdapter {
   private hoverCityCode: string | null = null;
   private cityStyleFns = new Map<string, () => void>();
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
+  /** 聚合圆点击回调（传入聚合内点位列表和聚合中心） */
+  private clusterClickCb: ((items: Array<Record<string, unknown>>, center: [number, number]) => void) | null = null;
   private baseMapType: BaseMapType = 'vec';
   private provider: BaseMapProvider = 'osm';
   /** 出生动画：距动画开始已过去的毫秒数(0=未在播放)。由 playBirthAnimation 驱动，buildStyle 读取 */
@@ -213,7 +236,7 @@ export class OLMapAdapter implements MapAdapter {
           return;
         }
       }
-      // 聚合模式：优先检测聚合点，点击聚合圆则放大展开
+      // 聚合模式：优先检测聚合点，点击聚合圆则放大展开 + 弹出点位列表
       if (this.displayMode === 'cluster' && this.clusterLayer) {
         const clusterFeat = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
           layerFilter: (l) => l === this.clusterLayer,
@@ -223,15 +246,23 @@ export class OLMapAdapter implements MapAdapter {
           if (features && features.length > 1) {
             // 多个点聚合 → 飞到聚合中心并放大一级展开
             const geom = clusterFeat.getGeometry();
+            let centerLonLat: [number, number] = [0, 0];
             if (geom && geom.getType() === 'Point') {
               const coord = (geom as any).getCoordinates();
               const view = this.map!.getView();
+              centerLonLat = transform(coord, view.getProjection(), 'EPSG:4326') as [number, number];
               view.animate({
                 center: coord,
                 zoom: Math.min((view.getZoom() ?? 7) + 2, 18),
                 duration: 500,
               });
             }
+            // 成员2增强：触发聚合点击回调，传入点位列表和聚合中心
+            const items = features.map((f) => {
+              const p = (f.get('_props') as Record<string, unknown>) ?? f.getProperties();
+              return { ...p };
+            });
+            this.clusterClickCb?.(items, centerLonLat);
             return;
           }
           // 单点聚合 → 透传到普通点击回调
@@ -314,9 +345,10 @@ export class OLMapAdapter implements MapAdapter {
       featureProjection: this.viewProjection(),
       dataProjection: 'EPSG:4326',
     });
-    // 把属性挂到 _props，便于点击回调取整包属性
+    // 把属性挂到 _props，便于点击回调取整包属性；同时标记 _layerId 用于图层样式区分
     (features as Feature[]).forEach((f) => {
       f.set('_props', f.getProperties());
+      f.set('_layerId', id);
       if (f.get('id') == null && f.get('_id') == null) f.set('_id', f.getId());
     });
     const source = new VectorSource({ features });
@@ -478,6 +510,10 @@ export class OLMapAdapter implements MapAdapter {
     this.clickCb = cb;
   }
 
+  onClusterClick(cb: (items: Array<Record<string, unknown>>, center: [number, number]) => void): void {
+    this.clusterClickCb = cb;
+  }
+
   getLayerFeatureCount(id: string): number {
     const src = this.layers.get(id)?.getSource();
     return src ? (src as VectorSource).getFeatures().length : 0;
@@ -512,6 +548,22 @@ export class OLMapAdapter implements MapAdapter {
       center: transform(lonlat, 'EPSG:4326', view.getProjection()),
       zoom,
       duration,
+    });
+  }
+
+  /** 缩放到指定图层的完整范围（padding为边距像素，默认80），图层不存在或无要素则忽略 */
+  fitToLayer(id: string, padding = 80): void {
+    const layer = this.layers.get(id);
+    if (!layer || !this.map) return;
+    const source = layer.getSource() as VectorSource;
+    if (!source) return;
+    const extent = source.getExtent();
+    // 空范围（Infinity）说明图层无要素
+    if (!extent || !isFinite(extent[0]) || !isFinite(extent[1]) || !isFinite(extent[2]) || !isFinite(extent[3])) return;
+    this.map.getView().fit(extent, {
+      padding: [padding, padding, padding, padding],
+      duration: 800,
+      maxZoom: 16,
     });
   }
 
@@ -898,7 +950,7 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   /** 要素样式：隐藏(筛选不中) / 高亮(选中) / 分类样式（按几何类型渲染） */
-  private buildStyle(feature: Feature): Style {
+  private buildStyle(feature: Feature): Style | Style[] {
     const props = (feature.get('_props') as Record<string, unknown>) ?? feature.getProperties();
     // 筛选不中 → 隐藏
     for (const predicate of this.filters.values()) {
@@ -909,7 +961,29 @@ export class OLMapAdapter implements MapAdapter {
     // 高亮（仅点要素放大）
     const id = props['id'];
     if (this.highlightId != null && String(id) === String(this.highlightId) && geomType === 'Point') {
-      return HIGHLIGHT_STYLE;
+      return buildHighlightStyles();
+    }
+    // 用户数据集图层（user- 开头）→ 醒目的金色高亮样式，与主图层蓝色pin区分
+    const layerId = props['_layerId'] as string;
+    if (layerId && layerId.startsWith('user-') && geomType === 'Point') {
+      return [
+        // 外圈：半透明金色光晕
+        new Style({
+          image: new CircleStyle({
+            radius: 16,
+            fill: new Fill({ color: 'rgba(255, 193, 7, 0.25)' }),
+            stroke: new Stroke({ color: 'rgba(255, 193, 7, 0.7)', width: 2 }),
+          }),
+        }),
+        // 内圈：金色实心圆
+        new Style({
+          image: new CircleStyle({
+            radius: 9,
+            fill: new Fill({ color: 'rgba(255, 193, 7, 0.95)' }),
+            stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
+          }),
+        }),
+      ];
     }
     // 多边形/线 → 描边+填充
     if (geomType === 'Polygon' || geomType === 'MultiPolygon') {

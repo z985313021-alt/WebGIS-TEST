@@ -26,6 +26,8 @@ export const useDataStore = defineStore('data', {
     keyword: '',
     userDatasets: [] as UserDataset[],
     nextDatasetId: 1,
+    /** 待缩放到的用户数据集ID（数据管理页加载图层后设置，MapContainer消费后清除） */
+    pendingZoomToDatasetId: null as number | null,
   }),
   getters: {
     selected(state): HeritageItem | null {
@@ -80,7 +82,10 @@ export const useDataStore = defineStore('data', {
       this.keyword = '';
     },
     /** 添加用户上传的数据集（用于地图叠加显示） */
-    addUserDataset(name: string, geojson: object, health?: Record<string, unknown>) {
+    setPendingZoomToDataset(id: number | null) {
+    this.pendingZoomToDatasetId = id;
+  },
+  addUserDataset(name: string, geojson: object, health?: Record<string, unknown>) {
       const ds: UserDataset = {
         id: this.nextDatasetId++,
         name,

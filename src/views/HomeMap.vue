@@ -6,6 +6,9 @@
     <!-- 成员2：地图控件套件（指北针、缩放级别、重置视图、鼠标坐标） -->
     <MapControls />
 
+    <!-- 成员2增强：聚合点位列表弹窗 -->
+    <ClusterPopup />
+
     <!-- Google Earth 风格：左侧垂直极简工具条 (Dock) -->
     <aside class="ge-dock">
       <div class="ge-dock-group">
@@ -320,6 +323,7 @@ import {
 } from '@element-plus/icons-vue';
 import MapContainer from '@/components/map/MapContainer.vue';
 import MapControls from '@/components/map/MapControls.vue';
+import ClusterPopup from '@/components/map/ClusterPopup.vue';
 import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue';
 import FilterPanel from '@/components/panels/FilterPanel.vue';
 import HeritageDetailCard from '@/components/panels/HeritageDetailCard.vue';

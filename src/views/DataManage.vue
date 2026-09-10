@@ -428,8 +428,10 @@ function isLayerLoaded(layerName: string) {
 }
 
 function loadThematic(key: string, title: string) {
-  dataStore.loadPreloadedThematic(key);
-  ElMessage.success(`已成功载入【${title}】空间图层至当前工作区`);
+  const result = dataStore.loadPreloadedThematic(key);
+  // 设置待缩放目标，跳转到地图后自动缩放到图层范围
+  dataStore.setPendingZoomToDataset(result.id);
+  ElMessage.success(`已成功载入【${title}】空间图层，前往地图自动定位`);
 }
 
 // 多源高精度底图选项
@@ -559,8 +561,10 @@ function loadToMap() {
     excelFile.value?.name ||
     shpFiles.value.find((f) => /\.shp$/i.test(f.name))?.name ||
     '田野调查数据集';
-  dataStore.addUserDataset(name, convertedGeo.value, report.value as unknown as Record<string, unknown>);
-  ElMessage.success('已挂载至地图图层并定位');
+  const dsId = dataStore.addUserDataset(name, convertedGeo.value, report.value as unknown as Record<string, unknown>);
+  // 设置待缩放目标，跳转到地图后自动缩放到图层范围
+  dataStore.setPendingZoomToDataset(dsId);
+  ElMessage.success('已挂载至地图图层并自动定位');
   router.push('/');
 }
 
