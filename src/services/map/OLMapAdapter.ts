@@ -17,6 +17,7 @@ import type ImageSource from 'ol/source/Image';
 import ImageWMS from 'ol/source/ImageWMS';
 import Cluster from 'ol/source/Cluster';
 import HeatmapLayer from 'ol/layer/Heatmap';
+import ScaleLine from 'ol/control/ScaleLine';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
@@ -162,7 +163,16 @@ export class OLMapAdapter implements MapAdapter {
         smoothExtentConstraint: true,
       }),
       // 构造后用 animate 平滑约束也行 —— 先删 SHANDONG_BOUNDS 引用
-      controls: [],
+      // 成员2：添加比例尺控件（左下角，公制单位）
+      controls: [
+        new ScaleLine({
+          units: 'metric',
+          bar: true,
+          steps: 4,
+          text: true,
+          minWidth: 100,
+        }),
+      ],
     });
     this.syncLabelLayer();
     // 缩放结束后重算样式（非遗点 pin/图片切换、边界层刷新）——用 moveend 而非
@@ -502,6 +512,68 @@ export class OLMapAdapter implements MapAdapter {
       center: transform(lonlat, 'EPSG:4326', view.getProjection()),
       zoom,
       duration,
+    });
+  }
+
+  // ---- 成员2：地图控件辅助方法 ----
+  /** 获取当前缩放级别 */
+  getZoom(): number {
+    return this.map?.getView().getZoom() ?? 7.5;
+  }
+
+  /** 获取当前地图中心（经纬度 EPSG:4326） */
+  getCenter(): [number, number] {
+    const view = this.map?.getView();
+    if (!view) return SHANDONG_CENTER;
+    const center = view.getCenter();
+    if (!center) return SHANDONG_CENTER;
+    return transform(center, view.getProjection(), 'EPSG:4326') as [number, number];
+  }
+
+  /** 获取当前旋转角度（弧度，0=正北朝上） */
+  getRotation(): number {
+    return this.map?.getView().getRotation() ?? 0;
+  }
+
+  /** 重置视图到山东全景（zoom 7.5，旋转归零） */
+  resetView(): void {
+    const view = this.map?.getView();
+    if (!view) return;
+    view.animate({
+      center: fromLonLat(SHANDONG_CENTER),
+      zoom: 7.5,
+      rotation: 0,
+      duration: 800,
+    });
+  }
+
+  /** 重置地图旋转到正北朝上 */
+  resetRotation(): void {
+    const view = this.map?.getView();
+    if (!view) return;
+    view.animate({ rotation: 0, duration: 300 });
+  }
+
+  /** 监听鼠标移动，回调返回经纬度（EPSG:4326） */
+  onPointerMove(cb: (lonlat: [number, number] | null) => void): void {
+    if (!this.map) return;
+    this.map.on('pointermove', (evt) => {
+      const coord = evt.coordinate;
+      if (!coord) { cb(null); return; }
+      const lonlat = transform(coord, this.map!.getView().getProjection(), 'EPSG:4326');
+      cb([lonlat[0], lonlat[1]]);
+    });
+  }
+
+  /** 监听视图变化（缩放/平移/旋转），回调返回当前状态 */
+  onViewChange(cb: (state: { zoom: number; center: [number, number]; rotation: number }) => void): void {
+    if (!this.map) return;
+    this.map.on('moveend', () => {
+      cb({
+        zoom: this.getZoom(),
+        center: this.getCenter(),
+        rotation: this.getRotation(),
+      });
     });
   }
 

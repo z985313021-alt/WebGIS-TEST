@@ -3,6 +3,9 @@
     <!-- 底层地图视口 -->
     <MapContainer ref="mapRef" />
 
+    <!-- 成员2：地图控件套件（指北针、缩放级别、重置视图、鼠标坐标） -->
+    <MapControls />
+
     <!-- Google Earth 风格：左侧垂直极简工具条 (Dock) -->
     <aside class="ge-dock">
       <div class="ge-dock-group">
@@ -316,6 +319,7 @@ import {
   Histogram,
 } from '@element-plus/icons-vue';
 import MapContainer from '@/components/map/MapContainer.vue';
+import MapControls from '@/components/map/MapControls.vue';
 import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue';
 import FilterPanel from '@/components/panels/FilterPanel.vue';
 import HeritageDetailCard from '@/components/panels/HeritageDetailCard.vue';
