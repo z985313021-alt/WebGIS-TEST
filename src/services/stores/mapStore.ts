@@ -23,6 +23,12 @@ export const useMapStore = defineStore('map', {
     displayMode: 'normal' as MapDisplayMode,
     /** 聚合距离（像素，默认 60） */
     clusterDistance: 60,
+    /** 成员2增强：当前点击的聚合圆内点位列表（用于弹窗显示） */
+    clusterItems: [] as Array<Record<string, unknown>>,
+    /** 当前点击的聚合圆中心经纬度 */
+    clusterCenter: null as [number, number] | null,
+    /** 聚合点位列表弹窗是否显示 */
+    clusterPopupVisible: false,
     /** 地图引擎适配器实例（markRaw 避免响应式开销） */
     mapAdapter: null as MapAdapter | null,
   }),
@@ -69,6 +75,18 @@ export const useMapStore = defineStore('map', {
     /** 地图视口定位 */
     zoomTo(lonlat: [number, number], zoom?: number) {
       this.mapAdapter?.zoomTo(lonlat, zoom);
+    },
+    /** 成员2增强：显示聚合点位列表弹窗 */
+    showClusterPopup(items: Array<Record<string, unknown>>, center: [number, number]) {
+      this.clusterItems = items;
+      this.clusterCenter = center;
+      this.clusterPopupVisible = true;
+    },
+    /** 隐藏聚合点位列表弹窗 */
+    hideClusterPopup() {
+      this.clusterPopupVisible = false;
+      this.clusterItems = [];
+      this.clusterCenter = null;
     },
   },
 });

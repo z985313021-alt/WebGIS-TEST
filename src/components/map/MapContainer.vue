@@ -74,12 +74,19 @@ onMounted(async () => {
   adapter.onFeatureClick((props) => {
     dataStore.select(props ? (props.id as number) : null);
   });
+  // 成员2增强：聚合圆点击 → 显示点位列表弹窗
+  adapter.onClusterClick((items, center) => {
+    mapStore.showClusterPopup(items, center);
+  });
   mapStore.setMapAdapter(adapter);
   // 挂载后同步一次已存在的数据集（从数据管理页跳转过来的场景）
   syncUserDatasets();
   // 关键：详情页跳转回来时 pendingFlyTo 可能早已设好（watch 不会对旧值触发），
   // 这里主动消费一次，让"在地图上查看"真正执行飞行定位动画。
   consumePendingFlyTo();
+  // 关键：数据管理页加载图层后跳转过来时 pendingZoomToDatasetId 可能早已设好，
+  // 这里主动消费一次，让地图自动缩放到新图层范围。
+  consumePendingZoomToDataset();
   // 成员2：首次统计行政热力图数据（按城市统计非遗数量）
   updateChoroplethData();
   // 首次挂载全图"生长"一遍：所有点按确定性延迟逐个弹出，一进页面即有代入感。
@@ -143,6 +150,10 @@ watch(
 async function consumePendingFlyTo() {
   const target = dataStore.pendingFlyTo;
   if (!target || !adapter) return;
+  // 自动切换到普通模式，确保聚合/热力图模式下也能看到单个点位
+  if (mapStore.displayMode !== 'normal') {
+    mapStore.setDisplayMode('normal');
+  }
   await nextTick();
   if (target.id != null) {
     dataStore.select(target.id);
@@ -156,6 +167,17 @@ watch(
   () => dataStore.pendingFlyTo,
   () => consumePendingFlyTo(),
 );
+
+// 数据管理页加载图层后 → 自动缩放到该图层完整范围
+async function consumePendingZoomToDataset() {
+  const id = dataStore.pendingZoomToDatasetId;
+  if (id == null || !adapter) return;
+  // 等两帧确保图层已渲染完成
+  await nextTick();
+  await nextTick();
+  adapter.fitToLayer(`user-${id}`, 100);
+  dataStore.pendingZoomToDatasetId = null;
+}
 
 // 用户上传数据集 → 叠加图层（按 id 增量渲染）
 const renderedDatasets = new Set<number>();
@@ -178,6 +200,12 @@ function syncUserDatasets() {
 watch(
   () => dataStore.userDatasets.map((d) => d.id),
   () => syncUserDatasets(),
+);
+
+// 数据管理页加载图层后 → 自动缩放到该图层完整范围
+watch(
+  () => dataStore.pendingZoomToDatasetId,
+  () => consumePendingZoomToDataset(),
 );
 
 // 底图类型切换（vec/img，仅天地图生效）

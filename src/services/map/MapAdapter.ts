@@ -18,6 +18,11 @@ export interface MapAdapter {
   setHighlightId(id: string | number | null): void;
   /** 要素点击回调（props=null 表示点到空白） */
   onFeatureClick(cb: (props: Record<string, unknown> | null) => void): void;
+  /**
+   * 聚合圆点击回调（仅聚合模式下生效）。
+   * 传入聚合内的所有点位属性列表和聚合中心经纬度，用于弹出点位列表弹窗。
+   */
+  onClusterClick(cb: (items: Array<Record<string, unknown>>, center: [number, number]) => void): void;
   getLayerFeatureCount(id: string): number;
   /** 加载通用矢量图层（兼容旧接口） */
   addVectorLayer(geojson: object, id: string): void;
@@ -28,6 +33,22 @@ export interface MapAdapter {
   removeLayer(id: string): void;
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
   zoomTo(lonlat: [number, number], zoom?: number): void;
+  /** 缩放到指定图层的完整范围（padding为边距像素，默认80），图层不存在则忽略 */
+  fitToLayer(id: string, padding?: number): void;
+  /** 获取当前缩放级别 */
+  getZoom(): number;
+  /** 获取当前地图中心（经纬度 EPSG:4326） */
+  getCenter(): [number, number];
+  /** 获取当前旋转角度（弧度，0=正北朝上） */
+  getRotation(): number;
+  /** 重置视图到初始范围（山东全景，旋转归零） */
+  resetView(): void;
+  /** 重置地图旋转到正北朝上 */
+  resetRotation(): void;
+  /** 监听鼠标移动，回调返回经纬度（EPSG:4326），离开地图时为 null */
+  onPointerMove(cb: (lonlat: [number, number] | null) => void): void;
+  /** 监听视图变化（缩放/平移/旋转），回调返回当前状态 */
+  onViewChange(cb: (state: { zoom: number; center: [number, number]; rotation: number }) => void): void;
   /** 开始量算/绘制（distance=线 / area=面），绘制完成后回调几何（GeoJSON 4326）；绘制期间自动抑制要素点击 */
   startMeasure(mode: 'distance' | 'area', onDone: (geometry: object) => void): void;
   /** 停止当前量算绘制 */
