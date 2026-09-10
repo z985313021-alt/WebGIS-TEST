@@ -10,7 +10,7 @@ import { getLikeCount, addLike, getComments, addComment } from './scripts/commen
 import { registerUser, loginUser, getUserByToken, logoutByToken, getUserById, setUserRole, ensureAdmin, listUsers, rehashPassword } from './scripts/user-db.mjs';
 import * as shop from './scripts/shop-db.mjs';
 import * as account from './scripts/account-db.mjs';
-import { createTemplate, generateHealthReportExcel } from './scripts/data-manage.mjs';
+import { createTemplate, generateHealthReportExcel, generateHealthReportCSV } from './scripts/data-manage.mjs';
 import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCode, stationName, cityPos } from './scripts/train12306.mjs';
 
 dotenv.config();
@@ -129,12 +129,12 @@ app.get('/api/tianditu/:type', (req, res) => {
 
 // ============ T4 数据转换与体检 ============
 
-// 模板下载：Excel / GeoJSON / SHP
+// 模板下载：Excel / GeoJSON / SHP / 门类对照 / 地市对照
 app.get('/api/template/:type', (req, res) => {
   try {
     const type = String(req.params.type || '').toLowerCase();
-    if (!['excel', 'geojson', 'shp'].includes(type)) {
-      return res.status(400).json({ msg: 'invalid type, allowed: excel, geojson, shp' });
+    if (!['excel', 'geojson', 'shp', 'category', 'city'].includes(type)) {
+      return res.status(400).json({ msg: 'invalid type, allowed: excel, geojson, shp, category, city' });
     }
     const { buffer, filename, contentType } = createTemplate(type);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -450,6 +450,19 @@ app.post('/api/health-check/export', (req, res) => {
     const { buffer, filename } = generateHealthReportExcel(report);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (e) {
+    res.status(400).json({ msg: e.message });
+  }
+});
+
+// 体检报告导出 CSV（成员6 增强）
+app.post('/api/health-check/export-csv', (req, res) => {
+  try {
+    const report = healthCheck(req.body);
+    const { buffer, filename } = generateHealthReportCSV(report);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.send(buffer);
   } catch (e) {
     res.status(400).json({ msg: e.message });

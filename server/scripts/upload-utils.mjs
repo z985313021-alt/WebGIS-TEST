@@ -85,7 +85,7 @@ export function convertExcelToGeojson(filePath, { lngColumn, latColumn, nameColu
   });
 }
 
-/** 数据体检：对任意 GeoJSON 输出质量报告 */
+/** 数据体检：对任意 GeoJSON 输出质量报告（增强版：含问题要素明细） */
 export function healthCheck(geojson, { bbox = [114.5, 34.2, 122.9, 38.6] } = {}) {
   const features = geojson?.features ?? [];
   const report = {
@@ -97,25 +97,50 @@ export function healthCheck(geojson, { bbox = [114.5, 34.2, 122.9, 38.6] } = {})
     emptyNameCount: 0,
     duplicateNames: 0,
     fields: new Set(),
+    issues: [],
   };
   const names = new Map();
-  for (const f of features) {
+  const dupSet = new Set();
+  for (let idx = 0; idx < features.length; idx++) {
+    const f = features[idx];
     report.byType[f.geometry?.type] = (report.byType[f.geometry?.type] || 0) + 1;
     const c = f.geometry?.coordinates;
-    if (!c) { report.missingCoord++; continue; }
-    if (Array.isArray(c[0])) continue; // 面/线略过坐标检查
-    if (c[0] < bbox[0] || c[0] > bbox[2] || c[1] < bbox[1] || c[1] > bbox[3]) report.outOfBounds++;
     const props = f.properties ?? {};
-    Object.keys(props).forEach((k) => report.fields.add(k));
-    for (const v of Object.values(props)) {
-      if (v === null || v === undefined || v === '') report.nullValueCount++;
+    const fName = String(props.name || props.名称 || '').trim();
+
+    if (!c) {
+      report.missingCoord++;
+      if (fName) report.issues.push({ name: fName, type: '缺少坐标', desc: `要素 #${idx + 1} 无几何坐标` });
+      continue;
     }
-    const name = props.name || props.名称 || '';
-    if (!String(name).trim()) report.emptyNameCount++;
-    else names.set(name, (names.get(name) || 0) + 1);
+    if (!Array.isArray(c[0])) {
+      if (c[0] < bbox[0] || c[0] > bbox[2] || c[1] < bbox[1] || c[1] > bbox[3]) {
+        report.outOfBounds++;
+        if (fName) report.issues.push({ name: fName, type: '越界', desc: `坐标(${c[0].toFixed(2)}, ${c[1].toFixed(2)})超出山东省界` });
+      }
+    }
+
+    Object.keys(props).forEach((k) => report.fields.add(k));
+    let hasNull = false;
+    for (const v of Object.values(props)) {
+      if (v === null || v === undefined || v === '') { hasNull = true; report.nullValueCount++; }
+    }
+
+    if (!fName) {
+      report.emptyNameCount++;
+      report.issues.push({ name: '(无名)', type: '缺少名称', desc: `要素 #${idx + 1} 缺少名称属性` });
+    } else {
+      names.set(fName, (names.get(fName) || 0) + 1);
+      if (names.get(fName) === 2) {
+        dupSet.add(fName);
+      }
+    }
   }
-  report.duplicateNames = [...names.values()].filter((n) => n > 1).length;
+  report.duplicateNames = dupSet.size;
+  for (const name of dupSet) {
+    report.issues.push({ name, type: '重名', desc: `"${name}" 存在多个要素` });
+  }
   report.fields = [...report.fields];
-  report.outOfBounds = report.outOfBounds;
+  if (report.issues.length > 100) report.issues = report.issues.slice(0, 100);
   return report;
 }

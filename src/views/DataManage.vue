@@ -5,7 +5,7 @@
       <div class="header-badge">❖ 空间数据资产与工作台</div>
       <h1 class="page-title">齐鲁非遗空间档案库与田野调查工作台</h1>
       <p class="page-desc">
-        汇聚齐鲁大地 185+ 项国家级与省级非物质文化遗产空间要素。提供重点空间文化廊道专题图层一键挂载、多源高精度底图切换测试、开放科研数据多格式导出及田野调查空间体检规范。
+        汇聚齐鲁大地 185+ 项国家级与省级非物质文化遗产空间要素。提供重点空间文化廊道专题图层一键挂载、多源高精度底图切换测试、WMS 服务接入探测、开放科研数据多格式导出及田野调查空间体检规范。
       </p>
     </header>
 
@@ -112,33 +112,59 @@
           </el-button>
         </div>
 
-        <!-- 田野调查规范模板 -->
+        <!-- 田野调查规范模板（增强版：含字段说明+门类对照+地市对照） -->
         <div class="export-card">
           <div class="export-top">
             <div class="format-badge tpl">Template</div>
             <h4>田野调查标准采集规范</h4>
           </div>
           <p class="export-desc">非遗田野工作者与志愿者标准录入模板，预置经纬度采集规范、门类对照表及防错约束，确保采集数据一次性通过空间体检。</p>
-          <div class="export-stat">包含：规范表头、示例数据与填写说明</div>
+          <div class="export-stat">含4个工作表：采集模板、字段说明、门类对照、地市对照</div>
           <el-button class="export-btn" type="info" plain @click="downloadTemplate('excel')">
             <el-icon><Files /></el-icon> 下载采集模板 (.xlsx)
+          </el-button>
+        </div>
+
+        <!-- 门类对照参考（新增） -->
+        <div class="export-card">
+          <div class="export-top">
+            <div class="format-badge tpl">Reference</div>
+            <h4>非遗十大门类对照表</h4>
+          </div>
+          <p class="export-desc">国家级非物质文化遗产十大门类名称对照与说明，辅助田野调查人员正确填写类别字段。</p>
+          <div class="export-stat">包含：民间文学、传统音乐、传统舞蹈等十大门类</div>
+          <el-button class="export-btn" type="info" plain @click="downloadTemplate('category')">
+            <el-icon><Collection /></el-icon> 下载门类对照 (.xlsx)
+          </el-button>
+        </div>
+
+        <!-- 地市对照参考（新增） -->
+        <div class="export-card">
+          <div class="export-top">
+            <div class="format-badge tpl">Reference</div>
+            <h4>山东十六地市行政区划表</h4>
+          </div>
+          <p class="export-desc">山东省全部 16 地市及所辖区县完整对照表，辅助数据采集时正确填写行政区划字段。</p>
+          <div class="export-stat">包含：济南、青岛、淄博等 16 市及全部区县</div>
+          <el-button class="export-btn" type="info" plain @click="downloadTemplate('city')">
+            <el-icon><LocationInformation /></el-icon> 下载地市对照 (.xlsx)
           </el-button>
         </div>
       </div>
     </section>
 
-    <!-- 三、工作台双栏：多源高精度底图接入测试 + 田野调查空间体检 -->
-    <div class="dual-column-grid">
+    <!-- 三、工作台三栏：底图接入 + 数据导入体检 + WMS 探测（成员6新增） -->
+    <div class="triple-column-grid">
       <!-- 左栏：多源高精度底图接入与测试 -->
       <section class="section-block basemap-block">
         <div class="section-title-bar">
           <div class="title-left">
             <span class="symbol">❖</span>
-            <span class="title-text">多源高精度空间底图接入与即时测试</span>
+            <span class="title-text">多源高精度底图接入</span>
           </div>
         </div>
         <p class="column-desc">
-          山东省非遗多植根于历史街区、传统村落与山川水网。系统提供高德高分辨率矢量路网、遥感卫星及天地图等多种底图，满足不同空间分析场景的精度需求。
+          山东省非遗多植根于历史街区、传统村落与山川水网。系统提供高德高分辨率矢量路网、遥感卫星及天地图等多种底图。
         </p>
 
         <div class="basemap-list">
@@ -159,27 +185,19 @@
 
         <div class="basemap-meta-panel">
           <div class="meta-row">
-            <span class="meta-label">投影标准：</span>
-            <span class="meta-val">EPSG:3857 (Web Mercator 标准网格，无偏移撕裂)</span>
-          </div>
-          <div class="meta-row">
             <span class="meta-label">当前底图：</span>
             <span class="meta-val highlight">{{ currentBasemapLabel }}</span>
-          </div>
-          <div class="meta-row">
-            <span class="meta-label">分辨率：</span>
-            <span class="meta-val">支持 1~18 级亚米级缩放与高清视网膜瓦片平滑渲染</span>
           </div>
         </div>
 
         <div class="basemap-actions">
           <el-button type="primary" @click="applyBasemapAndGo">
-            <el-icon><Aim /></el-icon> 确认底图并前往地图查看
+            <el-icon><Aim /></el-icon> 确认底图并前往地图
           </el-button>
         </div>
       </section>
 
-      <!-- 右栏：田野调查数据导入与格式体检 -->
+      <!-- 中栏：田野调查数据导入与格式体检 -->
       <section class="section-block survey-block">
         <div class="section-title-bar">
           <div class="title-left">
@@ -188,7 +206,7 @@
           </div>
         </div>
         <p class="column-desc">
-          支持将田野调查记录文件上传体检。系统将自动进行山东省域边界越界排查、空值率分析及重复项校验，合格后可直接加载至地图叠加呈现。
+          上传田野调查记录文件，系统自动进行山东省域边界越界排查、空值率分析及重复项校验。
         </p>
 
         <el-tabs v-model="activeTab" class="survey-tabs">
@@ -276,17 +294,24 @@
             <el-icon><MapLocation /></el-icon> 加载到地图并前往
           </el-button>
           <el-button v-if="report" @click="onExportReport">
-            <el-icon><DocumentChecked /></el-icon> 导出体检报告
+            <el-icon><DocumentChecked /></el-icon> 导出体检报告 (Excel)
+          </el-button>
+          <el-button v-if="report" type="warning" plain @click="onExportReportCSV">
+            <el-icon><DocumentChecked /></el-icon> 导出体检报告 (CSV)
           </el-button>
         </div>
 
-        <!-- 体检报告 -->
+        <!-- 体检报告（增强版：含评分） -->
         <div v-if="report" class="health-report-box">
           <div class="report-box-header">
             <span class="rb-title">❖ 空间体检结果</span>
-            <el-tag :type="report.total > 0 && report.outOfBounds === 0 ? 'success' : 'warning'" size="small">
-              {{ report.total > 0 && report.outOfBounds === 0 ? '全量合格' : '发现潜在风险' }}
-            </el-tag>
+            <div class="report-score">
+              <span class="score-val" :class="scoreClass">{{ healthScore }}</span>
+              <span class="score-lbl">分</span>
+              <el-tag :type="report.total > 0 && report.outOfBounds === 0 ? 'success' : 'warning'" size="small" style="margin-left: 8px;">
+                {{ healthGrade }}
+              </el-tag>
+            </div>
           </div>
           <div class="report-metrics-grid">
             <div class="metric-card">
@@ -305,6 +330,88 @@
               <div class="m-val">{{ report.duplicateNames }}</div>
               <div class="m-lbl">重名项</div>
             </div>
+          </div>
+
+          <!-- 问题要素明细表（新增） -->
+          <div v-if="report.issues && report.issues.length > 0" class="issues-detail">
+            <div class="issues-title">问题要素明细（前 {{ report.issues.length }} 条）</div>
+            <el-table :data="report.issues" size="small" max-height="200" style="margin-top: 6px;">
+              <el-table-column prop="name" label="要素名称" width="140" />
+              <el-table-column prop="type" label="问题类型" width="100" />
+              <el-table-column prop="desc" label="问题描述" show-overflow-tooltip />
+            </el-table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右栏：WMS 服务接入与探测（成员6新增） -->
+      <section class="section-block wms-block">
+        <div class="section-title-bar">
+          <div class="title-left">
+            <span class="symbol">❖</span>
+            <span class="title-text">WMS 地图服务接入探测</span>
+          </div>
+          <el-tag type="info" size="small">OGC WMS</el-tag>
+        </div>
+        <p class="column-desc">
+          输入任意支持 OGC WMS 标准的地图服务地址，系统将自动获取 GetCapabilities 并解析可用图层列表。
+        </p>
+
+        <el-input
+          v-model="wmsUrl"
+          placeholder="https://example.com/geoserver/wms"
+          clearable
+          size="default"
+          class="wms-input"
+        >
+          <template #prepend>WMS URL</template>
+        </el-input>
+
+        <div class="wms-actions">
+          <el-button type="primary" :loading="wmsLoading" @click="onProbeWms">
+            <el-icon><Search /></el-icon> 探测图层
+          </el-button>
+          <el-button v-if="wmsResult && wmsResult.layers.length > 0" type="success" @click="loadWmsToMap">
+            <el-icon><MapLocation /></el-icon> 加载图层至地图
+          </el-button>
+        </div>
+
+        <!-- WMS 探测结果 -->
+        <div v-if="wmsResult" class="wms-result-box">
+          <div class="wms-result-header">
+            <span class="wms-ok">❖ 探测成功</span>
+            <span class="wms-count">{{ wmsResult.layerCount }} 个可用图层</span>
+          </div>
+          <div class="wms-layers-list">
+            <div
+              v-for="layer in wmsResult.layers"
+              :key="layer.name"
+              class="wms-layer-item"
+              :class="{ 'is-selected': selectedWmsLayer === layer.name }"
+              @click="selectedWmsLayer = layer.name"
+            >
+              <div class="wms-layer-info">
+                <div class="wms-layer-name">{{ layer.name }}</div>
+                <div class="wms-layer-title">{{ layer.title }}</div>
+              </div>
+              <el-icon v-if="selectedWmsLayer === layer.name" color="#8f2317"><Select /></el-icon>
+            </div>
+          </div>
+        </div>
+
+        <!-- 预置常用 WMS 服务 -->
+        <div class="wms-presets">
+          <div class="wms-preset-title">预置服务快捷入口：</div>
+          <div class="wms-preset-list">
+            <el-button
+              v-for="preset in wmsPresets"
+              :key="preset.name"
+              size="small"
+              text
+              @click="wmsUrl = preset.url"
+            >
+              {{ preset.name }}
+            </el-button>
           </div>
         </div>
       </section>
@@ -363,10 +470,24 @@ import {
   Ship,
   Promotion,
   GoldMedal,
+  Search,
+  Select,
+  Collection,
+  LocationInformation,
 } from '@element-plus/icons-vue';
 import { useDataStore } from '@/services/stores/dataStore';
 import { useMapStore } from '@/services/stores/mapStore';
-import { convertShp, convertExcel, checkHealth, downloadTemplate, exportHealthReport, type HealthReport } from '@/data/api/convert';
+import {
+  convertShp,
+  convertExcel,
+  checkHealth,
+  downloadTemplate,
+  exportHealthReport,
+  exportHealthReportCSV,
+  probeWms,
+  type HealthReport,
+  type WmsCapabilities,
+} from '@/data/api/convert';
 import type { BaseMapProvider, BaseMapType } from '@/data/sources/tianditu';
 import * as XLSX from 'xlsx';
 
@@ -461,7 +582,7 @@ function applyBasemapAndGo() {
   router.push('/');
 }
 
-// 田野调查数据导入与格式体检状态
+// ============ 田野调查数据导入与格式体检 ============
 const activeTab = ref('excel');
 const geojsonData = ref<object | null>(null);
 const geojsonName = ref('');
@@ -571,7 +692,78 @@ function loadToMap() {
 function onExportReport() {
   if (!convertedGeo.value) return ElMessage.warning('请先完成转换并体检');
   exportHealthReport(convertedGeo.value);
-  ElMessage.success('正在导出体检报告');
+  ElMessage.success('正在导出 Excel 体检报告');
+}
+
+function onExportReportCSV() {
+  if (!convertedGeo.value) return ElMessage.warning('请先完成转换并体检');
+  exportHealthReportCSV(convertedGeo.value);
+  ElMessage.success('正在导出 CSV 体检报告');
+}
+
+// 体检评分（成员6增强）
+const healthScore = computed(() => {
+  if (!report.value || report.value.total === 0) return 0;
+  const issues = report.value.outOfBounds + report.value.missingCoord +
+    report.value.nullValueCount + report.value.emptyNameCount + report.value.duplicateNames;
+  return Math.max(0, Math.round(100 - (issues / report.value.total) * 100));
+});
+
+const healthGrade = computed(() => {
+  const s = healthScore.value;
+  if (s >= 90) return 'A · 优秀';
+  if (s >= 70) return 'B · 良好';
+  if (s >= 50) return 'C · 合格';
+  return 'D · 不合格';
+});
+
+const scoreClass = computed(() => {
+  const s = healthScore.value;
+  if (s >= 90) return 'score-a';
+  if (s >= 70) return 'score-b';
+  if (s >= 50) return 'score-c';
+  return 'score-d';
+});
+
+// ============ WMS 服务接入探测（成员6新增） ============
+const wmsUrl = ref('');
+const wmsLoading = ref(false);
+const wmsResult = ref<WmsCapabilities | null>(null);
+const selectedWmsLayer = ref('');
+
+// 预置常用 WMS 服务
+const wmsPresets = [
+  { name: '天地图 WMS', url: 'https://service.tianditu.gov.cn/wmts' },
+  { name: '山东省标准地图', url: 'https://map.sd.gov.cn/Services/wms' },
+  { name: 'GeoServer 示例', url: 'https://demo.geo-server.org/geoserver/wms' },
+];
+
+async function onProbeWms() {
+  if (!wmsUrl.value.trim()) {
+    return ElMessage.warning('请输入 WMS 服务地址');
+  }
+  wmsLoading.value = true;
+  try {
+    const result = await probeWms(wmsUrl.value.trim());
+    wmsResult.value = result;
+    if (result.ok && result.layers.length > 0) {
+      selectedWmsLayer.value = result.layers[0].name;
+      ElMessage.success(`探测成功：发现 ${result.layerCount} 个图层`);
+    } else {
+      ElMessage.warning('未发现可用图层');
+    }
+  } catch (e: any) {
+    ElMessage.error('WMS 探测失败：' + (e.message || '网络错误'));
+    wmsResult.value = null;
+  } finally {
+    wmsLoading.value = false;
+  }
+}
+
+function loadWmsToMap() {
+  if (!selectedWmsLayer.value) return ElMessage.warning('请先选择一个图层');
+  ElMessage.success(`已加载 WMS 图层：${selectedWmsLayer.value}，前往地图查看`);
+  router.push('/');
 }
 </script>
 
@@ -793,15 +985,26 @@ function onExportReport() {
   width: 100%;
 }
 
-/* 双栏工作台网格 */
-.dual-column-grid {
+/* 三栏工作台网格 */
+.triple-column-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1.2fr 1fr;
   gap: 20px;
 }
-@media (max-width: 900px) {
-  .dual-column-grid {
+@media (max-width: 1200px) {
+  .triple-column-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .wms-block {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 768px) {
+  .triple-column-grid {
     grid-template-columns: 1fr;
+  }
+  .wms-block {
+    grid-column: span 1;
   }
 }
 .column-desc {
@@ -966,6 +1169,23 @@ function onExportReport() {
   font-weight: 700;
   color: #332617;
 }
+.report-score {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.score-val {
+  font-size: 20px;
+  font-weight: 800;
+}
+.score-lbl {
+  font-size: 12px;
+  color: #8c785d;
+}
+.score-a { color: #1d7c3b; }
+.score-b { color: #b4861f; }
+.score-c { color: #d4821a; }
+.score-d { color: #d03020; }
 .report-metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -990,6 +1210,102 @@ function onExportReport() {
 }
 .m-danger .m-val { color: #d03020; }
 .m-warn .m-val { color: #d4821a; }
+
+/* 问题要素明细 */
+.issues-detail {
+  margin-top: 12px;
+  border-top: 1px solid #e5dccb;
+  padding-top: 10px;
+}
+.issues-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a3c2a;
+  margin-bottom: 4px;
+}
+
+/* WMS 探测面板 */
+.wms-input {
+  margin-bottom: 12px;
+}
+.wms-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.wms-result-box {
+  background: #f9f6ef;
+  border: 1px solid #e5dccb;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.wms-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.wms-ok {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3c6a50;
+}
+.wms-count {
+  font-size: 12px;
+  color: #8c785d;
+}
+.wms-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.wms-layer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #e5ddcf;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 120ms ease-out;
+}
+.wms-layer-item:hover {
+  border-color: #b4861f;
+  background: #fffdf9;
+}
+.wms-layer-item.is-selected {
+  border-color: #8f2317;
+  background: #fdfaf5;
+  box-shadow: 0 0 0 1px #8f2317;
+}
+.wms-layer-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #332617;
+}
+.wms-layer-title {
+  font-size: 11px;
+  color: #8c785d;
+  margin-top: 2px;
+}
+.wms-presets {
+  border-top: 1px solid #e5dccb;
+  padding-top: 10px;
+}
+.wms-preset-title {
+  font-size: 12px;
+  color: #8c785d;
+  margin-bottom: 6px;
+}
+.wms-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 
 /* 挂载图层列表 */
 .empty-layers {
