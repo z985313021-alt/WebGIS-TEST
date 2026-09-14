@@ -18,6 +18,7 @@ import ImageWMS from 'ol/source/ImageWMS';
 import Cluster from 'ol/source/Cluster';
 import HeatmapLayer from 'ol/layer/Heatmap';
 import ScaleLine from 'ol/control/ScaleLine';
+import OverviewMap from 'ol/control/OverviewMap';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
@@ -195,8 +196,23 @@ export class OLMapAdapter implements MapAdapter {
           text: true,
           minWidth: 100,
         }),
+        // 鹰眼图（右下角小地图缩略图，默认折叠为小图标，点击展开）
+        // 底图用高德矢量（国内可访问），和主地图保持一致
+        new OverviewMap({
+          collapsible: true,
+          collapsed: true,
+          label: '',
+          collapseLabel: '',
+          layers: [createBaseMapLayer('vec', 'amap')],
+          view: new View({
+            projection: 'EPSG:3857',
+            center: fromLonLat([118.2, 36.3]),
+            zoom: 6,
+          }),
+        }),
       ],
     });
+
     this.syncLabelLayer();
     // 缩放结束后重算样式（非遗点 pin/图片切换、边界层刷新）——用 moveend 而非
     // change:resolution，避免拖动/缩放每一帧都触发全层重绘导致卡顿
