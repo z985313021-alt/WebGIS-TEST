@@ -65,7 +65,7 @@ onMounted(() => {
   if (mapEl && typeof ResizeObserver !== 'undefined') {
     widthObserver = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
-      narrow.value = w > 0 && w < 560;
+      narrow.value = w > 0 && w < 460;
     });
     widthObserver.observe(mapEl);
   }

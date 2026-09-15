@@ -80,13 +80,8 @@ onMounted(async () => {
   });
   // 监听容器尺寸：面板展开/收起挤压地图时保持瓦片与坐标正确
   if (typeof ResizeObserver !== 'undefined') {
-    sizeObserver = new ResizeObserver((entries) => {
-      // 面板挤压后地图变窄，右下角控件（罗盘/缩放/鹰眼图）会互相压叠，
-      // 这里打标给样式做收缩，保证控件区始终清爽
-      const w = entries[0]?.contentRect.width ?? 0;
-      mapEl.value?.classList.toggle('map-narrow', w > 0 && w < 560);
-      adapter?.updateSize();
-    });
+    // 容器尺寸变化即重算视口（鹰眼图由 OL 自身跟随主地图尺寸更新）
+    sizeObserver = new ResizeObserver(() => adapter?.updateSize());
     sizeObserver.observe(mapEl.value);
   }
   mapStore.setMapAdapter(adapter);
@@ -295,11 +290,6 @@ defineExpose({ zoomToItem, getAdapter });
   overflow: hidden;
   border: 1px solid #e0d5bc;
   box-shadow: 0 3px 16px rgba(109, 76, 42, 0.10);
-}
-
-/* 地图容器过窄时收起鹰眼图，避免与罗盘/缩放/比例尺挤在一起 */
-.map-container.map-narrow :deep(.ol-overviewmap) {
-  display: none;
 }
 
 /* 鹰眼图定位到右下角（默认在左下角，容易被左侧面板挡住；

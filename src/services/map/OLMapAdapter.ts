@@ -243,13 +243,13 @@ export class OLMapAdapter implements MapAdapter {
           text: true,
           minWidth: 100,
         }),
-        // 鹰眼图（右下角小地图缩略图，默认折叠为小图标，点击展开）
+        // 鹰眼图（右下角小地图缩略图，默认展开显示；仍可点按钮折叠）
         // 底图用高德矢量（国内可访问），和主地图保持一致
+        // 注意：collapsed:true 会折叠成按钮，配合空 label 就只剩一个空白小方块，
+        // 用户会以为鹰眼图"没显示"，所以默认展开并保留默认箭头标签。
         new OverviewMap({
           collapsible: true,
-          collapsed: true,
-          label: '',
-          collapseLabel: '',
+          collapsed: false,
           layers: [createBaseMapLayer('vec', 'amap')],
           view: new View({
             projection: 'EPSG:3857',
