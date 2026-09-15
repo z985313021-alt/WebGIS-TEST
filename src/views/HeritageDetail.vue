@@ -277,21 +277,21 @@ function viewOnMap() {
 </script>
 
 <style scoped>
-/* 原 max-width: 1000px 会在宽屏下把右侧空出一大片，这里放开并改为三列 */
-.detail-page { padding: 16px; max-width: 1760px; margin: 0 auto; }
+/* 不再限制页宽：三列铺满窗口，地图列吃掉全部剩余宽度 */
+.detail-page { padding: 16px; }
 
 .detail-layout {
   display: flex;
   align-items: flex-start;
   gap: 20px;
 }
-/* 图片列固定宽度，信息列与地图列按比例分掉剩余空间 */
-.dl-gallery { flex: 0 1 360px; min-width: 280px; }
-.dl-info { flex: 1 1 460px; min-width: 340px; }
-.dl-map { flex: 1 1 520px; min-width: 360px; position: sticky; top: 12px; }
+/* 图片列与信息列给固定基准宽，地图列 flex:1 吞掉剩余空间 */
+.dl-gallery { flex: 0 0 360px; min-width: 280px; }
+.dl-info { flex: 0 1 560px; min-width: 380px; }
+.dl-map { flex: 1 1 auto; min-width: 380px; position: sticky; top: 12px; }
 
 /* 中窄屏：地图换到下一行铺满，避免三列互相挤压 */
-@media (max-width: 1400px) {
+@media (max-width: 1360px) {
   .detail-layout { flex-wrap: wrap; }
   .dl-gallery { flex: 1 1 320px; }
   .dl-info { flex: 2 1 520px; }
