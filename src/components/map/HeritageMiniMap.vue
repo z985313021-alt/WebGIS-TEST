@@ -93,7 +93,7 @@ function openFullMap() {
 
 <style scoped>
 .mini-map-card {
-  margin-top: 16px;
+  margin-bottom: 16px;
 }
 .mini-map-card :deep(.el-card__body) {
   padding: 12px 14px 10px;
@@ -120,7 +120,8 @@ function openFullMap() {
 }
 .mm-canvas {
   width: 100%;
-  height: 320px;
+  /* 宽屏下随视口长高，窄屏保底 320px */
+  height: clamp(320px, calc(100vh - 220px), 700px);
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid #e0d5bc;

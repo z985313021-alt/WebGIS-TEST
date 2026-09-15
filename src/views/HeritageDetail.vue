@@ -2,9 +2,10 @@
   <div class="detail-page" v-if="item">
     <el-page-header @back="$router.push('/')" :content="item.name" class="header" />
 
-    <el-row :gutter="20">
+    <!-- 三列布局：图片 / 详细信息 / 空间位置地图（把右侧空白用起来） -->
+    <div class="detail-layout">
       <!-- 左：图片画廊 -->
-      <el-col :span="10">
+      <div class="dl-gallery">
         <el-card shadow="never">
           <div class="gallery">
             <img v-if="!imgError && photos.length" :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
@@ -22,10 +23,10 @@
             </div>
           </div>
         </el-card>
-      </el-col>
+      </div>
 
-      <!-- 右：详细信息 -->
-      <el-col :span="14">
+      <!-- 中：详细信息 -->
+      <div class="dl-info">
         <el-card shadow="never">
           <div class="tags">
             <el-tag size="small" :color="color" style="color:#fff; border:none">{{ item.category }}</el-tag>
@@ -69,11 +70,13 @@
             <el-button @click="$router.push('/')">返回地图</el-button>
           </div>
         </el-card>
+      </div>
 
-        <!-- 该非遗的空间位置：直接内嵌地图，不必再跳回主页去看 -->
+      <!-- 右：空间位置（不必跳回主页即可查看；宽屏下占住右侧空白） -->
+      <div class="dl-map">
         <HeritageMiniMap v-if="item" :item="item" />
-      </el-col>
-    </el-row>
+      </div>
+    </div>
 
     <!-- 互动区：点赞 + 评论（T11） -->
     <el-card shadow="never" class="interact-card">
@@ -274,7 +277,26 @@ function viewOnMap() {
 </script>
 
 <style scoped>
-.detail-page { padding: 16px; max-width: 1000px; }
+/* 原 max-width: 1000px 会在宽屏下把右侧空出一大片，这里放开并改为三列 */
+.detail-page { padding: 16px; max-width: 1760px; margin: 0 auto; }
+
+.detail-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+/* 图片列固定宽度，信息列与地图列按比例分掉剩余空间 */
+.dl-gallery { flex: 0 1 360px; min-width: 280px; }
+.dl-info { flex: 1 1 460px; min-width: 340px; }
+.dl-map { flex: 1 1 520px; min-width: 360px; position: sticky; top: 12px; }
+
+/* 中窄屏：地图换到下一行铺满，避免三列互相挤压 */
+@media (max-width: 1400px) {
+  .detail-layout { flex-wrap: wrap; }
+  .dl-gallery { flex: 1 1 320px; }
+  .dl-info { flex: 2 1 520px; }
+  .dl-map { flex: 1 1 100%; position: static; }
+}
 .header { margin-bottom: 16px; }
 .gallery .main-img { width: 100%; height: 320px; object-fit: cover; border-radius: 8px; }
 .main-img.placeholder { display: flex; align-items: center; justify-content: center; font-size: 72px; }
