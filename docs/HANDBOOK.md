@@ -33,16 +33,16 @@
 
 | 页面路由 | 核心功能与呈现 |
 |---|---|
-| **地图主页 `/`** | 全屏地图主体 + 左侧 48px 墨石色停靠轨 + 380px 工作台抽屉（名录/空间分析/图层态势/时空演变）+ 右侧 420px 统计透视抽屉 |
+| **地图主页 `/`** | 全屏地图主体 + 左侧 48px 墨石色停靠轨 + 380px 工作台抽屉（名录/空间分析/图层态势/时空演变）+ 右侧 420px 统计透视抽屉；抽屉展开时地图容器自动压缩让位、左右抽屉互斥，右下角含鹰眼图与控件套件。点位以「非遗印章」（门类传统色 + 一门一字）呈现，选中时朱砂涟漪 + 金色聚焦环动效 |
 | **数据管理 `/data`** | 齐鲁非遗四大重点专题图层仓储 + 田野调查数据格式转换（Shp/Excel/GeoJSON）+ 空间数据健康体检 |
 | **图表可视化 `/chart`** | 非遗门类环形分布、16 地市阶梯排行、国家级公布批次递增趋势、优势门类 TOP5 |
 | **态势大屏 `/screen`** | 全屏沉浸式文化遗产数字化态势大屏，适配大屏展厅展示 |
 | **旅游路线 `/travel`** | 高德公路真实自驾轨迹规划（含实况气象与行程单）+ 12306 齐鲁高铁直通路线与经停站 |
 | **文创商城 `/shop`** | 非遗衍生文创精品展厅、购物车、结账下单与收货地址簿联动 |
 | **文创后台 `/admin-shop`** | 管理员专属文创货架维护、商品上架/下架、库存调整与历史订单审计 |
-| **非遗详情 `/heritage/:id`** | 185 项非遗项目全景图文资料、传承人图谱、SQLite 点赞与公众研学评论 |
+| **非遗详情 `/heritage/:id`** | 185 项非遗项目全景图文资料、传承人图谱、SQLite 点赞与公众研学评论；右侧内嵌该项目的空间位置小地图（同城点位分布 + 当前项目高亮，可点击切换） |
 | **个人中心 `/profile`** | 用户基本资料、省市区三级联动收货地址簿、密码修改 |
-| **我的订单 `/orders`** | 文创交易订单生命周期跟踪与详情查询 |
+| **我的订单 `/orders`** | 文创交易订单生命周期跟踪与详情查询；待付款订单显示实时倒计时（60 秒未支付自动取消并回补库存） |
 
 ---
 
@@ -161,9 +161,9 @@ map.addInteraction(new Draw({ source, type: 'Polygon' }));
 |---|---|---|---|
 | **非遗名录检索** | 高德联想 + 拼音/关键词 | `components/panels/FilterPanel.vue` | 左侧停靠轨「名录」按钮 |
 | **空间分析工具** | OpenLayers + Turf.js | `components/panels/AnalysisTools.vue` | 左侧停靠轨「分析」按钮 |
-| - 距离/面积量算 | `ol/sphere` 球面测量 | `services/analysis/measure.ts` | 空间分析抽屉内交互量算 |
-| - 空间缓冲区 | `turf.buffer` (10~50km) | `services/analysis/buffer.ts` | 空间分析抽屉内缓冲区生成 |
-| - 区域叠加统计 | `turf.booleanPointInPolygon` | `services/analysis/overlay.ts` | 计算区域或缓冲区内非遗数量 |
+| - 距离/面积量算 | `ol/sphere` 球面测量 | `services/analysis/analysis.ts` | 空间分析抽屉内交互量算 |
+| - 空间缓冲区 | `turf.buffer`（半径 1~500km 可调） | `services/analysis/analysis.ts` | 中心点支持三种来源：非遗名录点位 / 地图拾取任意点（`MapAdapter.startPickPoint`）/ 高德地址检索（`/api/amap/geocode`，GCJ-02→WGS84 转换后落图）；结果输出范围内非遗清单，可二次检索、点击条目定位并高亮 |
+| - 区域叠加统计 | `turf.booleanPointInPolygon` | `services/analysis/analysis.ts` | 计算区域或缓冲区内非遗数量 |
 | **图层态势与聚类** | OL Cluster / Heatmap | `views/HomeMap.vue` | 左侧停靠轨「态势」按钮 |
 | **时空演变回放** | 批次过滤 + 动画播放器 | `components/map/TimeSlider.vue` | 左侧停靠轨「时空」按钮 |
 | **多维统计透视** | ECharts 联动分析 | `components/panels/MapChartPanel.vue` | 右侧停靠抽屉（右上角按钮开启） |
