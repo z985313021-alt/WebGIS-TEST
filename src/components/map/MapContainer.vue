@@ -257,4 +257,12 @@ defineExpose({ zoomToItem, getAdapter });
 
 <style scoped>
 .map-container { width: 100%; height: 100%; background: #f7f3e8; }
+
+/* 鹰眼图定位到右下角（默认在左下角，容易被左侧面板挡住；
+   往上偏移避免和MapControls控件重叠） */
+.map-container :deep(.ol-overviewmap) {
+  left: auto !important;
+  right: 8px !important;
+  bottom: 160px !important;
+}
 </style>
