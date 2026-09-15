@@ -748,6 +748,37 @@ app.get('/api/amap/weather', async (req, res) => {
   }
 });
 
+// 高德地理编码代理：结构化地址 → 经纬度（GCJ-02），供空间分析「按地址生成缓冲区」使用
+app.get('/api/amap/geocode', async (req, res) => {
+  const address = String(req.query.address || '').trim();
+  const city = String(req.query.city || '山东');
+  if (!address) return res.json({ status: '0', info: '缺少 address 参数' });
+  if (!AMAP_WEB_KEY) return res.json({ status: '0', info: '服务端未配置 AMAP_WEB_KEY' });
+  try {
+    const url = `https://restapi.amap.com/v3/geocode/geo?key=${AMAP_WEB_KEY}&address=${encodeURIComponent(address)}&city=${encodeURIComponent(city)}&output=json`;
+    const upstreamRes = await fetch(url);
+    const data = await upstreamRes.json();
+    res.json(data);
+  } catch (err) {
+    res.json({ status: '0', info: '高德地理编码接口失败: ' + err.message });
+  }
+});
+
+// 高德逆地理编码代理：经纬度 → 结构化地址（地图拾取点回显所在地）
+app.get('/api/amap/regeo', async (req, res) => {
+  const location = String(req.query.location || '').trim();
+  if (!location) return res.json({ status: '0', info: '缺少 location 参数' });
+  if (!AMAP_WEB_KEY) return res.json({ status: '0', info: '服务端未配置 AMAP_WEB_KEY' });
+  try {
+    const url = `https://restapi.amap.com/v3/geocode/regeo?key=${AMAP_WEB_KEY}&location=${encodeURIComponent(location)}&extensions=base&output=json`;
+    const upstreamRes = await fetch(url);
+    const data = await upstreamRes.json();
+    res.json(data);
+  } catch (err) {
+    res.json({ status: '0', info: '高德逆地理编码接口失败: ' + err.message });
+  }
+});
+
 // 高德输入提示与 POI 搜索代理
 app.get('/api/amap/inputtips', async (req, res) => {
   const keywords = String(req.query.keywords || '');

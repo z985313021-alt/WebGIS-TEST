@@ -78,6 +78,11 @@ onMounted(async () => {
   adapter.onClusterClick((items, center) => {
     mapStore.showClusterPopup(items, center);
   });
+  // 监听容器尺寸：面板展开/收起挤压地图时保持瓦片与坐标正确
+  if (typeof ResizeObserver !== 'undefined') {
+    sizeObserver = new ResizeObserver(() => scheduleUpdateSize());
+    sizeObserver.observe(mapEl.value);
+  }
   mapStore.setMapAdapter(adapter);
   // 挂载后同步一次已存在的数据集（从数据管理页跳转过来的场景）
   syncUserDatasets();
@@ -237,7 +242,22 @@ watch(
 // 成员2：聚合距离变化
 watch(() => mapStore.clusterDistance, (d) => adapter?.setClusterDistance(d));
 
+// 容器尺寸自适应：左右面板展开会挤压地图容器，OL 不会自动重算视口，
+// 这里用 ResizeObserver 跟随（过渡动画期间连续触发，用 rAF 合并成每帧一次）。
+let sizeObserver: ResizeObserver | null = null;
+let sizeRaf = 0;
+function scheduleUpdateSize() {
+  if (sizeRaf) return;
+  sizeRaf = requestAnimationFrame(() => {
+    sizeRaf = 0;
+    adapter?.updateSize();
+  });
+}
+
 onBeforeUnmount(() => {
+  sizeObserver?.disconnect();
+  sizeObserver = null;
+  if (sizeRaf) cancelAnimationFrame(sizeRaf);
   mapStore.setMapAdapter(null);
   adapter?.destroy();
   adapter = null;
