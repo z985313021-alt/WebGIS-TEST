@@ -43,14 +43,22 @@
             <el-button size="small" @click="doAct(o, 'cancel')">取消订单</el-button>
           </template>
           <template v-else-if="o.status === 'shipped'">
+            <el-button size="small" type="primary" plain @click="openLogistics(o)">🚚 查看物流</el-button>
             <el-button size="small" type="success" @click="doAct(o, 'confirm')">确认收货</el-button>
           </template>
-          <span v-else class="wait">
-            {{ o.status === 'cancelled' ? '该订单已取消' : '交易完成，感谢支持 🎉' }}
-          </span>
+          <template v-else-if="o.status === 'done'">
+            <el-button size="small" plain @click="openLogistics(o)">🚚 物流详情</el-button>
+            <span class="wait">交易完成，感谢支持 🎉</span>
+          </template>
+          <span v-else class="wait">该订单已取消</span>
         </div>
       </div>
     </div>
+
+    <!-- 物流轨迹抽屉 -->
+    <el-drawer v-model="logiVisible" title="🚚 物流轨迹" size="520px" :destroy-on-close="true">
+      <LogisticsTrack v-if="logiOrder" :order="logiOrder" />
+    </el-drawer>
   </div>
 </template>
 
@@ -61,10 +69,18 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import * as api from '@/data/api/shop';
 import type { Order } from '@/data/api/shop';
 import { HD_ASSETS } from '@/data/sources/assets';
+import LogisticsTrack from '@/components/shop/LogisticsTrack.vue';
 
 const router = useRouter();
 const orders = ref<Order[]>([]);
 const loading = ref(true);
+// 物流抽屉
+const logiVisible = ref(false);
+const logiOrder = ref<Order | null>(null);
+function openLogistics(o: Order) {
+  logiOrder.value = o;
+  logiVisible.value = true;
+}
 
 function tagType(s: string) {
   return { pending: 'warning', paid: 'primary', shipped: 'info', done: 'success', cancelled: 'danger' }[s] as any || 'info';
