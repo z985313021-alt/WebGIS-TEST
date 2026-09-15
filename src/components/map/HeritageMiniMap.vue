@@ -93,10 +93,16 @@ function openFullMap() {
 
 <style scoped>
 .mini-map-card {
-  margin-bottom: 16px;
+  /* 与左侧合并卡等高对齐，不留额外下边距 */
+  margin: 0;
+  height: 100%;
 }
 .mini-map-card :deep(.el-card__body) {
   padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 .mm-head {
   display: flex;
@@ -120,8 +126,10 @@ function openFullMap() {
 }
 .mm-canvas {
   width: 100%;
-  /* 宽屏下随视口长高，窄屏保底 320px */
+  /* 随卡片高度撑满（卡片与左侧信息卡等高）；窄屏保底 320px */
+  flex: 1 1 auto;
   height: clamp(320px, calc(100vh - 220px), 700px);
+  min-height: 320px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid #e0d5bc;

@@ -277,25 +277,63 @@ function viewOnMap() {
 </script>
 
 <style scoped>
-/* 不再限制页宽：三列铺满窗口，地图列吃掉全部剩余宽度 */
+/* 不再限制页宽：整行铺满，地图列吃掉全部剩余宽度 */
 .detail-page { padding: 16px; }
 
+/*
+ * 布局：左「图片 + 详细信息」拼成一张卡片（相接处去掉圆角与间隙、留一条分隔线），
+ * 右侧地图卡与它等高 —— 避免三块高低不齐成台阶状。
+ */
 .detail-layout {
   display: flex;
-  align-items: flex-start;
-  gap: 20px;
+  align-items: stretch;
+  gap: 0;
 }
-/* 图片列与信息列给固定基准宽，地图列 flex:1 吞掉剩余空间 */
-.dl-gallery { flex: 0 0 360px; min-width: 280px; }
-.dl-info { flex: 0 1 560px; min-width: 380px; }
-.dl-map { flex: 1 1 auto; min-width: 380px; position: sticky; top: 12px; }
+.dl-gallery { flex: 0 0 360px; min-width: 280px; display: flex; }
+.dl-info { flex: 0 1 560px; min-width: 380px; display: flex; }
+.dl-gallery :deep(.el-card),
+.dl-info :deep(.el-card) { flex: 1; width: 100%; }
+.dl-gallery :deep(.el-card) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.dl-info :deep(.el-card) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid #efe7d6;
+}
+/* 信息卡内部纵向撑满：字段表在上、按钮组压到底部，卡片拉高后不留突兀空缺 */
+.dl-info :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.dl-info .actions { margin-top: auto; }
+/* 图片卡被拉高后把画廊内容垂直居中，避免下方留一大块空白 */
+.dl-gallery :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  box-sizing: border-box;
+}
 
-/* 中窄屏：地图换到下一行铺满，避免三列互相挤压 */
+.dl-map { flex: 1 1 auto; min-width: 380px; margin-left: 20px; position: sticky; top: 12px; }
+
+/* 中窄屏：折行回到独立卡片，圆角与间距恢复 */
 @media (max-width: 1360px) {
-  .detail-layout { flex-wrap: wrap; }
+  .detail-layout { flex-wrap: wrap; gap: 20px; }
   .dl-gallery { flex: 1 1 320px; }
   .dl-info { flex: 2 1 520px; }
-  .dl-map { flex: 1 1 100%; position: static; }
+  .dl-gallery :deep(.el-card),
+  .dl-info :deep(.el-card) {
+    border-radius: var(--el-card-border-radius, 4px);
+  }
+  .dl-info :deep(.el-card) { border-left: none; }
+  .dl-info :deep(.el-card__body) { height: auto; }
+  .dl-info .actions { margin-top: 0; }
+  .dl-map { flex: 1 1 100%; margin-left: 0; position: static; }
 }
 .header { margin-bottom: 16px; }
 .gallery .main-img { width: 100%; height: 320px; object-fit: cover; border-radius: 8px; }
