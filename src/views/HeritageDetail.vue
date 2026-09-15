@@ -69,6 +69,9 @@
             <el-button @click="$router.push('/')">返回地图</el-button>
           </div>
         </el-card>
+
+        <!-- 该非遗的空间位置：直接内嵌地图，不必再跳回主页去看 -->
+        <HeritageMiniMap v-if="item" :item="item" />
       </el-col>
     </el-row>
 
@@ -134,6 +137,7 @@ import { User, Star, StarFilled } from '@element-plus/icons-vue';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
 import { getHeritagePlaceholder } from '@/data/sources/assets';
+import HeritageMiniMap from '@/components/map/HeritageMiniMap.vue';
 import {
   fetchLikeCount,
   postLike,
