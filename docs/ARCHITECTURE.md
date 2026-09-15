@@ -42,29 +42,36 @@
 
 ### 2.1 显示层（Presentation Layer）
 - **页面路由 (`src/views/`)**：
-  - `HomeMap.vue`：全屏 WebGIS 主页，内嵌左侧深色停靠轨、工作台抽屉（名录/空间分析/态势/时空演变）与右侧统计图表抽屉。
-  - `DataManage.vue`：专题空间图层仓储、田野调查数据格式转换、空间数据体检报告。
+  - `HomeMap.vue`：全屏 WebGIS 主页，内嵌左侧深色停靠轨、工作台抽屉（名录/空间分析/态势/时空演变）、右侧统计图表抽屉、右下角鹰眼图（OverviewMap）与全套微圆角地图控件套件。
+  - `DataManage.vue`：三栏式空间数据治理工作台（规范与 4-Sheet 模板下载 / 空间数据格式转换 / 空间健康体检与 OGC WMS 探测）。
   - `ChartView.vue`：非遗多维统计透视、门类分布饼图、地市柱状排行、公布批次递增趋势。
   - `TravelRoute.vue`：文化研学自驾路径规划（高德公路折线与天气）与 12306 高铁路线查询。
   - `Shop.vue` & `AdminShop.vue`：文创衍生品展示、购物车结算与管理员文创商品维护后台。
-  - `BigScreen.vue`：全屏数字孪生文化展陈态势大屏。
-  - `HeritageDetail.vue`：单项非遗全要素详情、多媒体相册、传承人联动与研学评论。
-  - `Profile.vue` & `MyOrders.vue`：个人中心资料修改、省市区三级联动地址簿、文创订单跟踪。
+  - `BigScreen.vue`：全屏数字孪生文化展陈态势大屏（文字排布与自适应排版深度修润）。
+  - `HeritageDetail.vue`：单项非遗全要素详情、多媒体相册、传承人联动与研学评论；页面为「图片 + 详细信息（合并为一张卡）｜空间位置地图」的等高双栏布局，无需跳回主页即可查看该项目的空间位置。
+  - `Profile.vue` & `MyOrders.vue`：个人中心资料修改、省市区三级联动地址簿、文创订单跟踪（支持实时空间物流轨迹滑出追踪）。
   - `AuthPage.vue`：用户登录与注册页面。
+- **公共与地图控件组件 (`src/components/`)**：
+  - `map/MapControls.vue`：国风微圆角地图控件套件（比例尺 ScaleLine、指北针复位、实时 Zoom 级别显示、全省全貌视口重置、鼠标实时经纬度坐标）。
+  - `map/ClusterPopup.vue`：密集点位聚合交互浮层（点击聚合簇展示所含非遗清单，支持穿透定位高亮）。
+  - `map/HeritageMiniMap.vue`：详情页内嵌空间位置小地图（独立轻量 OLMapAdapter，加载省界/市界与同城点位，当前项目朱砂印章脉冲高亮，点击同城点位可切换详情）。
+  - `shop/LogisticsTrack.vue`：订单物流抽屉（真实高德自驾路网轨迹折线 + 货运节点空间分布）。
 
 ### 2.2 逻辑层（Service Layer）
 - **状态管理 (`src/services/stores/`)**：
-  - `dataStore.ts`：185 项非遗数据集管理、多条件组合筛选（地市/类别/批次/关键字）、用户挂载图层管理。
+  - `dataStore.ts`：185 项非遗数据集管理、多条件组合筛选（地市/类别/批次/关键字）、用户挂载图层管理与自适应视角边界计算。
   - `mapStore.ts`：地图图层态势模式（标准单点 / 动态聚类 Cluster / 空间密度热力 Heatmap）、底图数据源（高德 / 天地图 / OSM / 白模）。
   - `userStore.ts`：登录态与 Token 缓存、个人资料、管理员权限判断、退出登录。
   - `cartStore.ts`：文创购物车计数与列表同步。
-- **空间计算与适配器**：
-  - `OLMapAdapter.ts`：OpenLayers 核心逻辑适配器，屏蔽地图底层实现差异。
-  - `src/services/analysis/`：基于 `ol/sphere` 与 `turf.js` 的距离量算、面积量算、空间缓冲区、空间相交叠置统计。
+- **空间计算、物流与适配器**：
+  - `OLMapAdapter.ts`：OpenLayers 核心逻辑适配器（屏蔽底层细节）。点位以「非遗印章」渲染——门类传统色印面 + 一门一字（戏/乐/舞/曲/技/画/艺/医/俗/文）+ 落点尖角，并按色·字·尺寸档位缓存图标与 Style；选中态为朱砂涟漪扩散 + 金色聚焦环呼吸 + 印章放大（相位驱动重绘，取消选中即停表）；另提供鹰眼图集成、胶囊绘制取点模式（`startPickPoint`）、图层自适应范围平滑飞越与容器尺寸自适应（`updateSize`）。
+  - `src/services/logistics/logistics.ts`：订单物流空间轨迹服务，解析起终点并联动高德路线规划绘制公路折线。
+  - `src/services/analysis/`：基于 `ol/sphere` 与 `turf.js` 的距离量算、面积量算、空间缓冲区、空间相交叠置统计。缓冲区支持三种中心点来源（非遗名录点位 / 地图任意拾取点 / 高德地址检索），结果输出范围内非遗清单并支持二次检索与点击定位。
+  - `src/services/geo/coord.ts`：坐标系转换工具（GCJ-02 ↔ WGS84）。高德开放平台返回 GCJ-02，而底图为 WGS84，凡「地址→坐标」「坐标→地址」的往返均需经此转换，避免数百米级偏移。
 
 ### 2.3 数据层（Data Layer）
 - `src/data/http.ts`：基于 Axios 封装的统一 HTTP 客户端，拦截 401 认证失效，自动附带 Bearer Token。
-- `src/data/api/`：分模块接口定义（`auth.ts`, `shop.ts`, `interact.ts`, `convert.ts`）。
+- `src/data/api/`：分模块接口定义（`auth.ts`, `shop.ts`, `interact.ts`, `convert.ts` 包含模板下载/体检报告导出/WMS探测）。
 
 ---
 
@@ -91,13 +98,21 @@
 - `POST /api/shop/cart`：将指定文创商品加入购物车。
 - `PUT /api/shop/cart/:productId`：更新购物车中商品数量。
 - `DELETE /api/shop/cart/:productId`：从购物车移除商品。
-- `POST /api/shop/orders`：结算下单（受 SQLite 事务保护，自动原子扣减库存）。
-- `GET /api/shop/orders`：查看我的文创订单列表。
+- `POST /api/shop/orders`：结算下单（SQLite 事务保护，原子扣减库存并写入 60 秒支付时限）。
+- `GET /api/shop/orders`：查看我的文创订单列表（附带 `expiresAt` 与 `remainSeconds` 供前端倒计时）。
 - `POST /api/shop/orders/:orderNo/pay`：订单模拟支付。
-- `GET /api/admin/shop/products`：管理员获取全量商品（含下架商品）。
-- `POST /api/admin/shop/products`：管理员发布新文创商品。
-- `PUT /api/admin/shop/products/:id`：管理员编辑文创商品信息与库存。
-- `DELETE /api/admin/shop/products/:id`：管理员下架/删除商品。
+- `POST /api/shop/orders/:orderNo/cancel`：取消订单并回补库存。
+- `POST /api/shop/orders/:orderNo/confirm`：确认收货。
+- `GET /api/shop/orders/admin`：管理员查看全量订单。
+- `POST /api/shop/orders/:orderNo/ship`：管理员发货并登记快递单号。
+- `POST /api/shop/products`：管理员发布新文创商品。
+- `PUT /api/shop/products/:id`：管理员编辑商品信息、库存与上/下架状态（`onSale`）。
+- `DELETE /api/shop/products/:id`：管理员删除商品。
+- `GET /api/shop/products` / `GET /api/shop/products/:id` / `GET /api/shop/categories` / `GET /api/shop/flow`：公开的商品与门类查询接口。
+
+> **抢购模式（限时锁库存）**：`POST /api/shop/orders` 在下单瞬间扣减库存并写入 `expires_at`；
+> 服务端启动时注册每 5 秒一次的超时扫描（`startExpireScanner`），把超时未支付的订单批量取消并回补库存；
+> 前端 `MyOrders.vue` 依据 `remainSeconds` 实时倒计时，剩余 ≤15 秒红色闪烁，归零自动刷新列表。
 
 ### 3.3 研学社区互动
 - `GET /api/likes/:itemId`：获取指定非遗项目的累计点赞数。
@@ -109,6 +124,8 @@
 - `GET /api/amap/inputtips?keywords=...&city=山东`：高德智能输入提示（限定山东省域）。
 - `GET /api/amap/weather?city=...`：高德城市实况气象与温湿度。
 - `GET /api/amap/direction/driving?origin=...&destination=...&waypoints=...`：高德公路驾车轨迹规划，返回真实路网折线坐标点串。
+- `GET /api/amap/geocode?address=...&city=...`：地理编码（结构化地址 → GCJ-02 经纬度），供空间分析「按地址生成缓冲区」使用。
+- `GET /api/amap/regeo?location=lng,lat`：逆地理编码（坐标 → 结构化地址），用于地图拾取点回显所在地。
 
 ### 3.5 空间数据格式转换与体检
 - `POST /api/convert/shp`：上传 Shapefile 压缩包/多文件，转换为 GeoJSON 格式。
