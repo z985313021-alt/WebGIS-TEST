@@ -256,7 +256,16 @@ defineExpose({ zoomToItem, getAdapter });
 </script>
 
 <style scoped>
-.map-container { width: 100%; height: 100%; background: #f7f3e8; }
+.map-container {
+  width: 100%;
+  height: 100%;
+  background: #f7f3e8;
+  /* 圆角卡片容器：地图不再满铺，边界内收，观感更像专业系统 */
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e0d5bc;
+  box-shadow: 0 3px 16px rgba(109, 76, 42, 0.10);
+}
 
 /* 鹰眼图定位到右下角（默认在左下角，容易被左侧面板挡住；
    往上偏移避免和MapControls控件重叠） */

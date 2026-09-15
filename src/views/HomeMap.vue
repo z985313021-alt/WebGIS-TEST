@@ -465,6 +465,10 @@ watch(
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* 地图以圆角卡片形式呈现，四周留白（左侧避开停靠轨），更像专业系统 */
+  padding: 10px 10px 10px 58px;
+  box-sizing: border-box;
+  background: #efe7d6;
 }
 
 /* =========================================================

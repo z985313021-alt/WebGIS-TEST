@@ -546,7 +546,7 @@ function updateCityRankChart() {
       borderColor: '#c59b3f',
       textStyle: { color: '#f5edd8', fontSize: 12 },
     },
-    grid: { left: '16%', right: '12%', top: '6%', bottom: '8%' },
+    grid: { left: '16%', right: '12%', top: '12%', bottom: '18%', containLabel: false },
     xAxis: {
       type: 'value',
       axisLabel: { color: '#a69682', fontSize: 10 },
@@ -555,7 +555,8 @@ function updateCityRankChart() {
     yAxis: {
       type: 'category',
       data: cities,
-      axisLabel: { color: '#d9cbb7', fontSize: 11 },
+      // interval:0 强制显示每个城市名，避免 ECharts 自动隔项隐藏造成标签与柱体错位
+      axisLabel: { color: '#d9cbb7', fontSize: 11, interval: 0, margin: 8 },
       axisLine: { lineStyle: { color: '#44382c' } },
     },
     series: [
@@ -602,7 +603,7 @@ function initCorridorChart() {
       borderColor: '#3c6a50',
       textStyle: { color: '#f5edd8', fontSize: 12 },
     },
-    grid: { left: '33%', right: '12%', top: '8%', bottom: '8%' },
+    grid: { left: '33%', right: '12%', top: '12%', bottom: '18%', containLabel: false },
     xAxis: {
       type: 'value',
       max: 100,
@@ -612,7 +613,7 @@ function initCorridorChart() {
     yAxis: {
       type: 'category',
       data: ['胶东沿海民俗', '京杭大运河带', '黄河生态廊道', '齐长城文化带'],
-      axisLabel: { color: '#d9cbb7', fontSize: 11 },
+      axisLabel: { color: '#d9cbb7', fontSize: 11, interval: 0, margin: 8 },
       axisLine: { lineStyle: { color: '#44382c' } },
     },
     series: [
@@ -745,7 +746,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 25%;
+  flex: 0 0 auto;
 }
 .btn-return {
   background: #251e18;
@@ -774,20 +775,32 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 10px;
 }
 .header-arch-title {
   font-family: var(--zi-font-serif, "STSong", "Songti SC", "SimSun", serif);
-  font-size: 22px;
+  /* 字号随视口自适应，避免窄屏换行撑破 60px 头栏 */
+  font-size: clamp(13px, 1.45vw, 22px);
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: clamp(0px, 0.14vw, 2px);
   color: #fbf5ea;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .header-arch-sub {
-  font-size: 11px;
+  font-size: clamp(9px, 0.72vw, 11px);
   color: #9e8d79;
-  letter-spacing: 1px;
+  letter-spacing: clamp(0px, 0.08vw, 1px);
   margin-top: 3px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-right {
@@ -795,7 +808,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: flex-end;
   gap: 14px;
-  width: 25%;
+  flex: 0 0 auto;
 }
 .cur-time {
   font-family: var(--zi-font-serif, serif);
@@ -921,7 +934,7 @@ onBeforeUnmount(() => {
 .chart-container {
   flex: 1;
   width: 100%;
-  min-height: 160px;
+  min-height: 200px;
   min-width: 0;
 }
 
