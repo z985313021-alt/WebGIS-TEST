@@ -766,6 +766,22 @@ app.get('/api/amap/inputtips', async (req, res) => {
   }
 });
 
+/** 抢购超时扫描：每 5 秒把超过支付时限的待付款订单取消并回补库存 */
+function startExpireScanner() {
+  const tick = () => {
+    try {
+      const n = shop.expirePendingOrders();
+      if (n > 0) console.log(`[server] 抢购超时：已自动取消 ${n} 笔未支付订单并回补库存`);
+    } catch (e) {
+      console.error('[server] 超时订单清理失败:', e.message);
+    }
+  };
+  const timer = setInterval(tick, 5000);
+  if (typeof timer.unref === 'function') timer.unref();
+  tick();
+}
+startExpireScanner();
+
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`);
   if (!tdtConfigured()) {
@@ -774,4 +790,5 @@ app.listen(PORT, () => {
   if (AMAP_WEB_KEY) {
     console.log('[server] 高德开放平台 Web 服务 Key 已就绪');
   }
+  console.log(`[server] 抢购模式：下单锁定库存，${shop.PAY_WINDOW_SECONDS} 秒未支付自动取消`);
 });

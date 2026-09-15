@@ -69,15 +69,24 @@
           <el-table-column label="价格" width="80">
             <template #default="{ row }">¥{{ row.price.toFixed(0) }}</template>
           </el-table-column>
-          <el-table-column label="库存" prop="stock" width="70" align="center" />
+          <el-table-column label="库存" width="80" align="center">
+            <template #default="{ row }">
+              <span :class="{ 'low-stock': row.stock <= 5 }">{{ row.stock }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="上下架" width="90" align="center">
             <template #default="{ row }">
               <el-tag :type="row.onSale ? 'success' : 'info'" size="small">{{ row.onSale ? '在售' : '下架' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right" align="center">
+          <el-table-column label="操作" width="260" fixed="right" align="center">
             <template #default="{ row }">
               <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-button
+                size="small"
+                :type="row.onSale ? 'warning' : 'success'"
+                @click="toggleSale(row)"
+              >{{ row.onSale ? '下架' : '上架' }}</el-button>
               <el-button size="small" type="danger" text @click="removeProduct(row)">删除</el-button>
             </template>
           </el-table-column>
@@ -203,6 +212,18 @@ async function saveProduct() {
   } catch (e: any) { ElMessage.error(e.response?.data?.msg || '保存失败'); }
   finally { submitting.value = false; }
 }
+/** 一键上架 / 下架：下架后前台商城立即不可见、不可下单 */
+async function toggleSale(p: Product) {
+  const next = !p.onSale;
+  try {
+    await api.toggleProductSale(p.id, next);
+    p.onSale = next ? 1 : 0;
+    ElMessage.success(next ? `已上架「${p.name}」` : `已下架「${p.name}」`);
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.msg || '操作失败');
+  }
+}
+
 async function removeProduct(p: Product) {
   try {
     await ElMessageBox.confirm(`确定删除 ${p.name}？`, '删除确认', { type: 'warning' });
@@ -234,6 +255,8 @@ onMounted(async () => {
 
 <style scoped>
 .admin-page { padding: 22px 26px 40px; max-width: 1160px; margin: 0 auto; }
+/* 库存紧张预警（抢购氛围） */
+.low-stock { color: #d4380d; font-weight: 700; }
 .admin-page h2 { margin: 0 0 4px; }
 .sub { color: #8a93a5; margin: 0 0 18px; font-size: 13px; }
 .stat-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }

@@ -21,6 +21,9 @@ export interface Order {
   receiver: string; phone: string; address: string; total: number;
   trackingNo: string; remark: string; createdAt: string;
   paidAt?: string | null; shippedAt?: string | null; doneAt?: string | null;
+  /** 抢购：待付款订单的支付截止时间与剩余秒数（超时后端自动取消并回补库存） */
+  expiresAt?: string | null;
+  remainSeconds?: number;
   username?: string; items: OrderItem[];
 }
 
@@ -67,6 +70,12 @@ export async function confirmOrder(orderNo: string): Promise<void> {
 }
 
 // 订单（管理员）
+/** 管理员：快速上架 / 下架（仅切换 onSale，不影响其它字段） */
+export async function toggleProductSale(id: number, onSale: boolean): Promise<Product> {
+  const { data } = await http.put<{ ok: boolean; product: Product }>(`/shop/products/${id}`, { onSale: onSale ? 1 : 0 });
+  return data.product;
+}
+
 export async function adminFetchOrders(): Promise<{ orders: Order[]; stat: Record<string, number> }> {
   const { data } = await http.get<{ ok: boolean; orders: Order[]; stat: Record<string, number> }>('/shop/orders/admin');
   return data;
