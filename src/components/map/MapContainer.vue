@@ -80,7 +80,13 @@ onMounted(async () => {
   });
   // 监听容器尺寸：面板展开/收起挤压地图时保持瓦片与坐标正确
   if (typeof ResizeObserver !== 'undefined') {
-    sizeObserver = new ResizeObserver(() => scheduleUpdateSize());
+    sizeObserver = new ResizeObserver((entries) => {
+      // 面板挤压后地图变窄，右下角控件（罗盘/缩放/鹰眼图）会互相压叠，
+      // 这里打标给样式做收缩，保证控件区始终清爽
+      const w = entries[0]?.contentRect.width ?? 0;
+      mapEl.value?.classList.toggle('map-narrow', w > 0 && w < 560);
+      adapter?.updateSize();
+    });
     sizeObserver.observe(mapEl.value);
   }
   mapStore.setMapAdapter(adapter);
@@ -253,22 +259,15 @@ watch(
 // 成员2：聚合距离变化
 watch(() => mapStore.clusterDistance, (d) => adapter?.setClusterDistance(d));
 
-// 容器尺寸自适应：左右面板展开会挤压地图容器，OL 不会自动重算视口，
-// 这里用 ResizeObserver 跟随（过渡动画期间连续触发，用 rAF 合并成每帧一次）。
+// 容器尺寸自适应：左右面板展开会挤压地图容器，OL 不会自动重算视口。
+// 这里在 ResizeObserver 回调里同步 updateSize：该回调发生在布局之后、绘制之前，
+// 同步执行可保证当帧就按新尺寸渲染；若经 requestAnimationFrame 转发会晚一帧，
+// 表现为展开过程中地图内容逐帧错位（观感即抖动）。
 let sizeObserver: ResizeObserver | null = null;
-let sizeRaf = 0;
-function scheduleUpdateSize() {
-  if (sizeRaf) return;
-  sizeRaf = requestAnimationFrame(() => {
-    sizeRaf = 0;
-    adapter?.updateSize();
-  });
-}
 
 onBeforeUnmount(() => {
   sizeObserver?.disconnect();
   sizeObserver = null;
-  if (sizeRaf) cancelAnimationFrame(sizeRaf);
   mapStore.setMapAdapter(null);
   adapter?.destroy();
   adapter = null;
@@ -296,6 +295,11 @@ defineExpose({ zoomToItem, getAdapter });
   overflow: hidden;
   border: 1px solid #e0d5bc;
   box-shadow: 0 3px 16px rgba(109, 76, 42, 0.10);
+}
+
+/* 地图容器过窄时收起鹰眼图，避免与罗盘/缩放/比例尺挤在一起 */
+.map-container.map-narrow :deep(.ol-overviewmap) {
+  display: none;
 }
 
 /* 鹰眼图定位到右下角（默认在左下角，容易被左侧面板挡住；

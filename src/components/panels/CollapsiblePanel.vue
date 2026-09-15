@@ -29,8 +29,8 @@ defineEmits<{ (e: 'close'): void }>();
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
   z-index: 10;
 }
-.panel-left { left: 12px; }
-.panel-right { right: 12px; }
+.panel-left { left: calc(12px + var(--dock-w, 48px) + var(--drawer-l, 0px)); }
+.panel-right { right: calc(12px + var(--drawer-r, 0px)); }
 .panel-header {
   display: flex;
   justify-content: space-between;

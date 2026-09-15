@@ -72,7 +72,8 @@ function flyToItem(item: Record<string, unknown>) {
 .cluster-popup {
   position: absolute;
   top: 80px;
-  right: 16px;
+  /* 跟随地图容器让位 */
+  right: calc(16px + var(--drawer-r, 0px));
   width: 320px;
   max-height: calc(100vh - 200px);
   background: rgba(255, 253, 248, 0.98);

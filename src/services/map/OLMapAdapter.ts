@@ -669,7 +669,7 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   // ---- 成员2：地图控件辅助方法 ----
-  /** 获取当前缩放级别 */
+  /** 容器尺寸变化后重算视口（面板展开挤压地图时必须调用，否则瓦片错位） */
   updateSize(): void {
     this.map?.updateSize();
   }
