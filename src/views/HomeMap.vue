@@ -477,10 +477,10 @@ watch(
   padding: 10px calc(10px + var(--drawer-r)) 10px calc(var(--dock-w) + 10px + var(--drawer-l));
   box-sizing: border-box;
   background: #efe7d6;
-  /* 面板与地图同一节奏（260ms / 同缓动）滑动，避免"面板已就位、地图还在缩"的割裂感 */
+  /* 地图让位与面板展开同一节奏（520ms 缓起缓收），像画卷徐徐推开桌面 */
   transition:
-    padding-left 260ms cubic-bezier(0.4, 0, 0.2, 1),
-    padding-right 260ms cubic-bezier(0.4, 0, 0.2, 1);
+    padding-left 520ms cubic-bezier(0.65, 0, 0.35, 1),
+    padding-right 520ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 /* 左侧名录/分析抽屉展开：地图右移让出抽屉宽度（窄屏自动收窄） */
@@ -669,17 +669,42 @@ watch(
   flex-direction: column;
 }
 
-/* 抽屉过渡：与地图压缩同节奏（260ms），左右两侧同步展开/收起 */
+/* 抽屉过渡：画卷式横向揭开（clip-path 缓慢展开）+ 柔和淡入，
+   与地图压缩同一时长与缓动，避免"面板先到、地图后缩"的割裂 */
 .drawer-fade-enter-active {
-  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: clip-path, opacity;
+  transition:
+    clip-path 520ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 420ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 .drawer-fade-leave-active {
-  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: clip-path, opacity;
+  transition:
+    clip-path 420ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 340ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 .drawer-fade-enter-from,
 .drawer-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-12px);
+  /* 只显示 0 宽度 → 整幅画卷从左侧徐徐展开 */
+  clip-path: inset(0 100% 0 0);
+  opacity: 0.35;
+}
+/* 结束态用负 inset 留出右侧阴影区，避免展开完成后阴影"啪"地出现 */
+.drawer-fade-enter-to,
+.drawer-fade-leave-from {
+  clip-path: inset(0 -20px 0 0);
+  opacity: 1;
+}
+
+/* 面板内容滞后一步浮现，形成"卷面展开 → 墨迹显现"的层次 */
+.drawer-fade-enter-active .ge-drawer-header,
+.drawer-fade-enter-active .ge-drawer-body {
+  will-change: opacity, filter, transform;
+  animation: drawer-reveal-in 460ms cubic-bezier(0.65, 0, 0.35, 1) 130ms both;
+}
+@keyframes drawer-reveal-in {
+  from { opacity: 0; transform: translateX(-18px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: blur(0px); }
 }
 
 /* =========================================================
@@ -1016,14 +1041,34 @@ watch(
 
 /* 右侧抽屉平滑淡入平移过渡 */
 .drawer-right-fade-enter-active {
-  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: clip-path, opacity;
+  transition:
+    clip-path 520ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 420ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 .drawer-right-fade-leave-active {
-  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: clip-path, opacity;
+  transition:
+    clip-path 420ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 340ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 .drawer-right-fade-enter-from,
 .drawer-right-fade-leave-to {
-  opacity: 0;
-  transform: translateX(12px);
+  clip-path: inset(0 0 0 100%);
+  opacity: 0.35;
+}
+.drawer-right-fade-enter-to,
+.drawer-right-fade-leave-from {
+  clip-path: inset(0 0 0 -20px);
+  opacity: 1;
+}
+.drawer-right-fade-enter-active .ge-drawer-header,
+.drawer-right-fade-enter-active .ge-drawer-body {
+  will-change: opacity, filter, transform;
+  animation: drawer-reveal-in-right 460ms cubic-bezier(0.65, 0, 0.35, 1) 130ms both;
+}
+@keyframes drawer-reveal-in-right {
+  from { opacity: 0; transform: translateX(18px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: blur(0px); }
 }
 </style>

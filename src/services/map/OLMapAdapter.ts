@@ -57,7 +57,7 @@ function buildHighlightStyles(phase: number, color: string, glyph: string): Styl
   // 印章本体：放大展示（底部尖角仍对准该点位）
   styles.push(new Style({
     image: new Icon({
-      src: sealIconDataUri(color, glyph),
+      src: cachedSealIcon(color, glyph),
       width: 40,
       height: 40 * SEAL_RATIO,
       anchor: [0.5, 1],
@@ -95,6 +95,22 @@ function sealIconDataUri(color: string, glyph: string): string {
 }
 /** 印章图标宽高比（32:36），Icon 需等比设置避免拉伸 */
 const SEAL_RATIO = 36 / 32;
+
+/**
+ * 印章图标缓存：同一「色 + 单字」只生成一次 data URI。
+ * 地图重绘时样式函数会被高频调用（185 点 × 每秒十余帧），
+ * 若每次都重新拼 SVG 并 encode，字符串与 Icon 图片缓存全部失效，是主要卡顿源。
+ */
+const SEAL_ICON_CACHE = new Map<string, string>();
+function cachedSealIcon(color: string, glyph: string): string {
+  const key = color + '|' + glyph;
+  let uri = SEAL_ICON_CACHE.get(key);
+  if (!uri) {
+    uri = sealIconDataUri(color, glyph);
+    SEAL_ICON_CACHE.set(key, uri);
+  }
+  return uri;
+}
 
 // ---- 行政热力图色阶辅助 ----
 /** 行政热力图色阶：数量从少到多，颜色从浅米黄到深红（非遗主题色） */
@@ -162,6 +178,8 @@ export class OLMapAdapter implements MapAdapter {
   /** 选中动效相位（0→1 循环），驱动涟漪扩散与聚焦环呼吸 */
   private pulsePhase = 0;
   private pulseTimer: number | null = null;
+  /** 常规印章样式缓存（色+单字 → Style），避免重绘时反复新建 Icon/Style 对象 */
+  private styleCache = new Map<string, Style>();
   private hoverCityCode: string | null = null;
   private cityStyleFns = new Map<string, () => void>();
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
@@ -564,13 +582,20 @@ export class OLMapAdapter implements MapAdapter {
     this.layers.forEach((layer) => layer.changed());
   }
 
-  /** 启动选中脉冲：每 70ms 推进相位并重绘矢量图层（仅存在选中要素时运行） */
+  /**
+   * 启动选中脉冲：90ms 推进一次相位。
+   * 只重绘可能承载高亮点的图层（主图层与用户数据集），
+   * 省界/缓冲区/路线等图层不必跟着高频重绘；页面不可见时跳过。
+   */
   private startPulse(): void {
     if (this.pulseTimer != null) return;
     this.pulseTimer = window.setInterval(() => {
-      this.pulsePhase = (this.pulsePhase + 0.04) % 1;
-      this.layers.forEach((layer) => layer.changed());
-    }, 70);
+      if (typeof document !== 'undefined' && document.hidden) return;
+      this.pulsePhase = (this.pulsePhase + 0.05) % 1;
+      this.layers.forEach((layer, id) => {
+        if (id === 'heritage' || id.startsWith('user-')) layer.changed();
+      });
+    }, 90);
   }
 
   /** 停止选中脉冲并复位相位 */
@@ -739,8 +764,11 @@ export class OLMapAdapter implements MapAdapter {
         this.layers.forEach((layer) => layer.changed());
         return;
       }
-      this.layers.forEach((layer) => layer.changed());
-      this.birthTimer = setTimeout(tick, 16);
+      // 出生动画只影响点位图层：边界/缓冲区/路线等静态层无需跟着重绘
+      this.layers.forEach((layer, id) => {
+        if (id === 'heritage' || id.startsWith('user-')) layer.changed();
+      });
+      this.birthTimer = setTimeout(tick, 25);
     };
     this.birthTimer = setTimeout(tick, 16);
   }
@@ -1141,7 +1169,6 @@ export class OLMapAdapter implements MapAdapter {
         birthScale = Math.max(0.05, easeOutBack(t));
       }
     }
-    const pinsize = Math.max(0.001, 30 * birthScale);
     if (zoom >= LABEL_ZOOM && photo) {
       // 出生前完全隐藏(尺寸0+无文本)；出生中按比例缩放并淡入文本
       const born = birthScale <= 0;
@@ -1166,15 +1193,28 @@ export class OLMapAdapter implements MapAdapter {
             }),
       });
     }
-    return new Style({
-      image: new Icon({
-        src: sealIconDataUri(color, categoryGlyph(props['category'] as string)),
-        width: pinsize,
-        height: pinsize * SEAL_RATIO,
-        anchor: [0.5, 1],
-        anchorXUnits: 'fraction',
-        anchorYUnits: 'fraction',
-      }),
-    });
+    const glyph = categoryGlyph(props['category'] as string);
+    // 出生前完全隐藏（不占用样式缓存）
+    if (birthScale <= 0) return HIDDEN_STYLE;
+    // 尺寸量化到 5% 档位后复用 Style：
+    // 185 个点位在平移/脉冲/出生动画期间会被高频重绘，
+    // 复用可把每帧数以百计的 Style+Icon 分配降到个位数。
+    const band = Math.max(0.05, Math.round(birthScale * 20) / 20);
+    const cacheKey = color + '|' + glyph + '|' + band;
+    let cached = this.styleCache.get(cacheKey);
+    if (!cached) {
+      cached = new Style({
+        image: new Icon({
+          src: cachedSealIcon(color, glyph),
+          width: 30 * band,
+          height: 30 * band * SEAL_RATIO,
+          anchor: [0.5, 1],
+          anchorXUnits: 'fraction',
+          anchorYUnits: 'fraction',
+        }),
+      });
+      this.styleCache.set(cacheKey, cached);
+    }
+    return cached;
   }
 }

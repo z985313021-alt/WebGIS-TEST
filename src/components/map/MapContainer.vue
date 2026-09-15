@@ -70,7 +70,7 @@ onMounted(async () => {
   // 成员2：设置行政热力图的市界数据
   adapter.setChoroplethBoundary(loadShandongCityBoundary());
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
-  adapter.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
+  syncHeritageFilter();
   adapter.onFeatureClick((props) => {
     dataStore.select(props ? (props.id as number) : null);
   });
@@ -101,10 +101,21 @@ onMounted(async () => {
 });
 
 // 筛选条件变化 → 地图图层筛选 + 行政热力图数据更新
+/**
+ * 可见要素 id 集合：样式函数对每个要素都会被调用一次，
+ * 用 Set 把筛选判断从「逐个遍历可见列表」降到 O(1)，
+ * 在脉冲动效/平移这类高频重绘下差异明显。
+ */
+let heritageIdSet = new Set<number>();
+function syncHeritageFilter() {
+  heritageIdSet = new Set(dataStore.filteredItems.map((i) => i.id));
+  adapter?.setLayerFilter('heritage', (p) => heritageIdSet.has(p.id as number));
+}
+
 watch(
   () => dataStore.filteredItems,
   () => {
-    adapter?.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
+    syncHeritageFilter();
     updateChoroplethData();
   },
 );
