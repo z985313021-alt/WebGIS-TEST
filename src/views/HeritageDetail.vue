@@ -2,9 +2,10 @@
   <div class="detail-page" v-if="item">
     <el-page-header @back="$router.push('/')" :content="item.name" class="header" />
 
-    <el-row :gutter="20">
+    <!-- 三列布局：图片 / 详细信息 / 空间位置地图（把右侧空白用起来） -->
+    <div class="detail-layout">
       <!-- 左：图片画廊 -->
-      <el-col :span="10">
+      <div class="dl-gallery">
         <el-card shadow="never">
           <div class="gallery">
             <img v-if="!imgError && photos.length" :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
@@ -22,10 +23,10 @@
             </div>
           </div>
         </el-card>
-      </el-col>
+      </div>
 
-      <!-- 右：详细信息 -->
-      <el-col :span="14">
+      <!-- 中：详细信息 -->
+      <div class="dl-info">
         <el-card shadow="never">
           <div class="tags">
             <el-tag size="small" :color="color" style="color:#fff; border:none">{{ item.category }}</el-tag>
@@ -69,8 +70,13 @@
             <el-button @click="$router.push('/')">返回地图</el-button>
           </div>
         </el-card>
-      </el-col>
-    </el-row>
+      </div>
+
+      <!-- 右：空间位置（不必跳回主页即可查看；宽屏下占住右侧空白） -->
+      <div class="dl-map">
+        <HeritageMiniMap v-if="item" :item="item" />
+      </div>
+    </div>
 
     <!-- 互动区：点赞 + 评论（T11） -->
     <el-card shadow="never" class="interact-card">
@@ -134,6 +140,7 @@ import { User, Star, StarFilled } from '@element-plus/icons-vue';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
 import { getHeritagePlaceholder } from '@/data/sources/assets';
+import HeritageMiniMap from '@/components/map/HeritageMiniMap.vue';
 import {
   fetchLikeCount,
   postLike,
@@ -270,7 +277,64 @@ function viewOnMap() {
 </script>
 
 <style scoped>
-.detail-page { padding: 16px; max-width: 1000px; }
+/* 不再限制页宽：整行铺满，地图列吃掉全部剩余宽度 */
+.detail-page { padding: 16px; }
+
+/*
+ * 布局：左「图片 + 详细信息」拼成一张卡片（相接处去掉圆角与间隙、留一条分隔线），
+ * 右侧地图卡与它等高 —— 避免三块高低不齐成台阶状。
+ */
+.detail-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.dl-gallery { flex: 0 0 360px; min-width: 280px; display: flex; }
+.dl-info { flex: 0 1 560px; min-width: 380px; display: flex; }
+.dl-gallery :deep(.el-card),
+.dl-info :deep(.el-card) { flex: 1; width: 100%; }
+.dl-gallery :deep(.el-card) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.dl-info :deep(.el-card) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid #efe7d6;
+}
+/* 信息卡内部纵向撑满：字段表在上、按钮组压到底部，卡片拉高后不留突兀空缺 */
+.dl-info :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.dl-info .actions { margin-top: auto; }
+/* 图片卡被拉高后把画廊内容垂直居中，避免下方留一大块空白 */
+.dl-gallery :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.dl-map { flex: 1 1 auto; min-width: 380px; margin-left: 20px; position: sticky; top: 12px; }
+
+/* 中窄屏：折行回到独立卡片，圆角与间距恢复 */
+@media (max-width: 1360px) {
+  .detail-layout { flex-wrap: wrap; gap: 20px; }
+  .dl-gallery { flex: 1 1 320px; }
+  .dl-info { flex: 2 1 520px; }
+  .dl-gallery :deep(.el-card),
+  .dl-info :deep(.el-card) {
+    border-radius: var(--el-card-border-radius, 4px);
+  }
+  .dl-info :deep(.el-card) { border-left: none; }
+  .dl-info :deep(.el-card__body) { height: auto; }
+  .dl-info .actions { margin-top: 0; }
+  .dl-map { flex: 1 1 100%; margin-left: 0; position: static; }
+}
 .header { margin-bottom: 16px; }
 .gallery .main-img { width: 100%; height: 320px; object-fit: cover; border-radius: 8px; }
 .main-img.placeholder { display: flex; align-items: center; justify-content: center; font-size: 72px; }

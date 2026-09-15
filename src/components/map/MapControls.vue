@@ -1,5 +1,5 @@
 <template>
-  <div class="map-controls">
+  <div class="map-controls" :class="{ narrow }">
     <!-- 指北针 -->
     <div class="control-item compass" @click="resetRotation" title="点击重置为正北朝上">
       <div class="compass-ring" :style="{ transform: `rotate(${-rotationDeg}deg)` }">
@@ -56,7 +56,20 @@ function resetRotation() {
   mapStore.mapAdapter?.resetRotation();
 }
 
+// 地图被面板挤压变窄时收起坐标条，避免控件互相压叠
+const narrow = ref(false);
+let widthObserver: ResizeObserver | null = null;
+
 onMounted(() => {
+  const mapEl = document.querySelector('.map-container');
+  if (mapEl && typeof ResizeObserver !== 'undefined') {
+    widthObserver = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      narrow.value = w > 0 && w < 460;
+    });
+    widthObserver.observe(mapEl);
+  }
+
   const adapter = mapStore.mapAdapter;
   if (!adapter) return;
 
@@ -77,14 +90,21 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  widthObserver?.disconnect();
+  widthObserver = null;
   // OL 的事件监听器会随 map 销毁自动清理，无需手动 off
 });
 </script>
 
 <style scoped>
+.map-controls.narrow .coord-display {
+  display: none;
+}
+
 .map-controls {
   position: absolute;
-  right: 16px;
+  /* 跟随地图容器的让位：右侧面板展开时整体左移，避免压到抽屉上 */
+  right: calc(16px + var(--drawer-r, 0px));
   bottom: 16px;
   display: flex;
   flex-direction: column;

@@ -146,8 +146,14 @@ server/data/
 | `paid_at` | `TEXT` | - | `NULL` | 支付确认时间 |
 | `shipped_at` | `TEXT` | - | `NULL` | 发货填单时间 |
 | `done_at` | `TEXT` | - | `NULL` | 确认收货完成时间 |
+| `expires_at` | `TEXT` | - | `NULL` | 抢购支付时限：下单即锁定库存，超过该时刻仍未支付由服务端自动取消并回补库存 |
 
 > 索引：`idx_orders_user` 建立在 `user_id`。
+>
+> **抢购（限时锁库存）机制**：下单时在事务内扣减库存并写入 `expires_at`（默认 60 秒），
+> 服务端每 5 秒扫描一次超时订单，批量置为 `cancelled` 并回补库存；
+> 前端订单列表按 `expires_at` 实时倒计时，剩余 ≤15 秒变红提示，归零自动刷新。
+> 迁移方式：`ALTER TABLE orders ADD COLUMN expires_at TEXT`（启动时幂等执行，兼容历史库）。
 
 #### 表 8：`order_items`（订单明细项快照表）
 记录每张订单采购的具体文创商品快照（防范后续商品调价或下架影响历史账目）。

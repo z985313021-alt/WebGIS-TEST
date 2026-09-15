@@ -35,6 +35,8 @@ export interface MapAdapter {
   zoomTo(lonlat: [number, number], zoom?: number): void;
   /** 缩放到指定图层的完整范围（padding为边距像素，默认80），图层不存在则忽略 */
   fitToLayer(id: string, padding?: number): void;
+  /** 容器尺寸变化后重算视口（面板展开挤压地图时必须调用，否则瓦片错位） */
+  updateSize(): void;
   /** 获取当前缩放级别 */
   getZoom(): number;
   /** 获取当前地图中心（经纬度 EPSG:4326） */
@@ -49,6 +51,15 @@ export interface MapAdapter {
   onPointerMove(cb: (lonlat: [number, number] | null) => void): void;
   /** 监听视图变化（缩放/平移/旋转），回调返回当前状态 */
   onViewChange(cb: (state: { zoom: number; center: [number, number]; rotation: number }) => void): void;
+  /**
+   * 进入「地图拾取点」模式：下一次单击地图返回该点经纬度（EPSG:4326）后自动退出，
+   * 期间抑制要素点击、鼠标变十字。用于缓冲区分析「在地图上选点」。
+   */
+  startPickPoint(onPick: (lonlat: [number, number]) => void): void;
+  /** 取消地图拾取点模式（未拾取即取消） */
+  stopPickPoint(): void;
+  /** 是否处于拾取点模式 */
+  isPickingPoint(): boolean;
   /** 开始量算/绘制（distance=线 / area=面），绘制完成后回调几何（GeoJSON 4326）；绘制期间自动抑制要素点击 */
   startMeasure(mode: 'distance' | 'area', onDone: (geometry: object) => void): void;
   /** 停止当前量算绘制 */

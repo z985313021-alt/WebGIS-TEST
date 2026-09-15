@@ -18,41 +18,54 @@ import ImageWMS from 'ol/source/ImageWMS';
 import Cluster from 'ol/source/Cluster';
 import HeatmapLayer from 'ol/layer/Heatmap';
 import ScaleLine from 'ol/control/ScaleLine';
+import OverviewMap from 'ol/control/OverviewMap';
 import type { Feature } from 'ol';
 import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
+import { categoryGlyph } from '@/data/sources/heritage';
 import type { BaseMapProvider } from '@/data/sources/tianditu';
 
 const HIDDEN_STYLE = new Style({
   image: new CircleStyle({ radius: 0, fill: new Fill({ color: 'rgba(0,0,0,0)' }) }),
 });
-/** 高亮样式：三层醒目效果 — 大红外圈(脉冲感) + 亮黄内圈 + 白色描边 */
-function buildHighlightStyles(): Style[] {
-  return [
-    // 最外层：半透明大红圈，营造脉冲/聚焦感
-    new Style({
+/**
+ * 高亮（选中）样式：朱砂涟漪扩散 + 金色聚焦环脉动 + 印章本体放大。
+ * phase 为 0→1 循环相位，由脉冲计时器驱动重绘，形成持续动效。
+ */
+function buildHighlightStyles(phase: number, color: string, glyph: string): Style[] {
+  const styles: Style[] = [];
+  // 两道相位错开的涟漪环，持续向外扩散淡出
+  for (const offset of [0, 0.5]) {
+    const t = (phase + offset) % 1;
+    const fade = 1 - t;
+    styles.push(new Style({
       image: new CircleStyle({
-        radius: 22,
-        fill: new Fill({ color: 'rgba(255, 59, 48, 0.25)' }),
-        stroke: new Stroke({ color: 'rgba(255, 59, 48, 0.8)', width: 2 }),
+        radius: 15 + t * 30,
+        fill: new Fill({ color: 'rgba(184,53,43,' + (0.28 * fade).toFixed(3) + ')' }),
+        stroke: new Stroke({ color: 'rgba(184,53,43,' + (0.95 * fade).toFixed(3) + ')', width: 2.6 }),
       }),
+    }));
+  }
+  // 金色聚焦环：呼吸式缩放
+  styles.push(new Style({
+    image: new CircleStyle({
+      radius: 16 + Math.sin(phase * Math.PI * 2) * 2.4,
+      fill: new Fill({ color: 'rgba(217,160,32,0.20)' }),
+      stroke: new Stroke({ color: '#d9a020', width: 2.4 }),
     }),
-    // 中间层：亮黄色实心圆
-    new Style({
-      image: new CircleStyle({
-        radius: 14,
-        fill: new Fill({ color: 'rgba(255, 204, 0, 0.98)' }),
-        stroke: new Stroke({ color: '#ffffff', width: 3.5 }),
-      }),
+  }));
+  // 印章本体：放大展示（底部尖角仍对准该点位）
+  styles.push(new Style({
+    image: new Icon({
+      src: cachedSealIcon(color, glyph),
+      width: 40,
+      height: 40 * SEAL_RATIO,
+      anchor: [0.5, 1],
+      anchorXUnits: 'fraction',
+      anchorYUnits: 'fraction',
     }),
-    // 最内层：红色中心点
-    new Style({
-      image: new CircleStyle({
-        radius: 5,
-        fill: new Fill({ color: '#ff3b30' }),
-      }),
-    }),
-  ];
+  }));
+  return styles;
 }
 
 /** 山东中心（经纬度） */
@@ -61,12 +74,42 @@ const SHANDONG_CENTER: [number, number] = [118.2, 36.3];
 /** 放大到该 zoom 及以上时，非遗点标注从 pin 图标切换为「图片缩略图 + 名称」 */
 const LABEL_ZOOM = 11;
 
-/** 生成分类色 pin 图标（SVG data URI），替换默认圆点标注 */
-function pinIconDataUri(color: string): string {
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24">'
-    + '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="' + color + '" stroke="#ffffff" stroke-width="1.5"/>'
-    + '<circle cx="12" cy="9" r="3" fill="#ffffff"/></svg>';
+/**
+ * 生成「非遗印章」点位图标（SVG data URI）：
+ * 印面（门类传统色）+ 内边细线 + 白色门类单字 + 底部落点尖角。
+ * 替代通用地图水滴 pin，让点位本身就是非遗视觉符号。
+ */
+function sealIconDataUri(color: string, glyph: string): string {
+  const ch = (glyph || '遗').slice(0, 1);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="36" viewBox="0 0 32 36">'
+    // 落点尖角（指向地理坐标）
+    + '<path d="M13.1 25.6 L16 34 L18.9 25.6 Z" fill="' + color + '" stroke="#fff8ec" stroke-width="1.2" stroke-linejoin="round"/>'
+    // 印面
+    + '<rect x="2.6" y="1.4" width="26.8" height="26.8" rx="4.6" fill="' + color + '" stroke="#fff8ec" stroke-width="2"/>'
+    // 印面内边框（朱文印的双线感）
+    + '<rect x="5.9" y="4.7" width="20.2" height="20.2" rx="2.6" fill="none" stroke="rgba(255,248,236,0.6)" stroke-width="1.1"/>'
+    // 门类单字
+    + '<text x="16" y="19" text-anchor="middle" font-family="KaiTi,STKaiti,SimSun,serif" font-size="15.5" font-weight="700" fill="#fff8ec">' + ch + '</text>'
+    + '</svg>';
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+/** 印章图标宽高比（32:36），Icon 需等比设置避免拉伸 */
+const SEAL_RATIO = 36 / 32;
+
+/**
+ * 印章图标缓存：同一「色 + 单字」只生成一次 data URI。
+ * 地图重绘时样式函数会被高频调用（185 点 × 每秒十余帧），
+ * 若每次都重新拼 SVG 并 encode，字符串与 Icon 图片缓存全部失效，是主要卡顿源。
+ */
+const SEAL_ICON_CACHE = new Map<string, string>();
+function cachedSealIcon(color: string, glyph: string): string {
+  const key = color + '|' + glyph;
+  let uri = SEAL_ICON_CACHE.get(key);
+  if (!uri) {
+    uri = sealIconDataUri(color, glyph);
+    SEAL_ICON_CACHE.set(key, uri);
+  }
+  return uri;
 }
 
 // ---- 行政热力图色阶辅助 ----
@@ -132,6 +175,11 @@ export class OLMapAdapter implements MapAdapter {
   private styleFns = new Map<string, FeatureStyleFn>();
   private filters = new Map<string, (props: Record<string, unknown>) => boolean>();
   private highlightId: string | number | null = null;
+  /** 选中动效相位（0→1 循环），驱动涟漪扩散与聚焦环呼吸 */
+  private pulsePhase = 0;
+  private pulseTimer: number | null = null;
+  /** 常规印章样式缓存（色+单字 → Style），避免重绘时反复新建 Icon/Style 对象 */
+  private styleCache = new Map<string, Style>();
   private hoverCityCode: string | null = null;
   private cityStyleFns = new Map<string, () => void>();
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
@@ -195,8 +243,23 @@ export class OLMapAdapter implements MapAdapter {
           text: true,
           minWidth: 100,
         }),
+        // 鹰眼图（右下角小地图缩略图，默认展开显示；仍可点按钮折叠）
+        // 底图用高德矢量（国内可访问），和主地图保持一致
+        // 注意：collapsed:true 会折叠成按钮，配合空 label 就只剩一个空白小方块，
+        // 用户会以为鹰眼图"没显示"，所以默认展开并保留默认箭头标签。
+        new OverviewMap({
+          collapsible: true,
+          collapsed: false,
+          layers: [createBaseMapLayer('vec', 'amap')],
+          view: new View({
+            projection: 'EPSG:3857',
+            center: fromLonLat([118.2, 36.3]),
+            zoom: 6,
+          }),
+        }),
       ],
     });
+
     this.syncLabelLayer();
     // 缩放结束后重算样式（非遗点 pin/图片切换、边界层刷新）——用 moveend 而非
     // change:resolution，避免拖动/缩放每一帧都触发全层重绘导致卡顿
@@ -220,6 +283,14 @@ export class OLMapAdapter implements MapAdapter {
       }
     });
     this.map.on('singleclick', (evt) => {
+      // 拾取点模式：把点击位置转为经纬度回调出去（单次拾取后自动退出）
+      if (this.pickCb) {
+        const cb = this.pickCb;
+        const lonlat = transform(evt.coordinate, this.viewProjection(), 'EPSG:4326') as [number, number];
+        this.stopPickPoint();
+        cb(lonlat);
+        return;
+      }
       // 量算绘制中：抑制要素点击，避免与绘制冲突
       if (this.measuring) return;
       // 行政热力图模式：点击城市区域放大到该市
@@ -347,8 +418,10 @@ export class OLMapAdapter implements MapAdapter {
     });
     // 把属性挂到 _props，便于点击回调取整包属性；同时标记 _layerId 用于图层样式区分
     (features as Feature[]).forEach((f) => {
-      f.set('_props', f.getProperties());
+      // 顺序要紧：必须先写 _layerId 再快照 _props，
+      // 否则属性包里没有图层标识，分析图层/用户图层的专用样式与筛选隔离都会失效
       f.set('_layerId', id);
+      f.set('_props', f.getProperties());
       if (f.get('id') == null && f.get('_id') == null) f.set('_id', f.getId());
     });
     const source = new VectorSource({ features });
@@ -503,7 +576,35 @@ export class OLMapAdapter implements MapAdapter {
 
   setHighlightId(id: string | number | null): void {
     this.highlightId = id;
+    // 选中即开启动效，取消选中立即停表，避免无高亮时的空转重绘
+    if (id == null) this.stopPulse();
+    else this.startPulse();
     this.layers.forEach((layer) => layer.changed());
+  }
+
+  /**
+   * 启动选中脉冲：90ms 推进一次相位。
+   * 只重绘可能承载高亮点的图层（主图层与用户数据集），
+   * 省界/缓冲区/路线等图层不必跟着高频重绘；页面不可见时跳过。
+   */
+  private startPulse(): void {
+    if (this.pulseTimer != null) return;
+    this.pulseTimer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      this.pulsePhase = (this.pulsePhase + 0.05) % 1;
+      this.layers.forEach((layer, id) => {
+        if (id === 'heritage' || id.startsWith('user-')) layer.changed();
+      });
+    }, 90);
+  }
+
+  /** 停止选中脉冲并复位相位 */
+  private stopPulse(): void {
+    if (this.pulseTimer != null) {
+      window.clearInterval(this.pulseTimer);
+      this.pulseTimer = null;
+    }
+    this.pulsePhase = 0;
   }
 
   onFeatureClick(cb: (props: Record<string, unknown> | null) => void): void {
@@ -568,7 +669,11 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   // ---- 成员2：地图控件辅助方法 ----
-  /** 获取当前缩放级别 */
+  /** 容器尺寸变化后重算视口（面板展开挤压地图时必须调用，否则瓦片错位） */
+  updateSize(): void {
+    this.map?.updateSize();
+  }
+
   getZoom(): number {
     return this.map?.getView().getZoom() ?? 7.5;
   }
@@ -659,8 +764,11 @@ export class OLMapAdapter implements MapAdapter {
         this.layers.forEach((layer) => layer.changed());
         return;
       }
-      this.layers.forEach((layer) => layer.changed());
-      this.birthTimer = setTimeout(tick, 16);
+      // 出生动画只影响点位图层：边界/缓冲区/路线等静态层无需跟着重绘
+      this.layers.forEach((layer, id) => {
+        if (id === 'heritage' || id.startsWith('user-')) layer.changed();
+      });
+      this.birthTimer = setTimeout(tick, 25);
     };
     this.birthTimer = setTimeout(tick, 16);
   }
@@ -679,6 +787,28 @@ export class OLMapAdapter implements MapAdapter {
   private measureDraw: Draw | null = null;
   private measureLayer: VectorLayer | null = null;
   private measuring = false;
+
+  // ---- 地图拾取点（缓冲区选点） ----
+  private pickCb: ((lonlat: [number, number]) => void) | null = null;
+
+  startPickPoint(onPick: (lonlat: [number, number]) => void): void {
+    if (!this.map) return;
+    // 拾取与量算互斥，避免两次绘制冲突
+    this.stopMeasure();
+    this.pickCb = onPick;
+    const target = this.map.getTargetElement();
+    if (target) target.style.cursor = 'crosshair';
+  }
+
+  stopPickPoint(): void {
+    this.pickCb = null;
+    const target = this.map?.getTargetElement();
+    if (target) target.style.cursor = '';
+  }
+
+  isPickingPoint(): boolean {
+    return this.pickCb != null;
+  }
 
   startMeasure(mode: 'distance' | 'area', onDone: (geometry: object) => void): void {
     if (!this.map) return;
@@ -942,6 +1072,8 @@ export class OLMapAdapter implements MapAdapter {
   }
 
   destroy(): void {
+    this.stopPickPoint();
+    this.stopPulse();
     this.stopBirthAnimation();
     this.disposeClusterLayer();
     this.disposeHeatmapLayer();
@@ -952,19 +1084,20 @@ export class OLMapAdapter implements MapAdapter {
   /** 要素样式：隐藏(筛选不中) / 高亮(选中) / 分类样式（按几何类型渲染） */
   private buildStyle(feature: Feature): Style | Style[] {
     const props = (feature.get('_props') as Record<string, unknown>) ?? feature.getProperties();
-    // 筛选不中 → 隐藏
-    for (const predicate of this.filters.values()) {
-      if (!predicate(props)) return HIDDEN_STYLE;
-    }
-    const color = (props['color'] as string) || '#1890ff';
     const geomType = feature.getGeometry()?.getType();
+    // 图层标识：主图层 heritage / 用户数据集 user-* / 分析图层 buffer、route…
+    const layerId = (feature.get('_layerId') as string) || (props['_layerId'] as string) || 'heritage';
+    // 筛选只作用于该图层自己的条件：主图层的名录筛选不得隐藏缓冲区、
+    // 寻访路线、用户上传图层等分析要素（否则这些图层会整层不可见）。
+    const layerFilter = this.filters.get(layerId);
+    if (layerFilter && !layerFilter(props)) return HIDDEN_STYLE;
+    const color = (props['color'] as string) || '#1890ff';
     // 高亮（仅点要素放大）
     const id = props['id'];
     if (this.highlightId != null && String(id) === String(this.highlightId) && geomType === 'Point') {
-      return buildHighlightStyles();
+      return buildHighlightStyles(this.pulsePhase, color, categoryGlyph(props['category'] as string));
     }
     // 用户数据集图层（user- 开头）→ 醒目的金色高亮样式，与主图层蓝色pin区分
-    const layerId = props['_layerId'] as string;
     if (layerId && layerId.startsWith('user-') && geomType === 'Point') {
       return [
         // 外圈：半透明金色光晕
@@ -984,6 +1117,31 @@ export class OLMapAdapter implements MapAdapter {
           }),
         }),
       ];
+    }
+    // 空间分析图层：缓冲区 / 叠加范围 / 寻访路线 → 非遗主题线型（替代默认蓝橙）
+    if (layerId === 'buffer') {
+      if (geomType === 'Point') {
+        return new Style({
+          image: new CircleStyle({
+            radius: 6,
+            fill: new Fill({ color: '#b8352b' }),
+            stroke: new Stroke({ color: '#fff8ec', width: 2.5 }),
+          }),
+        });
+      }
+      return new Style({
+        stroke: new Stroke({ color: '#b8352b', width: 3, lineDash: [12, 8] }),
+        fill: new Fill({ color: 'rgba(184,53,43,0.18)' }),
+      });
+    }
+    if (layerId === 'overlay-poly') {
+      return new Style({
+        stroke: new Stroke({ color: '#2c5f8a', width: 2.2, lineDash: [9, 6] }),
+        fill: new Fill({ color: 'rgba(44,95,138,0.12)' }),
+      });
+    }
+    if (layerId === 'route') {
+      return new Style({ stroke: new Stroke({ color: '#9c5b2e', width: 3.5 }) });
     }
     // 多边形/线 → 描边+填充
     if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
@@ -1011,7 +1169,6 @@ export class OLMapAdapter implements MapAdapter {
         birthScale = Math.max(0.05, easeOutBack(t));
       }
     }
-    const pinsize = Math.max(0.001, 30 * birthScale);
     if (zoom >= LABEL_ZOOM && photo) {
       // 出生前完全隐藏(尺寸0+无文本)；出生中按比例缩放并淡入文本
       const born = birthScale <= 0;
@@ -1036,15 +1193,28 @@ export class OLMapAdapter implements MapAdapter {
             }),
       });
     }
-    return new Style({
-      image: new Icon({
-        src: pinIconDataUri(color),
-        width: pinsize,
-        height: pinsize,
-        anchor: [0.5, 1],
-        anchorXUnits: 'fraction',
-        anchorYUnits: 'fraction',
-      }),
-    });
+    const glyph = categoryGlyph(props['category'] as string);
+    // 出生前完全隐藏（不占用样式缓存）
+    if (birthScale <= 0) return HIDDEN_STYLE;
+    // 尺寸量化到 5% 档位后复用 Style：
+    // 185 个点位在平移/脉冲/出生动画期间会被高频重绘，
+    // 复用可把每帧数以百计的 Style+Icon 分配降到个位数。
+    const band = Math.max(0.05, Math.round(birthScale * 20) / 20);
+    const cacheKey = color + '|' + glyph + '|' + band;
+    let cached = this.styleCache.get(cacheKey);
+    if (!cached) {
+      cached = new Style({
+        image: new Icon({
+          src: cachedSealIcon(color, glyph),
+          width: 30 * band,
+          height: 30 * band * SEAL_RATIO,
+          anchor: [0.5, 1],
+          anchorXUnits: 'fraction',
+          anchorYUnits: 'fraction',
+        }),
+      });
+      this.styleCache.set(cacheKey, cached);
+    }
+    return cached;
   }
 }

@@ -126,8 +126,11 @@ onBeforeUnmount(stopPlay);
 .time-slider {
   position: absolute;
   bottom: 64px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* 居中于地图可视区域（而非整个容器），面板展开时同步偏移 */
+  left: calc(var(--dock-w, 48px) + var(--drawer-l, 0px));
+  right: var(--drawer-r, 0px);
+  margin-left: auto;
+  margin-right: auto;
   width: min(620px, 86vw);
   border-radius: 14px;
   padding: 12px 18px 14px;

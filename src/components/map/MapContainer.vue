@@ -70,7 +70,7 @@ onMounted(async () => {
   // 成员2：设置行政热力图的市界数据
   adapter.setChoroplethBoundary(loadShandongCityBoundary());
   adapter.addGeoJsonLayer(heritageGeojson(), 'heritage');
-  adapter.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
+  syncHeritageFilter();
   adapter.onFeatureClick((props) => {
     dataStore.select(props ? (props.id as number) : null);
   });
@@ -78,6 +78,12 @@ onMounted(async () => {
   adapter.onClusterClick((items, center) => {
     mapStore.showClusterPopup(items, center);
   });
+  // 监听容器尺寸：面板展开/收起挤压地图时保持瓦片与坐标正确
+  if (typeof ResizeObserver !== 'undefined') {
+    // 容器尺寸变化即重算视口（鹰眼图由 OL 自身跟随主地图尺寸更新）
+    sizeObserver = new ResizeObserver(() => adapter?.updateSize());
+    sizeObserver.observe(mapEl.value);
+  }
   mapStore.setMapAdapter(adapter);
   // 挂载后同步一次已存在的数据集（从数据管理页跳转过来的场景）
   syncUserDatasets();
@@ -96,10 +102,21 @@ onMounted(async () => {
 });
 
 // 筛选条件变化 → 地图图层筛选 + 行政热力图数据更新
+/**
+ * 可见要素 id 集合：样式函数对每个要素都会被调用一次，
+ * 用 Set 把筛选判断从「逐个遍历可见列表」降到 O(1)，
+ * 在脉冲动效/平移这类高频重绘下差异明显。
+ */
+let heritageIdSet = new Set<number>();
+function syncHeritageFilter() {
+  heritageIdSet = new Set(dataStore.filteredItems.map((i) => i.id));
+  adapter?.setLayerFilter('heritage', (p) => heritageIdSet.has(p.id as number));
+}
+
 watch(
   () => dataStore.filteredItems,
   () => {
-    adapter?.setLayerFilter('heritage', (p) => dataStore.filteredItems.some((i) => i.id === p.id));
+    syncHeritageFilter();
     updateChoroplethData();
   },
 );
@@ -237,7 +254,15 @@ watch(
 // 成员2：聚合距离变化
 watch(() => mapStore.clusterDistance, (d) => adapter?.setClusterDistance(d));
 
+// 容器尺寸自适应：左右面板展开会挤压地图容器，OL 不会自动重算视口。
+// 这里在 ResizeObserver 回调里同步 updateSize：该回调发生在布局之后、绘制之前，
+// 同步执行可保证当帧就按新尺寸渲染；若经 requestAnimationFrame 转发会晚一帧，
+// 表现为展开过程中地图内容逐帧错位（观感即抖动）。
+let sizeObserver: ResizeObserver | null = null;
+
 onBeforeUnmount(() => {
+  sizeObserver?.disconnect();
+  sizeObserver = null;
   mapStore.setMapAdapter(null);
   adapter?.destroy();
   adapter = null;
@@ -256,5 +281,22 @@ defineExpose({ zoomToItem, getAdapter });
 </script>
 
 <style scoped>
-.map-container { width: 100%; height: 100%; background: #f7f3e8; }
+.map-container {
+  width: 100%;
+  height: 100%;
+  background: #f7f3e8;
+  /* 圆角卡片容器：地图不再满铺，边界内收，观感更像专业系统 */
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e0d5bc;
+  box-shadow: 0 3px 16px rgba(109, 76, 42, 0.10);
+}
+
+/* 鹰眼图定位到右下角（默认在左下角，容易被左侧面板挡住；
+   往上偏移避免和MapControls控件重叠） */
+.map-container :deep(.ol-overviewmap) {
+  left: auto !important;
+  right: 8px !important;
+  bottom: 160px !important;
+}
 </style>

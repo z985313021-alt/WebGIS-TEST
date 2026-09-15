@@ -1,5 +1,5 @@
 <template>
-  <div class="home-wrap">
+  <div class="home-wrap" :class="{ 'drawer-l-open': !!activeDrawer, 'drawer-r-open': chartDrawerVisible }">
     <!-- 底层地图视口 -->
     <MapContainer ref="mapRef" />
 
@@ -361,6 +361,8 @@ watch(
 function toggleChartDrawer() {
   chartDrawerVisible.value = !chartDrawerVisible.value;
   if (chartDrawerVisible.value) {
+    // 与左侧抽屉互斥：两侧同时展开会把地图挤到无法辨认
+    activeDrawer.value = null;
     nextTick(() => {
       chartPanelRef.value?.resize();
     });
@@ -377,6 +379,8 @@ function toggleDrawer(name: 'filter' | 'analysis' | 'layers' | 'time') {
     activeDrawer.value = null;
   } else {
     activeDrawer.value = name;
+    // 左侧抽屉与右侧图表抽屉互斥
+    chartDrawerVisible.value = false;
   }
 }
 
@@ -465,6 +469,28 @@ watch(
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* 停靠轨宽度与左右抽屉让位宽度：抽屉展开时地图容器同步压缩到剩余区域 */
+  --dock-w: 48px;
+  --drawer-l: 0px;
+  --drawer-r: 0px;
+  /* 地图以圆角卡片形式呈现，四周留白（左侧避开停靠轨），更像专业系统 */
+  padding: 10px calc(10px + var(--drawer-r)) 10px calc(var(--dock-w) + 10px + var(--drawer-l));
+  box-sizing: border-box;
+  background: #efe7d6;
+  /* 面板与地图同一节奏（260ms / 同缓动）滑动，避免"面板已就位、地图还在缩"的割裂感 */
+  transition:
+    padding-left 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    padding-right 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 左侧名录/分析抽屉展开：地图右移让出抽屉宽度（窄屏自动收窄） */
+.home-wrap.drawer-l-open {
+  --drawer-l: min(380px, calc(100vw - var(--dock-w) - 40px));
+}
+
+/* 右侧统计图表抽屉展开：地图左移让出图表宽度 */
+.home-wrap.drawer-r-open {
+  --drawer-r: min(420px, calc(100vw - var(--dock-w) - 40px));
 }
 
 /* =========================================================
@@ -643,12 +669,12 @@ watch(
   flex-direction: column;
 }
 
-/* 抽屉过渡：平滑淡入平移 */
+/* 抽屉过渡：与地图压缩同节奏（260ms），左右两侧同步展开/收起 */
 .drawer-fade-enter-active {
-  transition: opacity 220ms ease-out, transform 220ms ease-out;
+  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .drawer-fade-leave-active {
-  transition: opacity 160ms ease-in, transform 160ms ease-in;
+  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .drawer-fade-enter-from,
 .drawer-fade-leave-to {
@@ -929,7 +955,8 @@ watch(
 .ge-right-dock {
   position: absolute;
   top: 10px;
-  right: 12px;
+  /* 右侧抽屉展开时开关退到抽屉外侧，始终可点 */
+  right: calc(12px + var(--drawer-r, 0px));
   z-index: 28;
 }
 
@@ -990,10 +1017,10 @@ watch(
 
 /* 右侧抽屉平滑淡入平移过渡 */
 .drawer-right-fade-enter-active {
-  transition: opacity 220ms ease-out, transform 220ms ease-out;
+  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .drawer-right-fade-leave-active {
-  transition: opacity 160ms ease-in, transform 160ms ease-in;
+  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1), transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .drawer-right-fade-enter-from,
 .drawer-right-fade-leave-to {
