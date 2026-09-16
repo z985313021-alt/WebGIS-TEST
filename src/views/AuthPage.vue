@@ -150,8 +150,9 @@
                 </el-button>
               </el-form>
 
-              <!-- 演示快捷入口 -->
-              <div class="demo-account-bar">
+              <!-- 演示快捷入口：仅开发环境显示，生产构建会被摇树移除，
+                   避免线上暴露管理员默认口令 -->
+              <div v-if="isDev" class="demo-account-bar">
                 <span>演示账号：<b>admin / admin123</b></span>
                 <el-button
                   size="small"
@@ -572,7 +573,14 @@ async function onRegister() {
   }
 }
 
+/** 开发环境标记：演示账号入口与初始化仅本地可用，生产环境一律不执行 */
+const isDev = import.meta.env.DEV;
+
 async function onSetupAdmin() {
+  if (!isDev) {
+    ElMessage.warning('该入口仅在开发环境可用');
+    return;
+  }
   setupLoading.value = true;
   try {
     await authApi.ensureAdmin({ username: 'admin', email: 'admin@webgis.test', password: 'admin123' });
