@@ -1,5 +1,5 @@
 <template>
-  <div class="map-controls" :class="{ narrow }">
+  <div ref="controlsEl" class="map-controls" :class="{ narrow }">
     <!-- 指北针 -->
     <div class="control-item compass" @click="resetRotation" title="点击重置为正北朝上">
       <div class="compass-ring" :style="{ transform: `rotate(${-rotationDeg}deg)` }">
@@ -68,6 +68,18 @@ function resetRotation() {
 // 地图被面板挤压变窄时收起坐标条，避免控件互相压叠
 const narrow = ref(false);
 let widthObserver: ResizeObserver | null = null;
+
+/**
+ * 控件组自身高度会随内容变化（温度、坐标条显隐、窄屏收起等），
+ * 这里实时写入 --controls-h，让鹰眼图按实际高度避让，彻底避免压叠。
+ */
+const controlsEl = ref<HTMLElement | null>(null);
+let heightObserver: ResizeObserver | null = null;
+function syncControlsHeight() {
+  const h = controlsEl.value?.getBoundingClientRect().height ?? 0;
+  const mapEl = document.querySelector('.map-container') as HTMLElement | null;
+  if (mapEl && h > 0) mapEl.style.setProperty('--controls-h', `${Math.ceil(h)}px`);
+}
 
 /**
  * 实况温度：默认显示山东省，地图中心落到某个地市时切换为该市。
@@ -180,6 +192,13 @@ onMounted(() => {
   // 温度先按全省渲染，不依赖适配器是否就绪
   void loadWeather('山东');
   bindAdapter();
+
+  // 控件高度变化 → 同步给鹰眼图避让
+  if (controlsEl.value && typeof ResizeObserver !== 'undefined') {
+    heightObserver = new ResizeObserver(() => syncControlsHeight());
+    heightObserver.observe(controlsEl.value);
+    syncControlsHeight();
+  }
 });
 
 // 适配器晚于本组件就绪时补绑
@@ -193,6 +212,8 @@ watch(
 onBeforeUnmount(() => {
   widthObserver?.disconnect();
   widthObserver = null;
+  heightObserver?.disconnect();
+  heightObserver = null;
   // OL 的事件监听器会随 map 销毁自动清理，无需手动 off
 });
 </script>

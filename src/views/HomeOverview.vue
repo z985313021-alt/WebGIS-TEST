@@ -493,7 +493,9 @@ watch(chartOpen, (open) => {
   top: 0;
   bottom: 0;
   right: 0;
-  width: 380px;
+  /* 宽度自适应：窄屏时收窄，保证不压住左侧的门类墙与热度榜面板 */
+  width: min(380px, calc(100vw - 430px));
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   background: #fffdf8;

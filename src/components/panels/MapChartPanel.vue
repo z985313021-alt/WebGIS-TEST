@@ -127,7 +127,12 @@ function updateCharts() {
         bottom: 0,
         itemWidth: 8,
         itemHeight: 8,
-        textStyle: { fontSize: 10, color: '#6d5b45' },
+        // 图例项宽度必须给死：中文文字宽度测量偏差会让相邻项挤在一起重叠，
+        // 长门类名（如「传统体育、游艺与杂技」）尤其明显
+        itemGap: 6,
+        textStyle: { fontSize: 10, color: '#6d5b45', width: 56, overflow: 'truncate' },
+        formatter: (name: string) =>
+          name === '传统体育、游艺与杂技' ? '体育游艺' : name.replace(/^传统/, ''),
       },
       series: [
         {
