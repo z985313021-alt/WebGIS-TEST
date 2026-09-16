@@ -177,6 +177,30 @@ import { useDataStore } from '@/services/stores/dataStore';
 import shandongGeo from '@/data/shandong-city-boundary.json';
 import { CATEGORIES, CATEGORY_COLORS, categoryGlyph } from '@/data/sources/heritage';
 import { sealIconDataUri } from '@/services/map/sealIcon';
+import { loadShandongBoundary } from '@/data/sources/shandongBoundary';
+
+/**
+ * 省界外环坐标串：沿省界跑一条绵延光带（朱砂红丝线 + 流动光点）。
+ * 数据源是已合并好的单一省界（不含内部地市界线）。
+ */
+const PROVINCE_RING: [number, number][] = (() => {
+  const geo = loadShandongBoundary() as {
+    features?: Array<{ geometry?: { type?: string; coordinates?: unknown } }>;
+  };
+  const ring: [number, number][] = [];
+  for (const f of geo.features ?? []) {
+    const g = f.geometry;
+    if (!g?.coordinates) continue;
+    if (g.type === 'Polygon') {
+      ring.push(...(((g.coordinates as [number, number][][])[0] ?? []) as [number, number][]));
+    } else if (g.type === 'MultiPolygon') {
+      for (const poly of g.coordinates as [number, number][][][]) {
+        ring.push(...((poly[0] ?? []) as [number, number][]));
+      }
+    }
+  }
+  return ring;
+})();
 
 const router = useRouter();
 const dataStore = useDataStore();
@@ -323,7 +347,7 @@ function updateCategoryChart() {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      backgroundColor: 'rgba(255, 253, 248, 0.97)',
       borderColor: '#c9b89a',
       borderWidth: 1,
       textStyle: { color: '#4a3a2f', fontSize: 12 },
@@ -392,7 +416,7 @@ function initBatchTrendChart() {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      backgroundColor: 'rgba(255, 253, 248, 0.97)',
       borderColor: '#c9b89a',
       textStyle: { color: '#4a3a2f', fontSize: 12 },
     },
@@ -474,7 +498,7 @@ function updateMapChart() {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      backgroundColor: 'rgba(255, 253, 248, 0.97)',
       borderColor: '#c9b89a',
       borderWidth: 1,
       textStyle: { color: '#4a3a2f', fontSize: 12 },
@@ -494,12 +518,12 @@ function updateMapChart() {
       center: [118.8, 36.3],
       aspectScale: 0.85,
       itemStyle: {
-        // 宣纸山水：浅米底 + 淡墨描边，与整幅卷轴同色系
+        // 宣纸底 + 朱砂红丝线勾边（像工笔画的界画描边）
         areaColor: '#f7f0dd',
-        borderColor: '#c9b89a',
-        borderWidth: 1.2,
-        shadowColor: 'rgba(43, 34, 24, 0.10)',
-        shadowBlur: 12,
+        borderColor: '#c0392b',
+        borderWidth: 1.4,
+        shadowColor: 'rgba(184, 53, 43, 0.12)',
+        shadowBlur: 10,
       },
       emphasis: {
         itemStyle: {
@@ -518,6 +542,27 @@ function updateMapChart() {
       },
     },
     series: [
+      // 省界：朱砂红丝线 + 绵延流动的光带（慢速、克制，只此一条）
+      {
+        name: '❖ 齐鲁省界 · 绵延光带',
+        type: 'lines',
+        coordinateSystem: 'geo',
+        zlevel: 3,
+        silent: true,
+        effect: {
+          show: true,
+          period: 9,
+          trailLength: 0.32,
+          symbol: 'circle',
+          symbolSize: 2.8,
+          color: '#c0392b',
+        },
+        lineStyle: {
+          color: 'rgba(192, 57, 43, 0.42)',
+          width: 1.4,
+        },
+        data: [{ coords: PROVINCE_RING }],
+      },
       // 黄河生态廊道
       {
         name: '❖ 黄河流域（山东段）非遗生态廊道',
@@ -594,7 +639,7 @@ function updateCityRankChart() {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      backgroundColor: 'rgba(255, 253, 248, 0.97)',
       borderColor: '#c9b89a',
       textStyle: { color: '#4a3a2f', fontSize: 12 },
     },
@@ -651,7 +696,7 @@ function initCorridorChart() {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      backgroundColor: 'rgba(255, 253, 248, 0.97)',
       borderColor: '#3c6a50',
       textStyle: { color: '#4a3a2f', fontSize: 12 },
     },
@@ -876,6 +921,27 @@ onBeforeUnmount(() => {
 /* 地图显隐：卷轴动画期间完全不显示（visibility:hidden 不参与渲染），
    否则地图会跟着 clip-path 裁切区域不断重排，看起来"不跟手"。
    收起 → 立即隐藏；展开 → 等画心完全铺开(700ms)后再浮现。 */
+/* 底图质感：宣纸纤维噪点 + 中心淡朱砂晕，让大片留白不显单调 */
+.map-container {
+  background-color: #faf5e9;
+  /* 底纹层次（由下往上）：宣纸纤维 → 金色绢丝斜纹 → 中心朱砂淡晕 → 描金渐层 */
+  background-image:
+    /* 金丝斜纹（经纬两向，模拟绢帛挑金） */
+    repeating-linear-gradient(45deg, rgba(201, 152, 60, 0.085) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgba(201, 152, 60, 0.055) 0 1px, transparent 1px 9px),
+    /* 宣纸纤维噪点 */
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E"),
+    /* 中心朱砂淡晕 */
+    radial-gradient(ellipse 62% 52% at 50% 46%, rgba(158, 42, 29, 0.05), transparent 72%),
+    /* 四角描金渐层 */
+    radial-gradient(circle at 0% 0%, rgba(212, 160, 60, 0.14), transparent 34%),
+    radial-gradient(circle at 100% 0%, rgba(212, 160, 60, 0.12), transparent 32%),
+    radial-gradient(circle at 0% 100%, rgba(212, 160, 60, 0.12), transparent 32%),
+    radial-gradient(circle at 100% 100%, rgba(212, 160, 60, 0.14), transparent 34%),
+    linear-gradient(180deg, #fdf8ec 0%, #f6efdf 55%, #f1e8d5 100%);
+  background-repeat: repeat, repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: auto, auto, 220px 220px, cover, cover, cover, cover, cover, cover;
+}
 .map-main-panel .map-container {
   opacity: 0;
   visibility: hidden;
@@ -1186,13 +1252,16 @@ onBeforeUnmount(() => {
 
 /* 典雅卡片通用样式 */
 .heritage-panel {
-  background: #fffdf8;
-  border: 1px solid #3e3124;
-  border-radius: 6px;
+  /* 画卷裱边：米金外框 + 内圈描金细线，浅底上不再用深色硬边 */
+  background: linear-gradient(180deg, #fffdf7 0%, #fdf8ec 100%);
+  border: 1px solid #d9c08a;
+  border-radius: 8px;
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 160, 60, 0.20),
+    0 4px 16px rgba(43, 34, 24, 0.08);
   min-width: 0;
 }
 .heritage-panel.flex-1 {
