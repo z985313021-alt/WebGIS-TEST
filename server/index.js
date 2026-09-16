@@ -286,6 +286,22 @@ function publicUser(u) {
 }
 
 /**
+ * 登录标记 cookie。
+ * 静态图片（/images/*）由 nginx 直接托管，拿不到 Authorization 头，
+ * 所以这里额外种一个标记 cookie，让 nginx 能用 $cookie_webgis_auth 判断是否放行 ——
+ * 未登录访客因此连图片都取不到，从源头掐掉这部分出口流量。
+ */
+const AUTH_COOKIE = 'webgis_auth';
+function markLoggedIn(res) {
+  res.cookie(AUTH_COOKIE, '1', {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 3600 * 1000,
+    path: '/',
+  });
+}
+
+/**
  * 注册邀请码：注册必须提供，用于限制开放注册带来的流量与滥用。
  * 优先读环境变量 REGISTER_INVITE_CODE，便于线上随时更换而无需改代码。
  */
@@ -300,6 +316,7 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
   try {
     const user = registerUser(username, email, password);
     const sess = loginUser(user.username, password);
+    markLoggedIn(res);
     res.json({ ok: true, token: sess.token, user: publicUser(sess.user) });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -349,6 +366,7 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   try {
     const sess = loginUser(account, password);
     loginFails.delete(loginFailKey(req));
+    markLoggedIn(res);
     res.json({ ok: true, token: sess.token, user: publicUser(sess.user) });
   } catch (e) {
     if (e.code === 'BAD_CREDENTIALS') markLoginFail(req);
@@ -366,6 +384,8 @@ app.get('/api/auth/me', (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   const token = bearerToken(req);
   if (token) logoutByToken(token);
+  // 同步清掉登录标记，让 nginx 立刻停止放行静态图片
+  res.clearCookie(AUTH_COOKIE, { path: '/' });
   res.json({ ok: true });
 });
 
