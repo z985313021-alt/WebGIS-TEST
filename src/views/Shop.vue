@@ -28,11 +28,42 @@
       </el-check-tag>
     </div>
 
+    <!-- 商品热销榜：与商城同页，点条目直接定位到对应商品 -->
+    <div v-if="hotProducts.length" class="hot-rank">
+      <div class="hr-head">
+        <span class="hr-title">🔥 文创热销榜</span>
+        <span class="hr-sub">按累计销量排序 · 点击可定位商品</span>
+      </div>
+      <div class="hr-list">
+        <div
+          v-for="(p, i) in hotProducts"
+          :key="p.id"
+          class="hr-card"
+          :class="{ 'hr-top': i < 3 }"
+          @click="locateProduct(p.id)"
+        >
+          <span class="hr-rank">{{ i + 1 }}</span>
+          <img v-if="p.image" class="hr-img" :src="p.image" :alt="p.name" />
+          <span v-else class="hr-img hr-ph">文创</span>
+          <div class="hr-info">
+            <div class="hr-name">{{ p.name }}</div>
+            <div class="hr-sales">销 {{ p.sales }} 件 · {{ p.orders }} 单</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 商品网格 -->
     <div v-if="loading" class="loading"><el-skeleton :rows="6" animated /></div>
     <div v-else-if="!products.length" class="empty">还没有上架的商品，快去管理后台添加吧～</div>
     <div v-else class="grid">
-      <div v-for="p in products" :key="p.id" class="p-card">
+      <div
+        v-for="p in products"
+        :key="p.id"
+        class="p-card"
+        :class="{ 'is-highlight': highlightId === p.id }"
+        :data-product-id="p.id"
+      >
         <div class="p-img">
           <el-image v-if="p.image" :src="p.image" fit="cover" lazy>
             <template #error>
@@ -126,11 +157,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ShoppingBag, ShoppingCart } from '@element-plus/icons-vue';
 import * as api from '@/data/api/shop';
+import { fetchProductRank, type ProductRankItem } from '@/data/api/rank';
 import type { Product, CategoryCnt, CartItem } from '@/data/api/shop';
 import * as acct from '@/data/api/account';
 import type { AddressItem } from '@/data/api/account';
@@ -141,6 +173,24 @@ import { useCartStore } from '@/services/stores/cartStore';
 
 const cartS = useCartStore();
 const router = useRouter();
+const route = useRoute();
+/** 高亮的商品 id（热销榜点条目定位，或 ?product=xxx 直达） */
+const highlightId = ref<number | null>(null);
+/** 商品热销榜（按销量 Top 10） */
+const hotProducts = ref<ProductRankItem[]>([]);
+let highlightTimer: number | null = null;
+
+/** 滚动到指定商品并高亮若干秒 */
+function locateProduct(id: number) {
+  const el = document.querySelector(`[data-product-id="${id}"]`);
+  if (!el) return;
+  highlightId.value = id;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (highlightTimer) window.clearTimeout(highlightTimer);
+  highlightTimer = window.setTimeout(() => {
+    highlightId.value = null;
+  }, 2800);
+}
 const products = ref<Product[]>([]);
 const categories = ref<CategoryCnt[]>([]);
 const activeCat = ref('');
@@ -312,11 +362,136 @@ onMounted(async () => {
   await loadProducts();
   await loadCategories();
   await loadCart();
+  // 热销榜与商品列表并行取数（失败不影响商城可用）
+  void fetchProductRank('sales', 10)
+    .then((items) => {
+      hotProducts.value = items;
+    })
+    .catch(() => {
+      hotProducts.value = [];
+    });
+
+  // 从热度榜点商品进来时（/shop?product=12）滚动定位并高亮该商品
+  const pid = Number(route.query.product);
+  if (!pid) return;
+  await nextTick();
+  const el = document.querySelector(`[data-product-id="${pid}"]`);
+  if (!el) return;
+  highlightId.value = pid;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.setTimeout(() => {
+    highlightId.value = null;
+  }, 3200);
 });
 </script>
 
 <style scoped>
 .shop-page { padding: 20px 24px 40px; max-width: 1180px; margin: 0 auto; }
+
+/* ---------- 文创热销榜（横向滚动卡片条） ---------- */
+.hot-rank {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #fffdf8;
+  border: 1px solid #efe7d6;
+  border-radius: 12px;
+}
+.hr-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.hr-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6d4c2a;
+  font-family: var(--zi-font-serif, "STSong", "Songti SC", serif);
+}
+.hr-sub {
+  font-size: 11px;
+  color: #a08c72;
+}
+.hr-list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.hr-card {
+  flex: 0 0 176px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #f0e9da;
+  cursor: pointer;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+.hr-card:hover {
+  box-shadow: 0 4px 14px rgba(43, 34, 24, 0.1);
+  transform: translateY(-1px);
+}
+.hr-top {
+  border-color: #e8d5a8;
+  background: #fffdf6;
+}
+.hr-rank {
+  flex: 0 0 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a08c72;
+  background: #f2ece0;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.hr-top .hr-rank {
+  background: linear-gradient(135deg, #d4a03c, #b8802a);
+  color: #fff;
+}
+.hr-img {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #efe7d6;
+}
+.hr-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #a08c72;
+  background: #f7f2e6;
+}
+.hr-info {
+  min-width: 0;
+}
+.hr-name {
+  font-size: 12px;
+  color: #4a3a2f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hr-sales {
+  font-size: 11px;
+  color: #a08c72;
+}
+
+/* 从热度榜跳入时的商品高亮 */
+.p-card.is-highlight {
+  box-shadow: 0 0 0 2px #b8352b, 0 8px 24px rgba(184, 53, 43, 0.18);
+  transform: translateY(-2px);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
 .shop-hero {
   display: flex; align-items: center; justify-content: space-between;
   background: linear-gradient(135deg, var(--zi-red, #8f2317) 0%, var(--zi-cinnabar, #c03a1e) 60%, var(--zi-gold, #a97e2f) 130%);

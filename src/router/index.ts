@@ -8,12 +8,12 @@ const router = createRouter({
     { path: '/register', name: 'register', component: () => import('@/views/AuthPage.vue'), meta: { public: true } },
 
     // 受保护：系统内核
-    { path: '/', name: 'home', component: () => import('@/views/HomeMap.vue'), meta: { requiresAuth: true } },
+    // 新主页（门户型）：门类印章墙 + 地图 + 按需展开的统计图表
+    { path: '/', name: 'home', component: () => import('@/views/HomeOverview.vue'), meta: { requiresAuth: true } },
     { path: '/data', name: 'data', component: () => import('@/views/DataManage.vue'), meta: { requiresAuth: true } },
     { path: '/heritage/:id', name: 'heritage-detail', component: () => import('@/views/HeritageDetail.vue'), meta: { requiresAuth: true } },
-    // 空间分析已整合进地图主页（?tool=analysis 自动打开分析面板）
-    { path: '/analysis', redirect: () => ({ path: '/', query: { tool: 'analysis' } }), meta: { requiresAuth: true } },
-    { path: '/chart', name: 'chart', component: () => import('@/views/ChartView.vue') , meta: { requiresAuth: true } },
+    // 分析工作台：原地图主页整体迁入（名录/空间分析/图层态势/时空演变 + 统计透视）
+    { path: '/analysis', name: 'analysis', component: () => import('@/views/HomeMap.vue'), meta: { requiresAuth: true } },
     { path: '/screen', name: 'screen', component: () => import('@/views/BigScreen.vue'), meta: { requiresAuth: true } },
     { path: '/about', name: 'about', component: () => import('@/views/About.vue'), meta: { anonView: true } },
     { path: '/travel', name: 'travel', component: () => import('@/views/TravelRoute.vue'), meta: { requiresAuth: true } },

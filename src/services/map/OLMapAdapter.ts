@@ -183,6 +183,7 @@ export class OLMapAdapter implements MapAdapter {
   private hoverCityCode: string | null = null;
   private cityStyleFns = new Map<string, () => void>();
   private clickCb: ((props: Record<string, unknown> | null) => void) | null = null;
+  private cityClickCb: ((cityName: string) => void) | null = null;
   /** 聚合圆点击回调（传入聚合内点位列表和聚合中心） */
   private clusterClickCb: ((items: Array<Record<string, unknown>>, center: [number, number]) => void) | null = null;
   private baseMapType: BaseMapType = 'vec';
@@ -359,12 +360,37 @@ export class OLMapAdapter implements MapAdapter {
         }
         return;
       }
-      const feature = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f);
+      // 只命中非遗数据图层：否则点市界/省界也会被当成要素选中
+      const feature = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+        layerFilter: (l) => this.isPointLayer(l),
+      });
       if (feature) {
         this.clickCb?.(feature.getProperties() as Record<string, unknown>);
-      } else {
-        this.clickCb?.(null);
+        return;
       }
+      // 未点中非遗要素 → 若配置了地市下钻，判断点是否落在某个地市内
+      if (this.cityClickCb) {
+        const cityFeat = this.map!.forEachFeatureAtPixel(evt.pixel, (f) => f, {
+          layerFilter: (l) => l === this.layers.get('shandong-city'),
+        });
+        if (cityFeat) {
+          const cp = (cityFeat.get('_props') as Record<string, unknown>) ?? cityFeat.getProperties();
+          const cityName = String(cp?.['name'] ?? '');
+          // 市界 name 是简称（"淄博"），fullname 才是"淄博市"；
+          // 项目数据的 city 字段带"市"，所以回调传 fullname 便于直接筛选
+          const fullName = String(cp?.['fullname'] ?? (cityName ? cityName + '市' : ''));
+          if (cityName) {
+            // 直接缩放命中的这个要素，比按名字回查更可靠
+            const extent = cityFeat.getGeometry()?.getExtent();
+            if (extent) {
+              this.map!.getView().fit(extent, { padding: [48, 48, 48, 48], duration: 650, maxZoom: 12 });
+            }
+            this.cityClickCb(fullName);
+            return;
+          }
+        }
+      }
+      this.clickCb?.(null);
     });
   }
 
@@ -609,6 +635,33 @@ export class OLMapAdapter implements MapAdapter {
 
   onFeatureClick(cb: (props: Record<string, unknown> | null) => void): void {
     this.clickCb = cb;
+  }
+
+  onCityClick(cb: (cityName: string) => void): void {
+    this.cityClickCb = cb;
+  }
+
+  /** 缩放到指定地市范围（点地市下钻用） */
+  fitCityByName(cityName: string): boolean {
+    if (!this.map || !cityName) return false;
+    const src = this.layers.get('shandong-city')?.getSource() as VectorSource | null;
+    if (!src) return false;
+    const target = src.getFeatures().find((ft) => {
+      const p = (ft.get('_props') as Record<string, unknown>) ?? ft.getProperties();
+      return String(p?.['name'] ?? '') === cityName;
+    });
+    const extent = target?.getGeometry()?.getExtent();
+    if (!extent) return false;
+    this.map.getView().fit(extent, { padding: [48, 48, 48, 48], duration: 650, maxZoom: 12 });
+    return true;
+  }
+
+  /** 是否为承载非遗要素的数据图层（选中判定只命中这些层，避免点中市界面） */
+  private isPointLayer(layer: unknown): boolean {
+    for (const [id, l] of this.layers) {
+      if (l === layer) return id === 'heritage' || id.startsWith('user-');
+    }
+    return false;
   }
 
   onClusterClick(cb: (items: Array<Record<string, unknown>>, center: [number, number]) => void): void {

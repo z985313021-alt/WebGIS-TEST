@@ -52,7 +52,10 @@ export async function convertShpToGeojson(files) {
 /** Excel → 点 GeoJSON（lng/lat 列由前端指定） */
 export function convertExcelToGeojson(filePath, { lngColumn, latColumn, nameColumn }) {
   // 动态 import xlsx（Node ESM）
-  return import('xlsx').then((XLSX) => {
+  // 注意：xlsx 0.18 是 CommonJS 包，ESM 命名空间里只有 utils/parse/read 等，
+  // readFile 挂在 default 上 —— 直接写 XLSX.readFile 会报 "is not a function"（历史 bug 已修）
+  return import('xlsx').then((mod) => {
+    const XLSX = mod.default ?? mod;
     const wb = XLSX.readFile(filePath);
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: null });

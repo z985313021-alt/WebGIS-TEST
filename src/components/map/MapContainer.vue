@@ -292,11 +292,61 @@ defineExpose({ zoomToItem, getAdapter });
   box-shadow: 0 3px 16px rgba(109, 76, 42, 0.10);
 }
 
-/* 鹰眼图定位到右下角（默认在左下角，容易被左侧面板挡住；
-   往上偏移避免和MapControls控件重叠） */
+/* ---------- 鹰眼图：中式画框 + 按控件实际高度避让 ---------- */
+/* 定位：右下角，底边紧跟控件组上方（--controls-h 由 MapControls 实时写入，
+   控件内容变化时自动让位，避免与罗盘/缩放/温度压叠） */
 .map-container :deep(.ol-overviewmap) {
   left: auto !important;
-  right: 8px !important;
-  bottom: 160px !important;
+  right: 10px !important;
+  bottom: calc(var(--controls-h, 150px) + 20px) !important;
+  /* 关键：不能加 padding/border —— OL 按容器像素尺寸设置小地图大小，
+     额外内边距/边框会让小地图溢出被裁掉（曾导致鹰眼图只剩标签）。
+     描边与外发光一律用 box-shadow 实现，不占盒模型。 */
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 10px;
+  background: #fffdf8;
+  box-shadow:
+    0 0 0 2px #c9b89a,
+    0 0 0 3px rgba(255, 248, 236, 0.85),
+    0 8px 22px rgba(43, 34, 24, 0.22);
+  overflow: hidden;
+}
+/* 左上角印章式标签 */
+.map-container :deep(.ol-overviewmap::before) {
+  content: '齐鲁全图';
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  /* 标签尽量小，避免遮挡小地图内容 */
+  padding: 1px 6px 2px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #fff8ec;
+  background: linear-gradient(135deg, #c03a1e, #8f2317);
+  border-bottom-right-radius: 9px;
+  font-family: KaiTi, STKaiti, SimSun, serif;
+  pointer-events: none;
+}
+/* 内层小地图：留出一条描金细边 */
+.map-container :deep(.ol-overviewmap-map) {
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(226, 211, 182, 0.9);
+  overflow: hidden;
+}
+/* 折叠按钮：与整体风格统一 */
+.map-container :deep(.ol-overviewmap-toggle) {
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid #c9b89a;
+  border-radius: 4px;
+  color: #6d4c2a;
+  font-size: 11px;
+  line-height: 1;
+}
+.map-container :deep(.ol-overviewmap-toggle:hover) {
+  background: #b8352b;
+  border-color: #b8352b;
+  color: #fff8ec;
 }
 </style>

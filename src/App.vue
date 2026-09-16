@@ -9,11 +9,10 @@
       <el-button class="nav-toggle" text @click="drawerOpen = true">
         <span class="hamburger">☰</span>
       </el-button>
-      <el-menu mode="horizontal" :router="true" :default-active="route.path" class="nav-menu">
+      <el-menu mode="horizontal" :default-active="route.path" class="nav-menu" @select="onNavSelect">
         <el-menu-item index="/">地图主页</el-menu-item>
         <el-menu-item index="/data">数据管理</el-menu-item>
-        <el-menu-item index="/analysis">空间分析</el-menu-item>
-        <el-menu-item index="/chart">图表可视化</el-menu-item>
+        <el-menu-item index="/analysis">分析工作台</el-menu-item>
         <el-menu-item index="/screen">态势大屏</el-menu-item>
         <el-menu-item index="/travel">旅游路线</el-menu-item>
         <el-menu-item index="/shop">文创商城</el-menu-item>
@@ -67,7 +66,7 @@
     <!-- 窄屏抽屉导航 -->
     <el-drawer v-model="drawerOpen" direction="ltr" size="240px" :with-header="false" class="nav-drawer">
       <div class="drawer-brand">❖ 遗蕴齐鲁</div>
-      <el-menu :router="true" :default-active="route.path" @select="drawerOpen = false" class="drawer-menu">
+      <el-menu :default-active="route.path" class="drawer-menu" @select="onNavSelect">
         <el-menu-item index="/">
           <el-icon class="di-icon"><MapLocation /></el-icon> 地图主页
         </el-menu-item>
@@ -75,10 +74,7 @@
           <el-icon class="di-icon"><DataAnalysis /></el-icon> 数据管理
         </el-menu-item>
         <el-menu-item index="/analysis">
-          <el-icon class="di-icon"><Guide /></el-icon> 空间分析
-        </el-menu-item>
-        <el-menu-item index="/chart">
-          <el-icon class="di-icon"><TrendCharts /></el-icon> 图表可视化
+          <el-icon class="di-icon"><Guide /></el-icon> 分析工作台
         </el-menu-item>
         <el-menu-item index="/screen">
           <el-icon class="di-icon"><Platform /></el-icon> 态势大屏
@@ -114,7 +110,6 @@ import {
   ShoppingBag,
   MapLocation,
   DataAnalysis,
-  TrendCharts,
   Platform,
   Van,
   Guide,
@@ -137,6 +132,29 @@ const avatarText = computed(() => (user.displayName || '?').slice(0, 1).toUpperC
 const cartN = computed(() => cartS.count);
 
 const drawerOpen = ref(false);
+
+/** 暂不开放的页面（施工中）：点击只提示，不做路由跳转 */
+const MAINTENANCE_PAGES: Record<string, string> = {
+  '/screen': '态势大屏',
+};
+
+/**
+ * 导航统一走这里：菜单不再绑定 :router，便于拦截施工中的页面。
+ * 命中 MAINTENANCE_PAGES 时弹提示并保持当前页，不跳转。
+ */
+function onNavSelect(index: string) {
+  drawerOpen.value = false;
+  const label = MAINTENANCE_PAGES[index];
+  if (label) {
+    ElMessage({
+      message: `${label}正在检修中，暂不开放，敬请期待`,
+      type: 'warning',
+      duration: 2600,
+    });
+    return;
+  }
+  if (index !== route.path) void router.push(index);
+}
 watch(() => route.path, () => { drawerOpen.value = false; });
 
 function onCommand(cmd: string) {

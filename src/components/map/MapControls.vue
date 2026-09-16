@@ -1,5 +1,5 @@
 <template>
-  <div class="map-controls" :class="{ narrow }">
+  <div ref="controlsEl" class="map-controls" :class="{ narrow }">
     <!-- 指北针 -->
     <div class="control-item compass" @click="resetRotation" title="点击重置为正北朝上">
       <div class="compass-ring" :style="{ transform: `rotate(${-rotationDeg}deg)` }">
@@ -19,6 +19,13 @@
       </button>
     </div>
 
+    <!-- 温度：未落到具体城市时显示全省，落到某市显示该市 -->
+    <div v-if="weather" class="control-item weather" :title="weather.tip">
+      <span class="w-temp">{{ weather.temp }}℃</span>
+      <span class="w-city">{{ weather.city }}</span>
+      <span class="w-cond">{{ weather.cond }}</span>
+    </div>
+
     <!-- 鼠标坐标 -->
     <div class="control-item coord-display" :class="{ 'no-coord': !mouseCoord }">
       <template v-if="mouseCoord">
@@ -36,9 +43,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { Refresh } from '@element-plus/icons-vue';
+import * as turf from '@turf/turf';
 import { useMapStore } from '@/services/stores/mapStore';
+import { loadShandongCityBoundary } from '@/data/sources/shandongCityBoundary';
 
 const mapStore = useMapStore();
 
@@ -60,6 +69,116 @@ function resetRotation() {
 const narrow = ref(false);
 let widthObserver: ResizeObserver | null = null;
 
+/**
+ * 控件组自身高度会随内容变化（温度、坐标条显隐、窄屏收起等），
+ * 这里实时写入 --controls-h，让鹰眼图按实际高度避让，彻底避免压叠。
+ */
+const controlsEl = ref<HTMLElement | null>(null);
+let heightObserver: ResizeObserver | null = null;
+function syncControlsHeight() {
+  const h = controlsEl.value?.getBoundingClientRect().height ?? 0;
+  const mapEl = document.querySelector('.map-container') as HTMLElement | null;
+  if (mapEl && h > 0) mapEl.style.setProperty('--controls-h', `${Math.ceil(h)}px`);
+}
+
+/**
+ * 实况温度：默认显示山东省，地图中心落到某个地市时切换为该市。
+ * 高德天气接口有 QPS 限制（实测连续查询会 CUQPS_HAS_EXCEEDED_THE_LIMIT），
+ * 所以城市判定走本地市界数据（零外呼），查询结果按城市缓存 10 分钟。
+ */
+interface WeatherInfo { city: string; temp: string; cond: string; tip: string }
+const weather = ref<WeatherInfo | null>(null);
+const weatherCache = new Map<string, { data: WeatherInfo; ts: number }>();
+const WEATHER_TTL = 10 * 60 * 1000;
+let lastCityKey = '';
+let weatherLoading = false;
+
+/** 依据经纬度判断所属地市（命中市界则返回市名，否则视为全省） */
+function cityKeyOf(lnglat: [number, number] | null): string {
+  if (!lnglat) return '山东';
+  try {
+    const boundary = loadShandongCityBoundary() as { features?: Array<{ properties?: Record<string, unknown> }> };
+    const pt = turf.point(lnglat);
+    for (const f of boundary.features ?? []) {
+      if (turf.booleanPointInPolygon(pt as never, f as never)) {
+        const name = String(f.properties?.name ?? '').replace(/市$/, '');
+        if (name) return name;
+      }
+    }
+  } catch {
+    // 市界数据异常时退回全省
+  }
+  return '山东';
+}
+
+async function loadWeather(city: string) {
+  const cached = weatherCache.get(city);
+  if (cached && Date.now() - cached.ts < WEATHER_TTL) {
+    weather.value = cached.data;
+    return;
+  }
+  if (weatherLoading) return;
+  weatherLoading = true;
+  try {
+    const res = await fetch(`/api/amap/weather?city=${encodeURIComponent(city)}`);
+    const d = await res.json();
+    const live = d?.lives?.[0];
+    if (live) {
+      const info: WeatherInfo = {
+        city,
+        temp: String(live.temperature),
+        cond: String(live.weather),
+        tip: `${live.province ?? ''}${live.city ?? ''} 实况：${live.weather} ${live.temperature}℃ 湿度 ${live.humidity}%`,
+      };
+      weatherCache.set(city, { data: info, ts: Date.now() });
+      weather.value = info;
+    }
+  } catch {
+    // 天气获取失败不影响地图使用
+  } finally {
+    weatherLoading = false;
+  }
+}
+
+/** 视图变化后按城市刷新温度（同城不重复请求） */
+function refreshWeather() {
+  const adapter = mapStore.mapAdapter;
+  if (!adapter) return;
+  const key = cityKeyOf(adapter.getCenter());
+  if (key === lastCityKey) return;
+  lastCityKey = key;
+  void loadWeather(key);
+}
+
+/**
+ * 绑定地图适配器：MapContainer 的挂载是异步的（内部先探底图配置），
+ * 本组件 onMounted 早于它完成，所以必须等适配器就绪后再绑定，
+ * 否则 zoom 数值、鼠标坐标、温度都不会更新。
+ */
+let bound = false;
+function bindAdapter() {
+  const adapter = mapStore.mapAdapter;
+  if (!adapter || bound) return;
+  bound = true;
+
+  zoom.value = adapter.getZoom();
+  rotation.value = adapter.getRotation();
+
+  adapter.onViewChange((state) => {
+    zoom.value = state.zoom;
+    rotation.value = state.rotation;
+    // 视图变化后刷新温度（内部按城市去重，不会频繁外呼）
+    refreshWeather();
+  });
+
+  adapter.onPointerMove((coord) => {
+    mouseCoord.value = coord;
+  });
+
+  lastCityKey = '';
+  refreshWeather();
+}
+
 onMounted(() => {
   const mapEl = document.querySelector('.map-container');
   if (mapEl && typeof ResizeObserver !== 'undefined') {
@@ -70,28 +189,31 @@ onMounted(() => {
     widthObserver.observe(mapEl);
   }
 
-  const adapter = mapStore.mapAdapter;
-  if (!adapter) return;
+  // 温度先按全省渲染，不依赖适配器是否就绪
+  void loadWeather('山东');
+  bindAdapter();
 
-  // 初始化当前状态
-  zoom.value = adapter.getZoom();
-  rotation.value = adapter.getRotation();
-
-  // 监听视图变化
-  adapter.onViewChange((state) => {
-    zoom.value = state.zoom;
-    rotation.value = state.rotation;
-  });
-
-  // 监听鼠标移动
-  adapter.onPointerMove((coord) => {
-    mouseCoord.value = coord;
-  });
+  // 控件高度变化 → 同步给鹰眼图避让
+  if (controlsEl.value && typeof ResizeObserver !== 'undefined') {
+    heightObserver = new ResizeObserver(() => syncControlsHeight());
+    heightObserver.observe(controlsEl.value);
+    syncControlsHeight();
+  }
 });
+
+// 适配器晚于本组件就绪时补绑
+watch(
+  () => mapStore.mapAdapter,
+  (adapter) => {
+    if (adapter) bindAdapter();
+  },
+);
 
 onBeforeUnmount(() => {
   widthObserver?.disconnect();
   widthObserver = null;
+  heightObserver?.disconnect();
+  heightObserver = null;
   // OL 的事件监听器会随 map 销毁自动清理，无需手动 off
 });
 </script>
@@ -99,6 +221,33 @@ onBeforeUnmount(() => {
 <style scoped>
 .map-controls.narrow .coord-display {
   display: none;
+}
+
+/* 实况温度 */
+.control-item.weather {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid #d4c8af;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(43, 34, 24, 0.10);
+  font-size: 12px;
+  color: #4a3a2f;
+  white-space: nowrap;
+}
+.w-temp {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b8352b;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.w-city {
+  font-weight: 600;
+}
+.w-cond {
+  color: #a08c72;
 }
 
 .map-controls {
