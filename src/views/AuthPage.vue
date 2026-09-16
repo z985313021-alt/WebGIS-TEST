@@ -150,20 +150,6 @@
                 </el-button>
               </el-form>
 
-              <!-- 演示快捷入口：仅开发环境显示，生产构建会被摇树移除，
-                   避免线上暴露管理员默认口令 -->
-              <div v-if="isDev" class="demo-account-bar">
-                <span>演示账号：<b>admin / admin123</b></span>
-                <el-button
-                  size="small"
-                  text
-                  type="warning"
-                  :loading="setupLoading"
-                  @click="onSetupAdmin"
-                >
-                  一键填入
-                </el-button>
-              </div>
             </template>
 
             <!-- 注册表单 -->
@@ -344,7 +330,6 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { User, Key, Message } from '@element-plus/icons-vue';
 import { useUserStore } from '@/services/stores/userStore';
-import * as authApi from '@/data/api/auth';
 import { HD_ASSETS } from '@/data/sources/assets';
 
 const router = useRouter();
@@ -353,7 +338,6 @@ const userStore = useUserStore();
 
 const mode = ref<'login' | 'register'>('login');
 const submitting = ref(false);
-const setupLoading = ref(false);
 
 const from = (route.query.from ? { path: String(route.query.from) } : null) as { path: string } | null;
 
@@ -573,27 +557,8 @@ async function onRegister() {
   }
 }
 
-/** 开发环境标记：演示账号入口与初始化仅本地可用，生产环境一律不执行 */
-const isDev = import.meta.env.DEV;
-
-async function onSetupAdmin() {
-  if (!isDev) {
-    ElMessage.warning('该入口仅在开发环境可用');
-    return;
-  }
-  setupLoading.value = true;
-  try {
-    await authApi.ensureAdmin({ username: 'admin', email: 'admin@webgis.test', password: 'admin123' });
-    ElMessage.success('管理员演示账号已就绪：admin / admin123');
-    loginForm.account = 'admin';
-    loginForm.password = 'admin123';
-    switchMode('login');
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.msg || '初始化演示账号失败');
-  } finally {
-    setupLoading.value = false;
-  }
-}
+// 演示账号快捷登录入口已彻底移除：它会在生产环境暴露管理员默认口令。
+// 开发时如需初始管理员，直接调后端 POST /api/setup/admin（仅在系统无任何用户时可用）。
 
 function scrollToFeatures() {
   if (featuresRef.value) {
@@ -958,19 +923,6 @@ function scrollToTop() {
 }
 .submit-btn:hover .btn-arrow {
   transform: translateX(4px);
-}
-
-.demo-account-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 14px;
-  padding: 8px 12px;
-  background: #fdf8ed;
-  border-radius: 6px;
-  font-size: 12px;
-  color: #8f6517;
-  border: 1px dashed #deb866;
 }
 
 .guest-gate {
