@@ -3,11 +3,15 @@
     <!-- 顶栏 -->
     <div class="shop-hero">
       <div class="shop-hero-inner">
-        <div class="shop-title">🛍️ 非遗文创商城</div>
+        <div class="shop-title">
+          <el-icon class="title-icon"><ShoppingBag /></el-icon> 非遗文创商城
+        </div>
         <p class="shop-sub">把山东的匠心带回家 · 每件商品都源自一项国家级/省级非物质文化遗产，结算由管理员负责发货</p>
       </div>
       <el-badge :value="cartTotalQty" :hidden="!cartTotalQty" class="cart-badge">
-        <el-button type="primary" plain @click="cartOpen = true">🛒 购物车</el-button>
+        <el-button type="primary" plain @click="cartOpen = true">
+          <el-icon><ShoppingCart /></el-icon> 购物车
+        </el-button>
       </el-badge>
     </div>
 
@@ -24,16 +28,49 @@
       </el-check-tag>
     </div>
 
+    <!-- 商品热销榜：与商城同页，点条目直接定位到对应商品 -->
+    <div v-if="hotProducts.length" class="hot-rank">
+      <div class="hr-head">
+        <span class="hr-title">🔥 文创热销榜</span>
+        <span class="hr-sub">按累计销量排序 · 点击可定位商品</span>
+      </div>
+      <div class="hr-list">
+        <div
+          v-for="(p, i) in hotProducts"
+          :key="p.id"
+          class="hr-card"
+          :class="{ 'hr-top': i < 3 }"
+          @click="locateProduct(p.id)"
+        >
+          <span class="hr-rank">{{ i + 1 }}</span>
+          <img v-if="p.image" class="hr-img" :src="p.image" :alt="p.name" />
+          <span v-else class="hr-img hr-ph">文创</span>
+          <div class="hr-info">
+            <div class="hr-name">{{ p.name }}</div>
+            <div class="hr-sales">销 {{ p.sales }} 件 · {{ p.orders }} 单</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 商品网格 -->
     <div v-if="loading" class="loading"><el-skeleton :rows="6" animated /></div>
     <div v-else-if="!products.length" class="empty">还没有上架的商品，快去管理后台添加吧～</div>
     <div v-else class="grid">
-      <div v-for="p in products" :key="p.id" class="p-card">
+      <div
+        v-for="p in products"
+        :key="p.id"
+        class="p-card"
+        :class="{ 'is-highlight': highlightId === p.id }"
+        :data-product-id="p.id"
+      >
         <div class="p-img">
           <el-image v-if="p.image" :src="p.image" fit="cover" lazy>
-            <template #error><div class="img-ph">🏺</div></template>
+            <template #error>
+              <img :src="HD_ASSETS.placeholderPorcelain" class="img-ph-cover" alt="文创" />
+            </template>
           </el-image>
-          <div v-else class="img-ph">🏺</div>
+          <img v-else :src="HD_ASSETS.placeholderPorcelain" class="img-ph-cover" alt="文创" />
           <el-tag v-if="p.stock <= 0" size="small" type="danger" effect="dark" class="sold-tag">已售罄</el-tag>
         </div>
         <div class="p-body">
@@ -64,13 +101,13 @@
     </div>
 
     <!-- 购物车抽屉 -->
-    <el-drawer v-model="cartOpen" :size="380" title="🛒 我的购物车" direction="rtl">
+    <el-drawer v-model="cartOpen" :size="380" title="我的购物车" direction="rtl">
       <div v-if="!cart.length" class="cart-empty">购物车是空的，去挑几件带回家吧～</div>
       <template v-else>
         <div class="cart-list">
           <div v-for="it in cart" :key="it.productId" class="cart-row">
             <el-image v-if="it.image" :src="it.image" fit="cover" class="cart-img" />
-            <div v-else class="cart-img">🏺</div>
+            <img v-else :src="HD_ASSETS.placeholderPorcelain" class="cart-img" alt="商品" />
             <div class="ci-info">
               <div class="ci-name">{{ it.name }}</div>
               <div class="ci-like">¥{{ it.price.toFixed(0) }} × <el-input-number :model-value="it.qty" :min="1" :max="it.stock" size="small" @change="(v: number | undefined) => syncQty(it.productId, v)" /></div>
@@ -86,9 +123,25 @@
     <!-- 结算对话框 -->
     <el-dialog v-model="checkoutOpen" title="填写收货信息并下单" width="440px" :close-on-click-modal="false">
       <el-form :model="form" label-width="76px">
+        <el-form-item v-if="addrOptions.length" label="已存地址">
+          <el-select v-model="picking" placeholder="从收货地址簿选择" style="width:100%" @change="(v:any)=>onPick(Number(v))">
+            <el-option v-for="a in addrOptions" :key="a.id" :label="a.receiver + ' · ' + a.phone + ' · ' + a.region + a.detail" :value="a.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="收货人" required><el-input v-model="form.receiver" placeholder="姓名" /></el-form-item>
-        <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="11 位手机号" maxlength="11" /></el-form-item>
-        <el-form-item label="收货地址" required><el-input v-model="form.address" type="textarea" :rows="2" placeholder="省 / 市 / 区 / 详细地址" /></el-form-item>
+        <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="11 位手机号" maxlength="11" @input="onPhInput" /></el-form-item>
+        <el-form-item label="所在地区" required>
+          <el-cascader
+            v-model="regionSel"
+            class="region-cascader"
+            :options="regionOptions"
+            :props="{ expandTrigger: 'hover', checkStrictly: false, emitPath: true }"
+            placeholder="选择 省 / 市 / 区县"
+            filterable clearable
+            @change="onRegionChange"
+          />
+        </el-form-item>
+        <el-form-item label="详细地址" required><el-input v-model="form.detail" type="textarea" :autosize="{ minRows: 1, maxRows: 6 }" maxlength="100" show-word-limit placeholder="街道、门牌号、楼栋等（100 字内，多行自动增高）" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" placeholder="选填" /></el-form-item>
       </el-form>
       <div class="ckout-tip">
@@ -104,15 +157,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { ShoppingBag, ShoppingCart } from '@element-plus/icons-vue';
 import * as api from '@/data/api/shop';
+import { fetchProductRank, type ProductRankItem } from '@/data/api/rank';
 import type { Product, CategoryCnt, CartItem } from '@/data/api/shop';
+import * as acct from '@/data/api/account';
+import type { AddressItem } from '@/data/api/account';
+import { regionData } from 'element-china-area-data';
+import { HD_ASSETS } from '@/data/sources/assets';
+
 import { useCartStore } from '@/services/stores/cartStore';
 
 const cartS = useCartStore();
 const router = useRouter();
+const route = useRoute();
+/** 高亮的商品 id（热销榜点条目定位，或 ?product=xxx 直达） */
+const highlightId = ref<number | null>(null);
+/** 商品热销榜（按销量 Top 10） */
+const hotProducts = ref<ProductRankItem[]>([]);
+let highlightTimer: number | null = null;
+
+/** 滚动到指定商品并高亮若干秒 */
+function locateProduct(id: number) {
+  const el = document.querySelector(`[data-product-id="${id}"]`);
+  if (!el) return;
+  highlightId.value = id;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (highlightTimer) window.clearTimeout(highlightTimer);
+  highlightTimer = window.setTimeout(() => {
+    highlightId.value = null;
+  }, 2800);
+}
 const products = ref<Product[]>([]);
 const categories = ref<CategoryCnt[]>([]);
 const activeCat = ref('');
@@ -124,7 +202,32 @@ const cart = ref<CartItem[]>([]);
 const cartOpen = ref(false);
 const checkoutOpen = ref(false);
 const submitting = ref(false);
-const form = reactive({ receiver: '', phone: '', address: '', remark: '' });
+const form = reactive({ receiver: '', phone: '', address: '', detail: '', remark: '' });
+
+/* 省 / 市 / 区县 三级联动 */
+const regionOptions = regionData as unknown as any[];
+const codeLabel = new Map<string, string>();
+(function () {
+  const walk = (arr: any[]) => { for (const n of arr || []) { codeLabel.set(String(n.value), n.label); if (n.children) walk(n.children); } };
+  walk(regionData);
+})();
+const regionSel = ref<string[]>([]);
+const regionText = ref('');
+function resolveRegionCodes(text: string): string[] {
+  const parts = (text || '').trim().split(/[\s,，、]+/).filter(Boolean);
+  if (!parts.length) return [];
+  let layer: any[] = regionData; const codes: string[] = [];
+  for (const p of parts) {
+    const hit = (layer || []).find((n: any) => n.label === p || n.label?.includes(p) || p.includes(n.label));
+    if (!hit) break;
+    codes.push(String(hit.value)); layer = hit.children;
+  }
+  return codes;
+}
+function onRegionChange() {
+  regionText.value = (regionSel.value || []).map((c) => codeLabel.get(String(c)) || '').filter(Boolean).join(' ');
+}
+
 
 const cartTotal = computed(() => cart.value.reduce((s, i) => s + i.price * i.qty, 0));
 const cartTotalQty = computed(() => cart.value.reduce((s, i) => s + i.qty, 0));
@@ -175,22 +278,54 @@ async function syncQty(pid: number, q: number | undefined) {
 async function removeIt(pid: number) {
   try { cart.value = await api.removeCart(pid); cartS.refresh(); } catch (e: any) { ElMessage.error(e.response?.data?.msg); }
 }
-function openCheckout() {
+const addrOptions = ref<AddressItem[]>([]);
+const picking = ref<number | null>(null);
+function onPhInput() {
+  form.phone = form.phone.replace(/\D/g, '').slice(0, 11);
+}
+function fillFrom(a: AddressItem) {
+  form.receiver = a.receiver;
+  form.phone = a.phone;
+  form.detail = a.detail || '';
+  regionSel.value = a.region ? resolveRegionCodes(a.region) : [];
+  onRegionChange();
+}
+function onPick(v: number) {
+  const a = addrOptions.value.find((x) => x.id === v);
+  if (a) fillFrom(a);
+}
+async function openCheckout() {
   if (!form.receiver) form.receiver = '';
   checkoutOpen.value = true;
+  try {
+    addrOptions.value = await acct.listAddresses();
+    const def = addrOptions.value.find((a) => a.isDefault);
+    if (def) { picking.value = def.id; fillFrom(def); }
+    else picking.value = null;
+  } catch { addrOptions.value = []; picking.value = null; }
 }
 async function placeOrder() {
+  onRegionChange();
+  const region = regionText.value;
+  if (!region) { ElMessage.warning('请选择 省 / 市 / 区县'); return; }
+  if (!form.detail.trim()) { ElMessage.warning('请填写详细地址（街道 / 门牌）'); return; }
+  if (form.detail.trim().length > 100) { ElMessage.warning('详细地址请控制在 100 字以内'); return; }
+  form.address = `${region} ${form.detail.trim()}`;
   if (!form.receiver || !form.phone || !form.address) {
     ElMessage.warning('请完整填写收货人、手机号与地址');
     return;
   }
-  if (form.receiver.length > 30 || !/^1\d{10}$/.test(form.phone)) {
-    ElMessage.warning('请检查手机号是否为 11 位');
+  if (form.receiver.trim().length > 30) {
+    ElMessage.warning('收货人姓名不能超过 30 字');
+    return;
+  }
+  if (!/^1[3-9]\d{9}$/.test(form.phone)) {
+    ElMessage.warning('请输入 11 位有效手机号（1 开头，第二位 3-9）');
     return;
   }
   submitting.value = true;
   try {
-    const order = await api.submitOrder({ ...form });
+    const order = await api.submitOrder({ receiver: form.receiver.trim(), phone: form.phone, address: form.address, remark: form.remark });
     checkoutOpen.value = false;
     cart.value = [];
     cartS.refresh();
@@ -227,42 +362,204 @@ onMounted(async () => {
   await loadProducts();
   await loadCategories();
   await loadCart();
+  // 热销榜与商品列表并行取数（失败不影响商城可用）
+  void fetchProductRank('sales', 10)
+    .then((items) => {
+      hotProducts.value = items;
+    })
+    .catch(() => {
+      hotProducts.value = [];
+    });
+
+  // 从热度榜点商品进来时（/shop?product=12）滚动定位并高亮该商品
+  const pid = Number(route.query.product);
+  if (!pid) return;
+  await nextTick();
+  const el = document.querySelector(`[data-product-id="${pid}"]`);
+  if (!el) return;
+  highlightId.value = pid;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.setTimeout(() => {
+    highlightId.value = null;
+  }, 3200);
 });
 </script>
 
 <style scoped>
 .shop-page { padding: 20px 24px 40px; max-width: 1180px; margin: 0 auto; }
+
+/* ---------- 文创热销榜（横向滚动卡片条） ---------- */
+.hot-rank {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #fffdf8;
+  border: 1px solid #efe7d6;
+  border-radius: 12px;
+}
+.hr-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.hr-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6d4c2a;
+  font-family: var(--zi-font-serif, "STSong", "Songti SC", serif);
+}
+.hr-sub {
+  font-size: 11px;
+  color: #a08c72;
+}
+.hr-list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.hr-card {
+  flex: 0 0 176px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #f0e9da;
+  cursor: pointer;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+.hr-card:hover {
+  box-shadow: 0 4px 14px rgba(43, 34, 24, 0.1);
+  transform: translateY(-1px);
+}
+.hr-top {
+  border-color: #e8d5a8;
+  background: #fffdf6;
+}
+.hr-rank {
+  flex: 0 0 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a08c72;
+  background: #f2ece0;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.hr-top .hr-rank {
+  background: linear-gradient(135deg, #d4a03c, #b8802a);
+  color: #fff;
+}
+.hr-img {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #efe7d6;
+}
+.hr-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #a08c72;
+  background: #f7f2e6;
+}
+.hr-info {
+  min-width: 0;
+}
+.hr-name {
+  font-size: 12px;
+  color: #4a3a2f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hr-sales {
+  font-size: 11px;
+  color: #a08c72;
+}
+
+/* 从热度榜跳入时的商品高亮 */
+.p-card.is-highlight {
+  box-shadow: 0 0 0 2px #b8352b, 0 8px 24px rgba(184, 53, 43, 0.18);
+  transform: translateY(-2px);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
 .shop-hero {
   display: flex; align-items: center; justify-content: space-between;
-  background: linear-gradient(135deg, #1743a0, #1d5a63);
+  background: linear-gradient(135deg, var(--zi-red, #8f2317) 0%, var(--zi-cinnabar, #c03a1e) 60%, var(--zi-gold, #a97e2f) 130%);
   color: #fff; border-radius: 14px; padding: 20px 24px; margin-bottom: 18px;
+  box-shadow: 0 6px 18px rgba(120, 60, 20, 0.18);
 }
-.shop-title { font-size: 22px; font-weight: 700; }
+.shop-title { font-size: 22px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.title-icon { font-size: 24px; }
 .shop-sub { margin: 6px 0 0; font-size: 13px; opacity: 0.88; max-width: 720px; }
 
-.cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.cat-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.cat-bar :deep(.el-check-tag) {
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255, 253, 245, 0.9);
+  border: 1px solid rgba(212, 168, 78, 0.35);
+  color: #6d5b45;
+  transition: all 200ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.cat-bar :deep(.el-check-tag:hover) {
+  background: #fffdf5;
+  border-color: rgba(180, 134, 31, 0.6);
+  transform: translateY(-1px);
+}
+.cat-bar :deep(.el-check-tag.is-checked) {
+  background: #9a281c !important;
+  color: #fffaf0 !important;
+  border-color: #9a281c !important;
+  box-shadow: 0 4px 12px -2px rgba(154, 40, 28, 0.35);
+}
 
-.loading, .empty { min-height: 180px; display: flex; align-items: center; justify-content: center; color: #888; }
+.loading, .empty { min-height: 180px; display: flex; align-items: center; justify-content: center; color: #6b5b3f; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
 .p-card {
-  border: 1px solid #eef0f4; border-radius: 12px; overflow: hidden;
-  background: #fff; transition: box-shadow 0.2s, transform 0.2s;
+  border: 1px solid rgba(212, 168, 78, 0.32);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fffdf6;
+  box-shadow: 0 4px 14px -3px rgba(90, 60, 20, 0.05);
+  transition: box-shadow 240ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+              transform 240ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+              border-color 240ms ease;
+  display: flex;
+  flex-direction: column;
 }
-.p-card:hover { box-shadow: 0 8px 26px rgba(24, 51, 115, 0.12); transform: translateY(-3px); }
-.p-img { position: relative; height: 178px; background: #f2f4f8; }
+.p-card:hover {
+  box-shadow: 0 16px 32px -6px rgba(180, 134, 31, 0.16);
+  transform: translateY(-4px);
+  border-color: rgba(212, 168, 78, 0.65);
+}
+.p-img { position: relative; height: 184px; background: #f5f0e1; overflow: hidden; }
 .p-img :deep(.el-image), .p-img .el-image { width: 100%; height: 100%; display: block; }
+.img-ph-cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 300ms var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)); }
+.p-card:hover .img-ph-cover { transform: scale(1.04); }
 .img-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 44px; color: #b6c2d9; }
-.sold-tag { position: absolute; top: 8px; right: 8px; }
-.p-body { padding: 12px 14px 14px; }
-.p-cat { margin-bottom: 6px; }
-.p-name { font-weight: 600; font-size: 15px; margin: 4px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-sub { color: #8792a5; font-size: 12px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-desc { color: #5c6675; font-size: 12px; line-height: 1.5; height: 36px; overflow: hidden; margin-bottom: 8px; }
-.p-foot { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.p-price { color: #d4380d; font-size: 19px; font-weight: 700; }
-.p-stock { color: #98a2b3; font-size: 12px; }
-.p-add { margin-top: 4px; }
+.sold-tag { position: absolute; top: 8px; right: 8px; border-radius: 999px; }
+.p-body { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+.p-cat { margin-bottom: 6px; border-radius: 999px; align-self: flex-start; }
+.p-name { font-weight: 600; font-size: 15px; margin: 4px 0 2px; color: #2b2218; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-sub { color: #8a7a60; font-size: 12px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-desc { color: #6d5b45; font-size: 12px; line-height: 1.5; height: 36px; overflow: hidden; margin-bottom: 8px; }
+.p-foot { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; margin-top: auto; }
+.p-price { color: #9a281c; font-size: 20px; font-weight: 700; font-family: var(--zi-font-serif, serif); }
+.p-stock { color: #9c8d68; font-size: 12px; }
+.p-add { margin-top: 4px; border-radius: 999px !important; }
 
 .cart-empty { text-align: center; color: #98a2b3; padding: 60px 0; }
 .cart-list { display: flex; flex-direction: column; gap: 12px; }
@@ -270,9 +567,9 @@ onMounted(async () => {
 .cart-img { width: 56px; height: 56px; border-radius: 8px; background: #eef1f7; display: flex; align-items: center; justify-content: center; flex: none; object-fit: cover; }
 .ci-info { flex: 1; min-width: 0; }
 .ci-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cart-total { text-align: right; margin: 14px 0 10px; color: #555; }
+.cart-total { text-align: right; margin: 14px 0 10px; color: #4d4231; }
 .sum { color: #d4380d; font-size: 20px; }
 .ckout, .ckout { width: 100%; }
-.ckout-tip { font-size: 13px; color: #555; }
+.ckout-tip { font-size: 13px; color: #4d4231; }
 .shim { color: #98a2b3; font-size: 12px; }
 </style>

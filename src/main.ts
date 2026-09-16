@@ -7,6 +7,7 @@ import App from './App.vue';
 import router from './router';
 import { installAuthGuard } from './router/guard';
 import './style.css';
+import './styles/theme.css';
 
 const pinia = createPinia();
 const app = createApp(App);

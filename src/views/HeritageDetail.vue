@@ -2,13 +2,14 @@
   <div class="detail-page" v-if="item">
     <el-page-header @back="$router.push('/')" :content="item.name" class="header" />
 
-    <el-row :gutter="20">
+    <!-- 三列布局：图片 / 详细信息 / 空间位置地图（把右侧空白用起来） -->
+    <div class="detail-layout">
       <!-- 左：图片画廊 -->
-      <el-col :span="10">
+      <div class="dl-gallery">
         <el-card shadow="never">
           <div class="gallery">
-            <img :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
-            <div v-if="imgError" class="main-img placeholder" :style="{ background: color }">🏺</div>
+            <img v-if="!imgError && photos.length" :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
+            <img v-else :src="getHeritagePlaceholder(item.category)" class="main-img" :alt="item.name" />
             <div v-if="photos.length > 1" class="thumbs">
               <img
                 v-for="(p, i) in photos"
@@ -22,10 +23,10 @@
             </div>
           </div>
         </el-card>
-      </el-col>
+      </div>
 
-      <!-- 右：详细信息 -->
-      <el-col :span="14">
+      <!-- 中：详细信息 -->
+      <div class="dl-info">
         <el-card shadow="never">
           <div class="tags">
             <el-tag size="small" :color="color" style="color:#fff; border:none">{{ item.category }}</el-tag>
@@ -43,13 +44,39 @@
             <el-descriptions-item label="项目编号">{{ item.code || '—' }}</el-descriptions-item>
             <el-descriptions-item label="保护单位">{{ item.protectUnit || '—' }}</el-descriptions-item>
           </el-descriptions>
+
+          <!-- 高德开放平台：当地实况气象 -->
+          <div v-if="weatherInfo" class="weather-box">
+            <div class="wb-header">❖ 当地实况气象（高德开放平台）</div>
+            <div class="wb-content">
+              <div class="wb-primary">
+                <span class="wb-temp">{{ weatherInfo.temperature }}℃</span>
+                <span class="wb-cond">{{ weatherInfo.weather }}</span>
+              </div>
+              <div class="wb-details">
+                <span>风向风力：{{ weatherInfo.winddirection }}风 {{ weatherInfo.windpower }}级</span>
+                <span>空气湿度：{{ weatherInfo.humidity }}%</span>
+              </div>
+            </div>
+            <div class="wb-advice">
+              <span class="wb-icon">❖</span>
+              <span>走访出行建议：{{ weatherAdvice }}</span>
+            </div>
+          </div>
+
           <div class="actions">
-            <el-button type="primary" @click="viewOnMap">📍 在地图上查看</el-button>
+            <el-button type="primary" @click="viewOnMap">❖ 在地图上查看</el-button>
+            <el-button type="warning" @click="goTravelRoute">❖ 自驾研学导航（高德规划）</el-button>
             <el-button @click="$router.push('/')">返回地图</el-button>
           </div>
         </el-card>
-      </el-col>
-    </el-row>
+      </div>
+
+      <!-- 右：空间位置（不必跳回主页即可查看；宽屏下占住右侧空白） -->
+      <div class="dl-map">
+        <HeritageMiniMap v-if="item" :item="item" />
+      </div>
+    </div>
 
     <!-- 互动区：点赞 + 评论（T11） -->
     <el-card shadow="never" class="interact-card">
@@ -62,7 +89,8 @@
           :loading="liking"
           @click="handleLike"
         >
-          {{ liked ? '❤️ 已点赞' : '🤍 点赞' }} · {{ likeCount }}
+          <el-icon style="margin-right: 4px;"><StarFilled v-if="liked" /><Star v-else /></el-icon>
+          {{ liked ? '已点赞' : '点赞' }} · {{ likeCount }}
         </el-button>
         <span class="interact-tip">为这项非遗点个赞吧～</span>
       </div>
@@ -89,7 +117,7 @@
       <div v-if="comments.length" class="comment-list">
         <div v-for="c in comments" :key="c.id" class="comment-item">
           <div class="comment-meta">
-            <span class="comment-nick">🧑 {{ c.nickname }}</span>
+            <span class="comment-nick"><el-icon><User /></el-icon> {{ c.nickname }}</span>
             <span class="comment-time">{{ formatTime(c.createdAt) }}</span>
           </div>
           <div class="comment-content">{{ c.content }}</div>
@@ -108,8 +136,11 @@
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { User, Star, StarFilled } from '@element-plus/icons-vue';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
+import { getHeritagePlaceholder } from '@/data/sources/assets';
+import HeritageMiniMap from '@/components/map/HeritageMiniMap.vue';
 import {
   fetchLikeCount,
   postLike,
@@ -198,6 +229,44 @@ function formatTime(t: string): string {
 
 watch(item, loadInteract, { immediate: true });
 
+const weatherInfo = ref<any>(null);
+
+const weatherAdvice = computed(() => {
+  if (!weatherInfo.value) return '';
+  const temp = Number(weatherInfo.value.temperature);
+  const w = weatherInfo.value.weather || '';
+  if (w.includes('雨')) return '今日当地有降雨，建议携带雨具，室内非遗展馆走访为佳。';
+  if (w.includes('雪')) return '当地有降雪，道路或湿滑，注意行车与研学安全。';
+  if (temp >= 32) return '气温较高，走访户外非遗民俗活动请注意防暑防晒。';
+  if (temp <= 5) return '气温偏低，建议添衣保暖，适宜探访非遗手工作坊。';
+  return '当前齐鲁大地气候宜人、微风习习，极佳适合开展非遗田野调查与自驾研学。';
+});
+
+async function loadWeather(city: string) {
+  if (!city) return;
+  try {
+    const res = await fetch(`/api/amap/weather?city=${encodeURIComponent(city)}`);
+    const d = await res.json();
+    if (d.status === '1' && d.lives && d.lives.length) {
+      weatherInfo.value = d.lives[0];
+    }
+  } catch {}
+}
+
+watch(
+  () => item.value?.city,
+  (city) => {
+    if (city) loadWeather(city);
+  },
+  { immediate: true }
+);
+
+function goTravelRoute() {
+  if (item.value) {
+    router.push({ path: '/travel', query: { toId: item.value.id } });
+  }
+}
+
 function viewOnMap() {
   if (!item.value) return;
   store.select(item.value.id);
@@ -208,7 +277,64 @@ function viewOnMap() {
 </script>
 
 <style scoped>
-.detail-page { padding: 16px; max-width: 1000px; }
+/* 不再限制页宽：整行铺满，地图列吃掉全部剩余宽度 */
+.detail-page { padding: 16px; }
+
+/*
+ * 布局：左「图片 + 详细信息」拼成一张卡片（相接处去掉圆角与间隙、留一条分隔线），
+ * 右侧地图卡与它等高 —— 避免三块高低不齐成台阶状。
+ */
+.detail-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.dl-gallery { flex: 0 0 360px; min-width: 280px; display: flex; }
+.dl-info { flex: 0 1 560px; min-width: 380px; display: flex; }
+.dl-gallery :deep(.el-card),
+.dl-info :deep(.el-card) { flex: 1; width: 100%; }
+.dl-gallery :deep(.el-card) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.dl-info :deep(.el-card) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid #efe7d6;
+}
+/* 信息卡内部纵向撑满：字段表在上、按钮组压到底部，卡片拉高后不留突兀空缺 */
+.dl-info :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.dl-info .actions { margin-top: auto; }
+/* 图片卡被拉高后把画廊内容垂直居中，避免下方留一大块空白 */
+.dl-gallery :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.dl-map { flex: 1 1 auto; min-width: 380px; margin-left: 20px; position: sticky; top: 12px; }
+
+/* 中窄屏：折行回到独立卡片，圆角与间距恢复 */
+@media (max-width: 1360px) {
+  .detail-layout { flex-wrap: wrap; gap: 20px; }
+  .dl-gallery { flex: 1 1 320px; }
+  .dl-info { flex: 2 1 520px; }
+  .dl-gallery :deep(.el-card),
+  .dl-info :deep(.el-card) {
+    border-radius: var(--el-card-border-radius, 4px);
+  }
+  .dl-info :deep(.el-card) { border-left: none; }
+  .dl-info :deep(.el-card__body) { height: auto; }
+  .dl-info .actions { margin-top: 0; }
+  .dl-map { flex: 1 1 100%; margin-left: 0; position: static; }
+}
 .header { margin-bottom: 16px; }
 .gallery .main-img { width: 100%; height: 320px; object-fit: cover; border-radius: 8px; }
 .main-img.placeholder { display: flex; align-items: center; justify-content: center; font-size: 72px; }
@@ -217,13 +343,68 @@ function viewOnMap() {
 .thumb.active { border-color: #409eff; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .fields { font-size: 13px; }
+
+/* 高德气象实况卡片 */
+.weather-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(180, 134, 31, 0.08);
+  border: 1px solid rgba(180, 134, 31, 0.25);
+  border-radius: 6px;
+}
+.wb-header {
+  font-family: var(--zi-font-serif, "STSong", serif);
+  font-weight: bold;
+  font-size: 13px;
+  color: var(--zi-ink, #2b2218);
+  margin-bottom: 8px;
+}
+.wb-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+.wb-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.wb-temp {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--zi-red, #8f2317);
+}
+.wb-cond {
+  font-size: 15px;
+  font-weight: 500;
+}
+.wb-details {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: #6d5b45;
+}
+.wb-advice {
+  font-size: 12px;
+  color: #5c4731;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px dashed rgba(180, 134, 31, 0.2);
+  padding-top: 6px;
+}
+.wb-icon {
+  color: var(--zi-gold, #b4861f);
+}
+
 .actions { margin-top: 16px; display: flex; gap: 10px; }
 .missing { padding: 60px 0; text-align: center; }
 
 /* ---- T11 互动区 ---- */
 .interact-card { margin-top: 20px; }
 .interact-head { display: flex; align-items: center; gap: 16px; }
-.interact-tip { font-size: 13px; color: #999; }
+.interact-tip { font-size: 13px; color: #7a6946; }
 .comment-form { margin-bottom: 8px; }
 .nick-input { width: 240px; margin-bottom: 10px; }
 .comment-row { display: flex; gap: 10px; align-items: flex-end; }

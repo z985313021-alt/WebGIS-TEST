@@ -1,0 +1,37 @@
+# 遗蕴齐鲁 · 后端 API 守护单元
+# 放置位置：/etc/systemd/system/webgis-api.service
+# 启用：systemctl daemon-reload && systemctl enable --now webgis-api
+
+[Unit]
+Description=WebGIS Heritage API (Express + SQLite)
+After=network.target
+
+[Service]
+Type=simple
+# 建议用专用低权限用户：useradd -r -s /usr/sbin/nologin webgis
+User=webgis
+Group=webgis
+WorkingDirectory=/opt/webgis
+
+# 生产配置（含高德/天地图密钥），内容参考项目 .env.example
+EnvironmentFile=/opt/webgis/.env
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/node server/index.js
+
+Restart=always
+RestartSec=5
+# SQLite 为同步 API，给足内存但别超过机器上限（2C2G 建议 1G）
+Environment=NODE_OPTIONS=--max-old-space-size=1024
+
+# 基本加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/webgis/server/data /opt/webgis/server/uploads
+
+StandardOutput=append:/var/log/webgis/api.log
+StandardError=append:/var/log/webgis/api.err.log
+
+[Install]
+WantedBy=multi-user.target

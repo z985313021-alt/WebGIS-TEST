@@ -10,6 +10,17 @@ export function installAuthGuard(router: Router, pinia: Pinia) {
     // 首次导航时校验收到的会话（确保 /me 拉取角色最新、token 有效）
     if (!user.checked) await user.bootstrap();
 
+    // 开放浏览页（匿名与登录都能访问，不重定向）：如平台介绍 /about
+    if (to.meta.anonView) return true;
+
+    // 游客模式：允许免登录浏览公开地图主页、图表分析、时空态势大屏、旅游路线、数据管理、文创商城与非遗详情
+    const isPublicBrowse = ['/', '/analysis', '/screen', '/travel', '/data', '/shop'].includes(to.path) || to.path.startsWith('/heritage/');
+    const isGuest = user.isGuest || (typeof localStorage !== 'undefined' && localStorage.getItem('webgis_guest') === '1');
+    if (isGuest && isPublicBrowse) {
+      if (!user.isGuest) user.enterGuestMode();
+      return true;
+    }
+
     // 已登录用户访问登录/注册页 → 回首页
     if (to.meta.public) {
       if (user.isLoggedIn) return { path: '/' };

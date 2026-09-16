@@ -9,7 +9,7 @@ import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 
 export type BaseMapType = 'vec' | 'img';
-export type BaseMapProvider = 'tianditu' | 'osm' | 'none';
+export type BaseMapProvider = 'tianditu' | 'amap' | 'osm' | 'none';
 
 const TDT_TYPE: Record<BaseMapType, string> = { vec: 'vec_w', img: 'img_w' };
 
@@ -17,6 +17,23 @@ function createTiandituLayer(type: BaseMapType): TileLayer {
   return new TileLayer({
     source: new XYZ({
       url: `/api/tianditu/xyz/${TDT_TYPE[type]}/{z}/{x}/{y}`,
+      maxZoom: 18,
+    }),
+  });
+}
+
+/**
+ * 高德地图多源切片图层（商业高精度路网与遥感卫星）
+ */
+function createAmapLayer(type: BaseMapType): TileLayer {
+  const isImg = type === 'img';
+  // style=6 为纯遥感卫星影像，style=7/8 为矢量街道与路网
+  const url = isImg
+    ? 'https://webst0{1-4}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
+    : 'https://webrd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+  return new TileLayer({
+    source: new XYZ({
+      url,
       maxZoom: 18,
     }),
   });
@@ -37,16 +54,11 @@ export function createTiandituLabelLayer(): TileLayer {
 
 /**
  * 创建底图图层。
- * @param provider tianditu（天地图 DataServer XYZ）或 osm（OpenStreetMap）
- * @param type 底图类型（仅天地图生效：vec 矢量 / img 影像）
- */
-
-/**
- * 创建底图图层。
- * @param provider tianditu（天地图 DataServer XYZ）或 osm（OpenStreetMap，默认）
- * @param type 底图类型（仅天地图生效：vec 矢量 / img 影像）
+ * @param provider tianditu（天地图）| amap（高德地图）| osm（OpenStreetMap）| none（纯净白模）
+ * @param type 底图类型：vec 矢量 / img 影像
  */
 export function createBaseMapLayer(type: BaseMapType = 'vec', provider: BaseMapProvider = 'osm'): TileLayer {
+  if (provider === 'amap') return createAmapLayer(type);
   if (provider === 'tianditu') return createTiandituLayer(type);
   if (provider === 'none') {
     // 无底图模式：空瓦片层占位（配合省界/市界 GeoJSON 铺底），用于非遗平台主页

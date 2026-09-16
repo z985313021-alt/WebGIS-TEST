@@ -5,8 +5,31 @@ dist/
 *.log
 *.tsbuildinfo
 .DS_Store
+Thumbs.db
 .server/uploads/
 server/uploads/
 
-# SQLite ����ʱ���ݿ⣨���ύ��
+# SQLite 临时数据库与日志
 server/data/*.db
+server/data/*.db-journal
+server/data/*.db-wal
+server/data/*.sqlite*
+
+# AI 辅助开发临时缓存与工作区技能（仅本地生效，不上传仓库）
+.agents/
+.opensquilla/
+.temp/
+*.tmp
+*.temp
+antigravity_design.md
+PROJECT_MEMORY.md
+系统功能总结.txt
+
+# UI Scanner 扫描提取产生的参考截图与临时资产
+ui-scans/
+scanned-assets/
+temp-scans/
+
+# 编辑器与 IDE
+.vscode/
+.idea/

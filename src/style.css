@@ -4,3 +4,99 @@ html, body, #app {
   padding: 0;
 }
 * { box-sizing: border-box; }
+
+/* 文本域：禁止右下角手动拖拽改大小，改为由内容自动增高（搭配 :autosize） */
+.el-textarea__inner {
+  resize: none;
+}
+.el-cascader { width: 100%; }
+
+/* ===== 页面转场动画（平滑交叉淡入，避免地图 Canvas 缩放与重绘抖动）===== */
+.page-enter-active {
+  transition: opacity 200ms ease-out;
+}
+.page-leave-active {
+  transition: opacity 100ms ease-in;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+/* ===== 全局交互反馈 ===== */
+.el-button {
+  transition: transform var(--zi-duration-fast, 150ms) ease-out,
+              background-color var(--zi-duration-fast, 150ms) ease-out,
+              border-color var(--zi-duration-fast, 150ms) ease-out,
+              color var(--zi-duration-fast, 150ms) ease-out;
+}
+.el-button:active {
+  transform: scale(0.97);
+}
+
+/* ===== 进入动画工具类 ===== */
+.fade-enter-active { transition: opacity var(--zi-duration-normal, 250ms) var(--zi-ease-out, ease-out); }
+.fade-enter-from { opacity: 0; }
+
+/* ===== Google / Antigravity 汲取：微动效与卡片悬浮提升工具 ===== */
+.card-lift {
+  transition: transform var(--zi-duration-normal, 250ms) var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+              box-shadow var(--zi-duration-normal, 250ms) var(--zi-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+              border-color var(--zi-duration-normal, 250ms) ease;
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--zi-shadow-float);
+  border-color: rgba(212, 168, 78, 0.65) !important;
+}
+
+.pill-capsule {
+  border-radius: var(--zi-radius-pill, 999px) !important;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.blinking-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--zi-red, #9e2a1d);
+  margin-left: 3px;
+  vertical-align: -0.15em;
+  animation: cursorBlink 0.9s infinite;
+}
+
+/* ===== 无障碍：尊重减少动画偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== 窄屏抽屉导航（el-drawer 渲染到 body，需全局样式）===== */
+.nav-drawer .drawer-brand {
+  padding: 18px 20px 12px;
+  font-family: var(--zi-font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: #8f2317;
+  border-bottom: 1px solid var(--zi-line, #d8c9a3);
+  letter-spacing: 0.1em;
+}
+.nav-drawer .drawer-menu {
+  border-right: none;
+}
+.nav-drawer .drawer-menu .el-menu-item {
+  height: 48px;
+  line-height: 48px;
+}
+.nav-drawer .di-icon {
+  display: inline-block;
+  width: 28px;
+  margin-right: 4px;
+}

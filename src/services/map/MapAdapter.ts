@@ -18,6 +18,11 @@ export interface MapAdapter {
   setHighlightId(id: string | number | null): void;
   /** 要素点击回调（props=null 表示点到空白） */
   onFeatureClick(cb: (props: Record<string, unknown> | null) => void): void;
+  /**
+   * 聚合圆点击回调（仅聚合模式下生效）。
+   * 传入聚合内的所有点位属性列表和聚合中心经纬度，用于弹出点位列表弹窗。
+   */
+  onClusterClick(cb: (items: Array<Record<string, unknown>>, center: [number, number]) => void): void;
   getLayerFeatureCount(id: string): number;
   /** 加载通用矢量图层（兼容旧接口） */
   addVectorLayer(geojson: object, id: string): void;
@@ -28,6 +33,37 @@ export interface MapAdapter {
   removeLayer(id: string): void;
   /** 经纬度定位（EPSG:4326，自动适配视图投影） */
   zoomTo(lonlat: [number, number], zoom?: number): void;
+  /** 缩放到指定图层的完整范围（padding为边距像素，默认80），图层不存在则忽略 */
+  fitToLayer(id: string, padding?: number): void;
+  /** 容器尺寸变化后重算视口（面板展开挤压地图时必须调用，否则瓦片错位） */
+  updateSize(): void;
+  /** 点击地市界回调（仅在未点中非遗要素时触发），用于「点地市下钻」 */
+  onCityClick(cb: (cityName: string) => void): void;
+  /** 缩放到指定地市范围，命中返回 true */
+  fitCityByName(cityName: string): boolean;
+  /** 获取当前缩放级别 */
+  getZoom(): number;
+  /** 获取当前地图中心（经纬度 EPSG:4326） */
+  getCenter(): [number, number];
+  /** 获取当前旋转角度（弧度，0=正北朝上） */
+  getRotation(): number;
+  /** 重置视图到初始范围（山东全景，旋转归零） */
+  resetView(): void;
+  /** 重置地图旋转到正北朝上 */
+  resetRotation(): void;
+  /** 监听鼠标移动，回调返回经纬度（EPSG:4326），离开地图时为 null */
+  onPointerMove(cb: (lonlat: [number, number] | null) => void): void;
+  /** 监听视图变化（缩放/平移/旋转），回调返回当前状态 */
+  onViewChange(cb: (state: { zoom: number; center: [number, number]; rotation: number }) => void): void;
+  /**
+   * 进入「地图拾取点」模式：下一次单击地图返回该点经纬度（EPSG:4326）后自动退出，
+   * 期间抑制要素点击、鼠标变十字。用于缓冲区分析「在地图上选点」。
+   */
+  startPickPoint(onPick: (lonlat: [number, number]) => void): void;
+  /** 取消地图拾取点模式（未拾取即取消） */
+  stopPickPoint(): void;
+  /** 是否处于拾取点模式 */
+  isPickingPoint(): boolean;
   /** 开始量算/绘制（distance=线 / area=面），绘制完成后回调几何（GeoJSON 4326）；绘制期间自动抑制要素点击 */
   startMeasure(mode: 'distance' | 'area', onDone: (geometry: object) => void): void;
   /** 停止当前量算绘制 */
@@ -46,6 +82,16 @@ export interface MapAdapter {
   setHeatmapMode(enabled: boolean): void;
   /** 设置聚合距离（像素，默认 60），仅聚合模式下生效 */
   setClusterDistance(distance: number): void;
+  /**
+   * 行政区域热力图模式（Choropleth）：按行政区域统计数量，用色阶填充区域，
+   * 颜色越深表示数量越多。与聚合/密度热力图互斥，传 false 恢复普通标注。
+   */
+  setChoroplethMode(enabled: boolean): void;
+  /**
+   * 设置行政区域统计数据（城市名 -> 数量），用于计算色阶。
+   * 筛选变化时应重新统计并调用此方法更新热力图。
+   */
+  setChoroplethData(data: Record<string, number>): void;
   destroy(): void;
 }
 

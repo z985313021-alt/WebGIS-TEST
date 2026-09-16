@@ -83,6 +83,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 `);
 
+// 抢购机制：待付款订单的支付截止时间（超过则自动取消并回补库存）
+// 老库无此列，用 ALTER 迁移；重复执行会抛错，忽略即可。
+try {
+  db.exec('ALTER TABLE orders ADD COLUMN expires_at TEXT');
+} catch { /* 列已存在 */ }
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_orders_pending ON orders(status, expires_at)');
+} catch { /* 忽略 */ }
+
+/** 待付款订单的支付时限（秒）——抢购场景：下单即锁定库存，超时释放 */
+export const PAY_WINDOW_SECONDS = 60;
+
 // ---------------------------------------------------------------
 // 非遗全景数据入库（首次自动全量播种 185 条，保证存在后与商品联动/冗余展示）
 function ensureHeritageSeeded() {
@@ -294,9 +306,13 @@ export function createOrder(userId, { receiver, phone, address, remark = '' }) {
   }
   const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const orderNo = genOrderNo();
+  // 抢购：下单即锁定库存，并写入支付截止时间（超时由 expirePendingOrders 释放）
   const info = db
-    .prepare(`INSERT INTO orders (order_no,user_id,receiver,phone,address,total,remark) VALUES (?,?,?,?,?,?,?)`)
-    .run(orderNo, userId, receiver, phone, address, Number(total.toFixed(2)), remark);
+    .prepare(
+      `INSERT INTO orders (order_no,user_id,receiver,phone,address,total,remark,expires_at)
+       VALUES (?,?,?,?,?,?,?,datetime('now','localtime','+' || ? || ' seconds'))`
+    )
+    .run(orderNo, userId, receiver, phone, address, Number(total.toFixed(2)), remark, PAY_WINDOW_SECONDS);
   const orderId = info.lastInsertRowid;
   const insItem = db.prepare(
     'INSERT INTO order_items (order_id,product_id,product_name,price,qty,image) VALUES (?,?,?,?,?,?)'
@@ -328,7 +344,16 @@ export function getOrderRaw(userId, orderNo) {
     address: row.address, total: row.total, status: row.status,
     trackingNo: row.tracking_no || '', remark: row.remark || '',
     createdAt: row.created_at, items,
+    expiresAt: row.expires_at || null,
+    remainSeconds: remainSecondsOf(row),
   };
+}
+
+/** 待付款订单剩余支付秒数（非待付款或已过期返回 0） */
+function remainSecondsOf(row) {
+  if (row.status !== 'pending' || !row.expires_at) return 0;
+  const ms = new Date(row.expires_at.replace(' ', 'T')).getTime() - Date.now();
+  return ms > 0 ? Math.ceil(ms / 1000) : 0;
 }
 
 export function getOrdersByUser(userId) {
@@ -342,9 +367,42 @@ export function getOrdersByUser(userId) {
       address: row.address, total: row.total, status: row.status,
       trackingNo: row.tracking_no || '', remark: row.remark || '', createdAt: row.created_at,
       paidAt: row.paid_at || null, shippedAt: row.shipped_at || null, doneAt: row.done_at || null,
+      expiresAt: row.expires_at || null,
+      remainSeconds: remainSecondsOf(row),
       items,
     };
   });
+}
+
+/**
+ * 抢购核心：把已超时仍未付款的待付款订单批量取消，并回补库存。
+ * 由 server 定时调用（也可在订单查询前惰性调用），返回本次释放的订单数。
+ */
+export function expirePendingOrders() {
+  const expired = db
+    .prepare(
+      `SELECT * FROM orders
+       WHERE status = 'pending' AND expires_at IS NOT NULL
+         AND datetime(expires_at) <= datetime('now','localtime')`
+    )
+    .all();
+  if (!expired.length) return 0;
+  const cancel = db.prepare("UPDATE orders SET status='cancelled' WHERE id = ?");
+  const back = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
+  db.exec('BEGIN');
+  try {
+    for (const row of expired) {
+      cancel.run(row.id);
+      for (const it of db.prepare('SELECT product_id AS productId, qty FROM order_items WHERE order_id = ?').all(row.id)) {
+        if (it.productId) back.run(it.qty, it.productId);
+      }
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+  return expired.length;
 }
 
 /** admin：全部订单视图（含 userId，用户名由外部用 user-db 列表补上） */
@@ -361,6 +419,8 @@ export function getAllOrdersRaw() {
         phone: row.phone, address: row.address, total: row.total, status: row.status,
         trackingNo: row.tracking_no || '', remark: row.remark || '', createdAt: row.created_at,
         paidAt: row.paid_at || null, shippedAt: row.shipped_at || null, doneAt: row.done_at || null,
+        expiresAt: row.expires_at || null,
+        remainSeconds: remainSecondsOf(row),
         items,
       };
     });

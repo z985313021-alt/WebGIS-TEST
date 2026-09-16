@@ -31,6 +31,12 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `);
+// 会话过期：老库补列并给历史会话补一个过期时间（原先会话永不过期）
+try { db.exec('ALTER TABLE sessions ADD COLUMN expires_at TEXT'); } catch (e) { /* 列已存在 */ }
+db.exec("UPDATE sessions SET expires_at = datetime('now', 'localtime', '+7 days') WHERE expires_at IS NULL");
+
+/** 会话有效期（天） */
+const SESSION_TTL_DAYS = 7;
 
 const USERNAME_RE = /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -73,8 +79,8 @@ export function registerUser(username, email, password) {
   if (!EMAIL_RE.test(mail)) {
     throw new Error('邮箱格式不正确');
   }
-  if (pwd.length < 6) {
-    throw new Error('密码至少 6 位');
+  if (pwd.length < 6 || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_@#$%&*]{6,20}$/.test(pwd)) {
+    throw new Error('密码需 6-20 位，且需同时包含字母与数字');
   }
   if (isUsernameTaken(name)) {
     throw new Error('用户名已被占用');
@@ -123,7 +129,8 @@ export function loginUser(account, password) {
     throw err;
   }
   const token = randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
+  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, datetime('now', 'localtime', '+' || ? || ' days'))")
+    .run(token, user.id, SESSION_TTL_DAYS);
   const pub = getUserById(user.id);
   pub.role = user.role;
   return { token, user: pub };
@@ -134,7 +141,10 @@ export function getUserByToken(token) {
   const key = String(token || '').trim();
   if (!key) return null;
   const row = db
-    .prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?')
+    .prepare(
+      "SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id " +
+      "WHERE s.token = ? AND (s.expires_at IS NULL OR s.expires_at > datetime('now', 'localtime'))",
+    )
     .get(key);
   if (!row) return null;
   return {
@@ -151,6 +161,14 @@ export function logoutByToken(token) {
   const key = String(token || '').trim();
   if (!key) return;
   db.prepare('DELETE FROM sessions WHERE token = ?').run(key);
+}
+
+/** 清理已过期会话，返回删除条数（由服务端定时调用） */
+export function purgeExpiredSessions() {
+  const info = db
+    .prepare("DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at <= datetime('now', 'localtime')")
+    .run();
+  return Number(info.changes || 0);
 }
 
 /** 设置用户角色（仅 admin 调用） */
@@ -185,7 +203,7 @@ export function listUsers() {
 /** 直接重设密码哈希（改密用） */
 export function rehashPassword(userId, newPassword) {
   const pwd = String(newPassword || '');
-  if (pwd.length < 6) throw new Error('新密码至少 6 位');
+  if (pwd.length < 6 || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_@#$%&*]{6,20}$/.test(pwd)) throw new Error('新密码需 6-20 位，且需同时包含字母与数字');
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(pwd), Number(userId));
   return getUserById(Number(userId));
 }

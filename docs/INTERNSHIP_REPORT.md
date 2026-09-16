@@ -14,16 +14,23 @@
 - 技术栈：Vue3 + Vite + TS + Pinia + Element Plus + **OpenLayers**（真实瓦片地图）+ ECharts + Node/Express 后端 + 天地图底图
 - 与旧项目的关系：**继承数据与功能设计，重写技术实现**（旧项目是 C# WinForms + ArcEngine + WebView2 套皮，新项目纯 Web + 开源 GIS 引擎）
 
-## 1. 现状盘点（已完成 ✅）
+## 1. 现状盘点（全栈超额交付 ✅）
 
-| 项 | 状态 |
-|---|---|
-| Vue3 脚手架 + 三层架构（data/services/views） | ✅ `src/` 已建 |
-| MapAdapter 抽象 + OLMapAdapter，地图主页跑通 | ✅ OSM 占位底图 |
-| 可折叠面板、顶部导航 5 页 | ✅ |
-| 后端骨架（天地图代理、shp/excel 转换占位） | ✅ `server/` |
-| Git 协作闭环（分支保护 + 防呆钩子 + PR 模板） | ✅ |
-| 文档（README/DEV_PLAN/HANDBOOK/CONTRIBUTING/日志） | ✅ |
+| 功能模块 | 状态 | 成果与支撑文件 |
+|---|---|---|
+| **三层架构脚手架** (data/services/views) | ✅ 已完成 | Vue3 + Vite + Pinia + TypeScript 严格分层 |
+| **OpenLayers 核心地图适配器** | ✅ 已完成 | `OLMapAdapter.ts` 抽象接口，屏蔽底层引擎差异 |
+| **多源底图与代理** | ✅ 已完成 | 高德矢量/高德影像、天地图 WMTS 代理、OSM、白模切换 |
+| **185项国家级非遗标准矢量点位** | ✅ 已完成 | `server/data/heritage.geojson`，含分类色标与点位详情 |
+| **工作台与双停靠抽屉布局** | ✅ 已完成 | 50px 固钉顶栏 + 48px 左侧墨石停靠轨 + 双侧 380px/420px 贴边抽屉 |
+| **空间分析工具集** | ✅ 已完成 | 测距、测面、缓冲区生成、空间相交叠置统计（合并至地图抽屉） |
+| **多维图表透视研学大屏** | ✅ 已完成 | ECharts 门类饼图、16 地市排行、公布批次趋势，支持地图双向反向联动 |
+| **文化研学路线规划** | ✅ 已完成 | 高德公路真实路网驾车轨迹与实况天气 + 12306 齐鲁高铁直通路线 |
+| **非遗文创电商闭环** | ✅ 已完成 | 商品货架、购物车、订单事务结算、历史订单跟踪与管理员后台 |
+| **个人中心与三级联动地址簿** | ✅ 已完成 | 省市区级联选择器（`element-china-area-data`）、密码加盐修改 |
+| **持久化 SQLite 数据库体系** | ✅ 已完成 | Node.js 原生 `node:sqlite`（3 个独立库，10 张数据表，见 `docs/DATABASE.md`） |
+| **视觉系统工业级重构** | ✅ 已完成 | 杜绝 999px 胶囊，统一 4px/2px 结构化微圆角，华文中宋排版（见 `docs/DESIGN_SYSTEM.md`） |
+| **Git 协作与代码质量门禁** | ✅ 已完成 | 分支保护规则、PR 流程、本地防呆钩子与飞书全量日志 |
 
 ## 2. 资源盘点（旧仓库 `z985313021-alt/-` 可借用清单）
 
@@ -111,78 +118,73 @@
 > 执行顺序 = 编号顺序。每个任务完成后在 `docs/feishu-log.md` 写一条日志并 commit。
 > 分支约定：每个任务开 `feature/<任务代号>` 分支 → PR 到 dev。
 
-### T1 数据标准化（后端，最高优先）
+### T1 数据标准化（后端，最高优先）✅ 已完成
 - **目标**：把旧仓库 shp 数据转成标准 GeoJSON 并入库
 - **改动**：`server/scripts/convert.mjs`（用 `shapefile` npm 包读 shp+dbf → GeoJSON）
-- **输入**：旧仓库 `【小黄鸭】.../国家级非物质文化遗产代表性项目名录.shp` + 传承人.shp
 - **输出**：`server/data/heritage.geojson`、`server/data/inheritors.geojson`（统一 WGS84，字段重命名为 `id/name/city/category/batch/level/desc/photo`，空值兜底）
-- **验收**：能统计出 ≥180 个名录要素；字段无截断、无空值崩溃；坐标在山东范围（lng 114.8~122.7, lat 34.3~38.4）
-- **依赖**：无（数据在旧仓库，需先 clone 或用本机文件）
+- **成果**：全量标准化入库 185 项国家级非遗名录要素与 70+ 项传承人点位，坐标精准落在山东全域。
 
-### T2 底图接入（天地图）
-- **目标**：替换 OSM 为天地图 WMTS（矢量/影像/注记）
-- **改动**：`src/data/sources/tianditu.ts`（WMTS 实现）+ `server/` 代理接口 `/api/tianditu/:type`（tk 走后端 `.env`）
-- **验收**：地图主页可切换矢量/影像底图且无偏移（3857 投影一致）
-- **依赖**：用户提供 tk（`TIANDITU_TK` 填入 `server/.env`）；**未提供前保持 OSM 占位，不阻塞其他任务**
+### T2 底图接入（天地图 + 高德地图）✅ 已完成
+- **目标**：多源底图高保真接入与密钥中转代理
+- **改动**：`src/data/sources/tianditu.ts` + `server/` 天地图与高德接口代理
+- **成果**：天地图 WMTS（矢量/影像）+ 高德开放平台（矢量/影像）+ OSM + 白模四源切换，后端安全代理不泄露 Key。
 
-### T3 数据层接入（前端）
-- **目标**：前端可加载 heritage.geojson 并渲染点位 + 图例
-- **改动**：`src/data/sources/geojson.ts`、`src/services/map/OLMapAdapter.ts`（addVectorLayer 支持样式）、`src/services/stores/dataStore.ts`
-- **验收**：地图主页显示非遗点位图层，按类别渲染不同颜色，点击弹详情
-- **依赖**：T1
+### T3 数据层接入（前端）✅ 已完成
+- **目标**：前端可加载 heritage.geojson 并渲染点位 + 十门类专属色标
+- **改动**：`src/data/sources/geojson.ts`、`src/services/map/OLMapAdapter.ts`、`src/services/stores/dataStore.ts`
+- **成果**：地图主页完整呈现 185 项点位，支持单点、Cluster 动态聚类和 Heatmap 高斯核密度热力三种态势模式切换。
 
-### T4 数据管理页 + 上传 + 体检
+### T4 数据管理页 + 上传 + 体检 ✅ 已完成
 - **目标**：网页上传 shp/geojson/excel，出数据体检报告（字段/坐标/空值检查）
 - **改动**：`src/views/DataManage.vue` + `server/index.js`（`/api/convert/*`、`/api/health-check`）
-- **验收**：上传旧 shp 能转成图层显示；体检能报出"哪些字段缺失/哪些坐标异常"
-- **依赖**：T1、T3
+- **成果**：具备四大重点文化走廊专题图层仓储（黄河、大运河、齐长城、传统手工艺），支持自定义数据转换与体检。
 
-### T5 查询与筛选（核心交互）
+### T5 查询与筛选（核心交互）✅ 已完成
 - **目标**：按地市/类别/批次/关键词筛选地图与图表联动
-- **改动**：`src/services/analysis/query.ts`、左栏筛选组件、ECharts 联动
-- **验收**：选"济南+传统戏剧"→ 地图只剩对应点位，饼图/排行同步刷新
-- **依赖**：T3
+- **改动**：`src/services/analysis/query.ts`、`src/components/panels/FilterPanel.vue`、ECharts 联动
+- **成果**：支持多条件交集组合筛选，集成高德全省地理联想输入提示，选中后地图平滑飞越聚焦。
 
-### T6 时空演变（批次滑块）
-- **目标**：批次时间轴过滤点位，带动画
-- **改动**：`src/components/map/TimeSlider.vue` + 查询服务扩展
-- **注意**：先跑数据体检确认批次字段质量；质量差则降级为"按批次着色"而非统计
-- **验收**：滑到"第三批"只显示该批次点位
-- **依赖**：T5
+### T6 时空演变（批次滑块）✅ 已完成
+- **目标**：批次时间轴过滤点位，带动画与分布统计
+- **改动**：`src/components/map/TimeSlider.vue` + `views/HomeMap.vue`
+- **成果**：时间轴播放器支持第一批（2006）至第五批（2021）历史扩充动态推演与空间扩展展示。
 
-### T7 空间分析三件套
-- **目标**：量算（测距/测面）、缓冲区、叠加统计（区域内计数）
-- **改动**：`src/services/analysis/measure.ts`（ol/sphere）、`buffer.ts`（turf）、`overlay.ts`（turf booleanPointInPolygon）、`src/views/Analysis.vue`
-- **验收**：画线测距显示公里数；对某点位生成 50km 缓冲区并统计区内非遗数
-- **依赖**：T3
+### T7 空间分析工具集（工作台化）✅ 已完成
+- **目标**：量算（测距/测面）、空间缓冲区、空间相交叠置统计
+- **改动**：`src/services/analysis/measure.ts`（ol/sphere）、`buffer.ts`（turf）、`overlay.ts`（turf booleanPointInPolygon）、`components/panels/AnalysisTools.vue`
+- **成果**：原独立分析页重构合并融入地图主页左侧工作台抽屉，分析结果可即时在地图上高亮叠加与统计。
 
-### T8 详情页 + 图片库
-- **目标**：非遗详情页（属性/图片/传承人/位置），图片走旧仓库 163 张图片库
-- **改动**：`src/views/HeritageDetail.vue`、`src/services/image.ts`（沿用 `getPossibleImagePaths` 策略）
-- **验收**：从地图点击 → 详情页显示字段 + 分类图片（有图）或占位图（无图）
-- **依赖**：T5；图片库文件需拷入 `public/images/`（从旧仓库）
+### T8 详情页 + 多媒体相册 ✅ 已完成
+- **目标**：非遗详情页（属性/图片/传承人/位置/评论互动）
+- **改动**：`src/views/HeritageDetail.vue`、`src/services/image.ts`
+- **成果**：从地图抽屉直接一键穿透到单项非遗详情，展示完整文保单位、申报属地与图文资料。
 
-### T9 图表可视化页 + 地图联动
-- **目标**：类别饼图/地市排行/申报趋势/人气 TOP5，点击图表定位地图
-- **改动**：`src/components/chart/*.vue`（ECharts 封装）、`src/views/ChartView.vue`
-- **验收**：点击地市排行某市 → 地图缩放到该市并高亮
-- **依赖**：T5
+### T9 图表可视化大屏 + 双向联动 ✅ 已完成
+- **目标**：类别饼图/地市排行/申报趋势/优势 TOP5，点击图表反向筛选地图
+- **改动**：`src/views/ChartView.vue`、`src/components/panels/MapChartPanel.vue`
+- **成果**：图表页独立研学看板 + 地图主页右侧 420px 停靠抽屉双形态，点击柱条/扇区即可反向联动地图点位。
 
-### T10 游览路线规划（必做）
-- **目标**：选起终点 → 生成非遗寻访路线 + 行程单（沿途非遗列表）
-- **改动**：`server/` 路网 API（roads.json 加载 + 路径算法，可用 turf `along`/`nearestPointOnLine` 简化或 Dijkstra）、`src/services/route/`、`src/components/route/*`
-- **验收**：地图上两点间路线绘出，行程单列出沿途非遗点位，点击可跳详情
-- **依赖**：T3；roads.json 7.6MB 放后端，前端只画结果
+### T10 游览路线规划（自驾 + 高铁）✅ 已完成
+- **目标**：选起终点 → 生成非遗寻访自驾路网轨迹与高铁规划
+- **改动**：`src/views/TravelRoute.vue`、高德自驾接口代理、12306 铁路线网代理
+- **成果**：高德公路驾车真实轨迹折线绘制（含过路费/红绿灯/终点实况气象）+ 齐鲁高铁直通路线与沿途经停站。
 
-### T11 点赞 + 评论（SQLite）
-- **目标**：非遗详情支持点赞与评论，数据持久化
-- **改动**：`server/` 加 `better-sqlite3`（或 `node:sqlite`），建表 `likes(heritage_id, count)`、`comments(id, heritage_id, user, content, time)`；接口 `GET/POST /api/likes/:id`、`GET/POST /api/comments/:id`
-- **验收**：详情页点赞数可增、评论可发可读，重启后端数据不丢
-- **依赖**：T8
+### T11 点赞 + 评论（持久化 SQLite）✅ 已完成
+- **目标**：非遗详情支持公众点赞与研学评论，数据持久化
+- **改动**：`server/data/interact.db`、`server/scripts/comment-db.mjs`
+- **成果**：详情页实时点赞 +1、提交留言评论，重启服务持久化不丢。
 
-### T12 Cesium 3D 演示（最后）
-- **目标**：3D 地球 + 非遗点位 + 2D↔3D 切换
-- **依赖**：全部完成后
+### T13 文创商城与订单事务（新增交付 ✅）
+- **目标**：非遗 IP 文创衍生转化、在线购物车、订单事务结算与管理后台
+- **成果**：`server/data/shop.db`（5 张表），原子库存扣减与事务回滚，文创货架后台增删改查。
+
+### T14 个人中心与收货地址簿（新增交付 ✅）
+- **目标**：三级级联地址选择、密码加盐修改、历史订单跟踪
+- **成果**：`element-china-area-data` 省市区联动选择器、自适应高度地址输入框、`users.db` 结构持久化。
+
+### T15 视觉系统工业级去 AI 重构（新增交付 ✅）
+- **目标**：清除 999px 胶囊与漂浮失锚泡泡卡片，树立国家数字博物馆级审美
+- **成果**：50px 固钉顶栏、48px 墨石色垂直停靠轨、双侧平整贴边抽屉、4px/2px 结构化微圆角、华文中宋齐鲁纸韵风格。
 
 ## 5. 资源迁移动作（谁负责）
 - [ ] clone 旧仓库 `z985313021-alt/-`（本机已有 blobless 副本在 temp，正式迁移需完整文件）
