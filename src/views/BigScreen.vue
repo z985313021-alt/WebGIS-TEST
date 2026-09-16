@@ -81,7 +81,7 @@
 
     <!-- 展屏主体交互网格（舒缓大间距，焦点聚焦于中央地图） -->
     <main class="scroll-body">
-      <!-- 左翼图表（已收起，仅保留地图主体；需要时可再放回） -->
+      <!-- 左侧装订位（图表统一挪到右侧题签抽屉里） -->
       <aside v-if="false" class="scroll-col side-col">
         <div class="heritage-panel flex-1">
           <div class="panel-header">
@@ -145,25 +145,33 @@
         </div>
       </section>
 
-      <!-- 右翼图表（已收起） -->
-      <aside v-if="false" class="scroll-col side-col">
-        <div class="heritage-panel flex-1">
-          <div class="panel-header">
-            <span class="panel-sym">❖</span>
-            <h3 class="panel-title">地市非遗承载分布 (TOP 10)</h3>
-          </div>
+      </main>
+
+    <!-- 右侧：数据图表题签（与左侧门类题签对称，倚在卷轴上；点击滑出图表） -->
+    <aside class="chart-rail" :class="{ pinned: chartPinned }">
+      <div class="chart-body">
+        <div class="chart-item">
+          <div class="ci-title">❖ 十大门类构成</div>
+          <div ref="categoryChartEl" class="chart-container"></div>
+        </div>
+        <div class="chart-item">
+          <div class="ci-title">❖ 批次公布脉络</div>
+          <div ref="batchTrendChartEl" class="chart-container"></div>
+        </div>
+        <div class="chart-item">
+          <div class="ci-title">❖ 地市承载 TOP10</div>
           <div ref="cityRankChartEl" class="chart-container"></div>
         </div>
-
-        <div class="heritage-panel flex-1">
-          <div class="panel-header">
-            <span class="panel-sym">❖</span>
-            <h3 class="panel-title">重点空间走廊覆盖比</h3>
-          </div>
+        <div class="chart-item">
+          <div class="ci-title">❖ 空间走廊覆盖比</div>
           <div ref="corridorChartEl" class="chart-container"></div>
         </div>
-      </aside>
-      </main>
+      </div>
+      <button class="rail-tab right-tab" :class="{ active: chartPinned }" @click="toggleChartRail">
+        <span class="tab-seal">图</span>
+        <span class="tab-text">数据图表</span>
+      </button>
+    </aside>
     </div>
   </div>
 </template>
@@ -178,6 +186,36 @@ import shandongGeo from '@/data/shandong-city-boundary.json';
 import { CATEGORIES, CATEGORY_COLORS, categoryGlyph } from '@/data/sources/heritage';
 import { sealIconDataUri } from '@/services/map/sealIcon';
 import { loadShandongBoundary } from '@/data/sources/shandongBoundary';
+
+/**
+ * 传统如意云纹图案（SVG data URI），用作山东省区域的底纹填充。
+ * 结构参照真实如意云头：三个内卷螺旋作"云眼"，外加云头轮廓与云脚波纹；
+ * 螺旋用参数化方式生成，避免手绘曲线失真。
+ */
+const CLOUD_PATTERN: string = (() => {
+  const spiral = (cx: number, cy: number, rMax: number, turns: number, start: number) => {
+    const pts: string[] = [];
+    const N = 46;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const r = rMax * (1 - 0.92 * t);
+      const a = start + t * turns * Math.PI * 2;
+      pts.push(`${i ? 'L' : 'M'}${(cx + r * Math.cos(a)).toFixed(1)} ${(cy + r * Math.sin(a)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+  };
+  const svg =
+    "<svg xmlns='http://www.w3.org/2000/svg' width='180' height='132' viewBox='0 0 180 132'>"
+    + "<g fill='none' stroke='#c9983c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'>"
+    + "<path d='M18 78 C6 54 26 34 48 44 C54 22 86 18 96 40 C112 20 148 28 150 52 C166 58 168 78 152 84'/>"
+    + "<path d='" + spiral(46, 60, 15, 1.45, -Math.PI / 2) + "'/>"
+    + "<path d='" + spiral(93, 54, 17, 1.5, -Math.PI / 2) + "'/>"
+    + "<path d='" + spiral(139, 61, 14, 1.45, -Math.PI / 2) + "'/>"
+    + "<path d='M28 92 C52 104 96 104 120 94 C136 88 150 92 156 100'/>"
+    + "<path d='M62 96 C76 102 104 102 118 96'/>"
+    + "</g></svg>";
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+})();
 
 /**
  * 省界外环坐标串：沿省界跑一条绵延光带（朱砂红丝线 + 流动光点）。
@@ -241,8 +279,24 @@ let corridorChart: echarts.ECharts | null = null;
 const activeCity = ref<string | null>(null);
 /** 当前选中的非遗门类（null = 全部门类）；由左侧印章墙驱动 */
 const activeCategory = ref<string | null>(null);
-/** 题签是否被钉住展开（悬停也会临时展开） */
+/** 左侧门类题签是否展开 */
 const railPinned = ref(false);
+/** 右侧数据图表题签是否展开 */
+const chartPinned = ref(false);
+
+/** 开合图表题签：展开后让四张图重新量一次尺寸 */
+function toggleChartRail() {
+  chartPinned.value = !chartPinned.value;
+  if (!chartPinned.value) return;
+  nextTick(() => {
+    window.setTimeout(() => {
+      categoryChart?.resize();
+      batchTrendChart?.resize();
+      cityRankChart?.resize();
+      corridorChart?.resize();
+    }, 460);
+  });
+}
 
 /** 印章墙数据：沿用平台主页的十门类图标与色标 */
 const categoryChips = computed(() =>
@@ -518,7 +572,8 @@ function updateMapChart() {
       center: [118.8, 36.3],
       aspectScale: 0.85,
       itemStyle: {
-        // 宣纸底 + 朱砂红丝线勾边（像工笔画的界画描边）
+        // 山东省区域用如意云纹做底纹（ECharts pattern 填充），外套朱砂红丝线勾边
+        color: { image: CLOUD_PATTERN, repeat: 'repeat' },
         areaColor: '#f7f0dd',
         borderColor: '#c0392b',
         borderWidth: 1.4,
@@ -1068,7 +1123,57 @@ onBeforeUnmount(() => {
   font-family: ui-monospace, Consolas, monospace;
 }
 
-/* 展厅基底：温润宣纸 + 朱砂淡晕 */
+/* ---------- 右侧「数据图表」题签（与左侧门类题签对称） ---------- */
+.chart-rail {
+  position: absolute;
+  right: 27px;
+  top: 88px;
+  bottom: 92px;
+  z-index: 12;
+  display: flex;
+  align-items: stretch;
+}
+.chart-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  padding: 12px 12px 12px 4px;
+  margin-right: -9px;
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.97), rgba(249, 243, 230, 0.97));
+  border-radius: 12px 0 0 12px;
+  box-shadow: -5px 0 22px rgba(43, 34, 24, 0.12);
+  overflow-y: auto;
+  /* 默认整体滑出屏幕右侧，只露出题签 */
+  transform: translateX(110%);
+  transition: transform 430ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.chart-rail.pinned .chart-body {
+  transform: none;
+}
+.chart-item {
+  display: flex;
+  flex-direction: column;
+}
+.ci-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6d4c2a;
+  margin-bottom: 2px;
+  font-family: var(--zi-font-serif, "STSong", "Songti SC", serif);
+}
+.chart-item .chart-container {
+  height: 158px;
+}
+/* 右侧题签：镜像左侧样式 */
+.right-tab {
+  border-radius: 9px 0 0 9px;
+  border-left: 1px solid #d8c9a8;
+  border-right: none;
+  box-shadow: -2px 0 12px rgba(43, 34, 24, 0.12);
+}
+
+/* 展厅基底：宣纸底 + 金色祥云纹（多层不同尺寸/角度交错，形成传统织物的"杂乱"感） */
 .heritage-scroll-root {
   width: 100%;
   min-height: 100vh;
@@ -1076,6 +1181,9 @@ onBeforeUnmount(() => {
   background-image:
     radial-gradient(ellipse 70% 50% at 50% 0%, rgba(158, 42, 29, 0.08), transparent 70%),
     radial-gradient(ellipse 80% 60% at 50% 60%, rgba(158, 42, 29, 0.05), #f5efe0);
+  background-size: cover, cover;
+  background-repeat: no-repeat, no-repeat;
+  
   color: #4a3a2f;
   font-family: var(--zi-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   display: flex;
@@ -1252,16 +1360,14 @@ onBeforeUnmount(() => {
 
 /* 典雅卡片通用样式 */
 .heritage-panel {
-  /* 画卷裱边：米金外框 + 内圈描金细线，浅底上不再用深色硬边 */
-  background: linear-gradient(180deg, #fffdf7 0%, #fdf8ec 100%);
-  border: 1px solid #d9c08a;
-  border-radius: 8px;
-  padding: 12px 16px;
+  /* 不加边框与卡片底：面板与画心同底，整屏像一整幅画而不是画上摞了几个框 */
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  box-shadow:
-    inset 0 0 0 1px rgba(212, 160, 60, 0.20),
-    0 4px 16px rgba(43, 34, 24, 0.08);
+  box-shadow: none;
   min-width: 0;
 }
 .heritage-panel.flex-1 {
@@ -1310,6 +1416,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  /* 与画心同底，不加任何边框，避免"画上摞框" */
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 .map-header {
   display: flex;
