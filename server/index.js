@@ -394,10 +394,14 @@ app.post('/api/auth/users/:id/role', requireAdmin, (req, res) => {
   }
 });
 
-// 引导：若系统尚无任何用户，允许通过默认引导账号快速登录演示
-app.post('/api/setup/admin', (req, res) => {
-  const { username = 'admin', email = 'admin@webgis.test', password = 'admin123' } = req.body ?? {};
+// 引导：仅在系统**尚无任何用户**时允许创建初始管理员。
+// 否则任何人都能调用它抢占管理员（或重置他人密码），必须收紧。
+app.post('/api/setup/admin', registerLimiter, (req, res) => {
   try {
+    if (listUsers().length > 0) {
+      return res.status(403).json({ ok: false, msg: '系统已完成初始化，请使用管理员账号登录' });
+    }
+    const { username = 'admin', email = 'admin@webgis.test', password = 'admin123' } = req.body ?? {};
     const result = ensureAdmin(username, email, password);
     res.json({ ok: true, ...result });
   } catch (e) {
