@@ -221,7 +221,7 @@ const features = [
       '任意多边形套合圈选与非遗要素重叠分析',
       '空间密度核热力推演与集聚趋势呈现',
     ],
-    to: { path: '/', query: { tool: 'analysis' } },
+    to: '/analysis',
   },
   {
     iconComponent: TrendCharts,
@@ -235,7 +235,7 @@ const features = [
       '五大申报批次历史演进趋势图',
       '点击图表柱体实现时空地图反向筛选联动',
     ],
-    to: '/chart',
+    to: '/analysis',
   },
   {
     iconComponent: Van,

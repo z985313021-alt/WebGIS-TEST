@@ -37,6 +37,10 @@ export interface MapAdapter {
   fitToLayer(id: string, padding?: number): void;
   /** 容器尺寸变化后重算视口（面板展开挤压地图时必须调用，否则瓦片错位） */
   updateSize(): void;
+  /** 点击地市界回调（仅在未点中非遗要素时触发），用于「点地市下钻」 */
+  onCityClick(cb: (cityName: string) => void): void;
+  /** 缩放到指定地市范围，命中返回 true */
+  fitCityByName(cityName: string): boolean;
   /** 获取当前缩放级别 */
   getZoom(): number;
   /** 获取当前地图中心（经纬度 EPSG:4326） */

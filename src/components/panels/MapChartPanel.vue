@@ -17,7 +17,7 @@
     </div>
 
     <!-- 图表 1：门类分布 -->
-    <div class="chart-block">
+    <div v-if="show('category')" class="chart-block">
       <div class="cb-header">
         <span class="cb-title">❖ 十大门类结构分布</span>
         <span class="cb-tip">环形透视</span>
@@ -26,7 +26,7 @@
     </div>
 
     <!-- 图表 2：地市排位（支持点击联动） -->
-    <div class="chart-block">
+    <div v-if="show('city')" class="chart-block">
       <div class="cb-header">
         <span class="cb-title">❖ 齐鲁 16 地市非遗梯队</span>
         <span class="cb-tip">点击柱条联动筛选</span>
@@ -35,7 +35,7 @@
     </div>
 
     <!-- 图表 3：国家级公布批次递进趋势 -->
-    <div class="chart-block">
+    <div v-if="show('trend')" class="chart-block">
       <div class="cb-header">
         <span class="cb-title">❖ 保护批次累计沿革</span>
         <span class="cb-tip">历次公布规模</span>
@@ -50,6 +50,12 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as echarts from 'echarts';
 import { useDataStore } from '@/services/stores/dataStore';
 import { CATEGORY_COLORS, BATCHES, BATCH_LABELS } from '@/data/sources/heritage';
+
+/** charts 指定要显示哪几张图（页面按需精简，例如主页只留门类 + 地市） */
+const props = withDefaults(defineProps<{ charts?: Array<'category' | 'city' | 'trend'> }>(), {
+  charts: () => ['category', 'city', 'trend'],
+});
+const show = (key: 'category' | 'city' | 'trend') => props.charts.includes(key);
 
 const store = useDataStore();
 

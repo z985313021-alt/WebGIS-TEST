@@ -12,9 +12,7 @@
       <el-menu mode="horizontal" :router="true" :default-active="route.path" class="nav-menu">
         <el-menu-item index="/">地图主页</el-menu-item>
         <el-menu-item index="/data">数据管理</el-menu-item>
-        <el-menu-item index="/analysis">空间分析</el-menu-item>
-        <el-menu-item index="/chart">图表可视化</el-menu-item>
-        <el-menu-item index="/rank">热度榜</el-menu-item>
+        <el-menu-item index="/analysis">分析工作台</el-menu-item>
         <el-menu-item index="/screen">态势大屏</el-menu-item>
         <el-menu-item index="/travel">旅游路线</el-menu-item>
         <el-menu-item index="/shop">文创商城</el-menu-item>
@@ -76,10 +74,7 @@
           <el-icon class="di-icon"><DataAnalysis /></el-icon> 数据管理
         </el-menu-item>
         <el-menu-item index="/analysis">
-          <el-icon class="di-icon"><Guide /></el-icon> 空间分析
-        </el-menu-item>
-        <el-menu-item index="/chart">
-          <el-icon class="di-icon"><TrendCharts /></el-icon> 图表可视化
+          <el-icon class="di-icon"><Guide /></el-icon> 分析工作台
         </el-menu-item>
         <el-menu-item index="/screen">
           <el-icon class="di-icon"><Platform /></el-icon> 态势大屏
@@ -115,7 +110,6 @@ import {
   ShoppingBag,
   MapLocation,
   DataAnalysis,
-  TrendCharts,
   Platform,
   Van,
   Guide,
