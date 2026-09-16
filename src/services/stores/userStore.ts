@@ -65,7 +65,7 @@ export const useUserStore = defineStore('user', {
       this.persist(token, user);
       return user;
     },
-    async register(payload: { username: string; email: string; password: string }) {
+    async register(payload: { username: string; email: string; password: string; inviteCode: string }) {
       const { token, user } = await authApi.register(payload);
       this.persist(token, user);
       return user;

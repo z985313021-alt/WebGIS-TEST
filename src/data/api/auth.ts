@@ -16,6 +16,8 @@ export interface RegisterPayload {
   username: string;
   email: string;
   password: string;
+  /** 注册邀请码：后端校验，防止开放注册被滥用（消耗服务器流量） */
+  inviteCode: string;
 }
 
 export interface LoginPayload {
