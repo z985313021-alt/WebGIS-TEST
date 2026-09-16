@@ -13,11 +13,14 @@ export function installAuthGuard(router: Router, pinia: Pinia) {
     // 开放浏览页（匿名与登录都能访问，不重定向）：如平台介绍 /about
     if (to.meta.anonView) return true;
 
-    // 游客模式：允许免登录浏览公开地图主页、图表分析、时空态势大屏、旅游路线、数据管理、文创商城与非遗详情
-    const isPublicBrowse = ['/', '/analysis', '/screen', '/travel', '/data', '/shop'].includes(to.path) || to.path.startsWith('/heritage/');
-    const isGuest = user.isGuest || (typeof localStorage !== 'undefined' && localStorage.getItem('webgis_guest') === '1');
-    if (isGuest && isPublicBrowse) {
-      if (!user.isGuest) user.enterGuestMode();
+    // 公开浏览页：地图主页、分析、大屏、旅游、数据、商城与非遗详情
+    // 注意：这里不再要求先有"游客标记" —— 直接访问这些路径就应当能看，
+    // 否则用户打开首页会被直接弹到登录页（此前就是这个问题）。
+    const isPublicBrowse =
+      ['/', '/analysis', '/screen', '/travel', '/data', '/shop'].includes(to.path) ||
+      to.path.startsWith('/heritage/');
+    if (isPublicBrowse) {
+      if (!user.isLoggedIn && !user.isGuest) user.enterGuestMode();
       return true;
     }
 
