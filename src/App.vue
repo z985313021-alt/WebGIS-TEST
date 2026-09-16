@@ -14,6 +14,7 @@
         <el-menu-item index="/data">数据管理</el-menu-item>
         <el-menu-item index="/analysis">空间分析</el-menu-item>
         <el-menu-item index="/chart">图表可视化</el-menu-item>
+        <el-menu-item index="/rank">热度榜</el-menu-item>
         <el-menu-item index="/screen">态势大屏</el-menu-item>
         <el-menu-item index="/travel">旅游路线</el-menu-item>
         <el-menu-item index="/shop">文创商城</el-menu-item>

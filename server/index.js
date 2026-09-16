@@ -10,6 +10,7 @@ import { convertShpToGeojson, convertExcelToGeojson, healthCheck, UPLOAD_DIR } f
 import { getLikeCount, addLike, getComments, addComment } from './scripts/comment-db.mjs';
 import { registerUser, loginUser, getUserByToken, logoutByToken, getUserById, setUserRole, ensureAdmin, listUsers, rehashPassword, purgeExpiredSessions } from './scripts/user-db.mjs';
 import * as shop from './scripts/shop-db.mjs';
+import * as rank from './scripts/rank-db.mjs';
 import * as account from './scripts/account-db.mjs';
 import { createTemplate, generateHealthReportExcel, generateHealthReportCSV } from './scripts/data-manage.mjs';
 import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCode, stationName, cityPos } from './scripts/train12306.mjs';
@@ -85,7 +86,8 @@ const BODY_LIMIT_SMALL = 1 * 1024 * 1024;
 const BODY_LIMIT_LARGE = 12 * 1024 * 1024;
 app.use((req, res, next) => {
   const len = Number(req.headers['content-length'] || 0);
-  const cap = req.path === '/api/health-check' ? BODY_LIMIT_LARGE : BODY_LIMIT_SMALL;
+  // 体检相关接口（含 /api/health-check/export 导出）接收完整 GeoJSON，按前缀放宽
+  const cap = req.path.startsWith('/api/health-check') ? BODY_LIMIT_LARGE : BODY_LIMIT_SMALL;
   if (len > cap) return res.status(413).json({ ok: false, msg: '请求体过大' });
   next();
 });
@@ -555,6 +557,40 @@ app.post('/api/health-check/export', (req, res) => {
     res.send(buffer);
   } catch (e) {
     res.status(400).json({ msg: e.message });
+  }
+});
+
+// ============ 热度榜：非遗 / 商品 / 总览 ============
+// 只读聚合接口，公开可访问（榜单本身是展示型数据），但受全局限流约束
+app.get('/api/rank/overview', (req, res) => {
+  try {
+    res.json({ ok: true, ...rank.rankOverview() });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: e.message });
+  }
+});
+
+app.get('/api/rank/heritage', (req, res) => {
+  try {
+    const metric = String(req.query.metric || 'heat');
+    if (!rank.HERITAGE_METRICS[metric]) {
+      return res.status(400).json({ ok: false, msg: '不支持的指标：' + Object.keys(rank.HERITAGE_METRICS).join(' / ') });
+    }
+    res.json({ ok: true, metric, items: rank.heritageRank({ metric, limit: req.query.limit }) });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: e.message });
+  }
+});
+
+app.get('/api/rank/products', (req, res) => {
+  try {
+    const metric = String(req.query.metric || 'sales');
+    if (!rank.PRODUCT_METRICS[metric]) {
+      return res.status(400).json({ ok: false, msg: '不支持的指标：' + Object.keys(rank.PRODUCT_METRICS).join(' / ') });
+    }
+    res.json({ ok: true, metric, items: rank.productRank({ metric, limit: req.query.limit }) });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: e.message });
   }
 });
 

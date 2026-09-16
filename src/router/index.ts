@@ -18,6 +18,9 @@ const router = createRouter({
     { path: '/about', name: 'about', component: () => import('@/views/About.vue'), meta: { anonView: true } },
     { path: '/travel', name: 'travel', component: () => import('@/views/TravelRoute.vue'), meta: { requiresAuth: true } },
 
+    // 热度榜（展示型数据，游客可浏览）
+    { path: '/rank', name: 'rank', component: () => import('@/views/RankBoard.vue'), meta: { requiresAuth: true } },
+
     // 文创商城
     { path: '/shop', name: 'shop', component: () => import('@/views/Shop.vue'), meta: { requiresAuth: true } },
     { path: '/orders', name: 'orders', component: () => import('@/views/MyOrders.vue'), meta: { requiresAuth: true } },

@@ -32,7 +32,13 @@
     <div v-if="loading" class="loading"><el-skeleton :rows="6" animated /></div>
     <div v-else-if="!products.length" class="empty">还没有上架的商品，快去管理后台添加吧～</div>
     <div v-else class="grid">
-      <div v-for="p in products" :key="p.id" class="p-card">
+      <div
+        v-for="p in products"
+        :key="p.id"
+        class="p-card"
+        :class="{ 'is-highlight': highlightId === p.id }"
+        :data-product-id="p.id"
+      >
         <div class="p-img">
           <el-image v-if="p.image" :src="p.image" fit="cover" lazy>
             <template #error>
@@ -126,8 +132,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ShoppingBag, ShoppingCart } from '@element-plus/icons-vue';
 import * as api from '@/data/api/shop';
@@ -141,6 +147,9 @@ import { useCartStore } from '@/services/stores/cartStore';
 
 const cartS = useCartStore();
 const router = useRouter();
+const route = useRoute();
+/** 由热度榜跳转过来时高亮的商品 id（?product=xxx） */
+const highlightId = ref<number | null>(null);
 const products = ref<Product[]>([]);
 const categories = ref<CategoryCnt[]>([]);
 const activeCat = ref('');
@@ -312,11 +321,30 @@ onMounted(async () => {
   await loadProducts();
   await loadCategories();
   await loadCart();
+
+  // 从热度榜点商品进来时（/shop?product=12）滚动定位并高亮该商品
+  const pid = Number(route.query.product);
+  if (!pid) return;
+  await nextTick();
+  const el = document.querySelector(`[data-product-id="${pid}"]`);
+  if (!el) return;
+  highlightId.value = pid;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.setTimeout(() => {
+    highlightId.value = null;
+  }, 3200);
 });
 </script>
 
 <style scoped>
 .shop-page { padding: 20px 24px 40px; max-width: 1180px; margin: 0 auto; }
+
+/* 从热度榜跳入时的商品高亮 */
+.p-card.is-highlight {
+  box-shadow: 0 0 0 2px #b8352b, 0 8px 24px rgba(184, 53, 43, 0.18);
+  transform: translateY(-2px);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
 .shop-hero {
   display: flex; align-items: center; justify-content: space-between;
   background: linear-gradient(135deg, var(--zi-red, #8f2317) 0%, var(--zi-cinnabar, #c03a1e) 60%, var(--zi-gold, #a97e2f) 130%);
