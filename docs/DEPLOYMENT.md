@@ -24,7 +24,8 @@
 | # | 问题 | 证据 | 影响 |
 | :-- | :--- | :--- | :--- |
 | M1 | **会话永不过期** | `server/scripts/user-db.mjs:126` sessions 表仅 `token, user_id`，无过期字段与清理 | Token 一旦泄露即长期有效，无法强制下线 |
-| M2 | **xlsx 依赖版本存在已知漏洞** | `package.json` `"xlsx": "^0.18.5"`（npm 上该版本存在原型污染/ReDoS 公告） | 用户上传的 Excel 由它解析，属于不可信输入 |
+| M2 | **xlsx 依赖存在高危漏洞，且官方无修复版本** | 实测 `npm audit --omit=dev`：xlsx 全部版本命中 **Prototype Pollution**（GHSA-4r6h-8v6p-xvw6）与 **ReDoS**（GHSA-5pgg-2g8v-p4x9），严重级别 **high**，`No fix available` | 项目用它解析**用户上传的 Excel**，属于不可信输入直通解析器；npm 上的 xlsx 已停更，需改用 SheetJS 官方 CDN 版或换成 `exceljs` |
+| M2b | **echarts XSS 漏洞** | 实测 `npm audit`：`echarts < 6.1.0` 命中 **XSS**（GHSA-fgmj-fm8m-jvvx），严重级别 **moderate**，升级至 6.1.0 为破坏性变更 | 图表 tooltip/标签渲染的数据若含用户可控内容（如用户上传图层的字段名）存在注入面 |
 | M3 | **上传文件无清理** | multer 落盘至 `server/uploads/`，未见定时清理逻辑 | 长期运行会占满磁盘 |
 | M4 | **无安全响应头 / CORS 白名单** | 未见 helmet / cors 配置 | 缺少 X-Frame-Options、CSP 等基线防护 |
 
