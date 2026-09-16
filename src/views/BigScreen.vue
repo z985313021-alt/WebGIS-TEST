@@ -111,7 +111,7 @@
             <div class="map-legend">
               <span class="legend-chip"><i class="dot yellow"></i> 黄河生态廊道</span>
               <span class="legend-chip"><i class="dot green"></i> 京杭大运河工坊</span>
-              <span class="legend-chip"><i class="dot red"></i> 核心集聚地市</span>
+              <span class="legend-chip"><i class="dot seal-dot">印</i> 非遗点位（按门类印章）</span>
             </div>
           </div>
 
@@ -176,6 +176,7 @@ import * as echarts from 'echarts';
 import { useDataStore } from '@/services/stores/dataStore';
 import shandongGeo from '@/data/shandong-city-boundary.json';
 import { CATEGORIES, CATEGORY_COLORS, categoryGlyph } from '@/data/sources/heritage';
+import { sealIconDataUri } from '@/services/map/sealIcon';
 
 const router = useRouter();
 const dataStore = useDataStore();
@@ -457,13 +458,17 @@ function updateMapChart() {
     cityCounts[i.city] = (cityCounts[i.city] || 0) + 1;
   });
 
-  const scatterData = Object.entries(CITY_COORDS).map(([city, coords]) => {
-    const count = cityCounts[city] || 0;
-    return {
-      name: city,
-      value: [coords[0], coords[1], count],
-    };
-  });
+  // 逐项非遗印章：与地图主页同一套视觉符号（门类色印面 + 门类单字）
+  // 不再做地市级聚合，也不加数量标注
+  const scatterData = activeItems.value
+    .filter((i) => Number.isFinite(i.lng) && Number.isFinite(i.lat))
+    .map((i) => ({
+      name: i.name,
+      city: i.city,
+      category: i.category,
+      value: [i.lng, i.lat],
+      symbol: 'image://' + sealIconDataUri(CATEGORY_COLORS[i.category] ?? '#8a6b45', categoryGlyph(i.category)),
+    }));
 
   mapChart.setOption({
     backgroundColor: 'transparent',
@@ -474,12 +479,9 @@ function updateMapChart() {
       borderWidth: 1,
       textStyle: { color: '#4a3a2f', fontSize: 12 },
       formatter: (params: any) => {
-        if (params.seriesType === 'effectScatter') {
-          const cName = params.data.name;
-          const count = params.data.value[2];
-          const items = activeItems.value.filter((i) => i.city === cName).slice(0, 3);
-          const itemNames = items.map((i) => `· ${i.name} (${i.category})`).join('<br/>');
-          return `<b>❖ ${cName}</b><br/>收录非遗：<b>${count}</b> 项<br/><span style="color:#d4a84e">${itemNames}</span>`;
+        if (params.seriesType === 'scatter') {
+          const d = params.data;
+          return `<b>❖ ${d.name}</b><br/>${d.category ?? ''} · ${d.city ?? ''}`;
         }
         if (params.seriesType === 'lines') return params.seriesName;
         return params.name;
@@ -547,35 +549,15 @@ function updateMapChart() {
         },
         data: [{ coords: grandCanalLine }],
       },
-      // 十六地市非遗点位散点
+      // 非遗点位：逐个用印章图标呈现（与主页一致），不做聚合、不加数量标注、不加涟漪
       {
-        name: '地市非遗',
-        type: 'effectScatter',
+        name: '非遗点位',
+        type: 'scatter',
         coordinateSystem: 'geo',
         zlevel: 2,
-        rippleEffect: {
-          // 涟漪只保留轻微的一圈，避免"电子屏"观感
-          brushType: 'stroke',
-          scale: 1.8,
-          period: 5,
-        },
-        label: {
-          show: true,
-          formatter: (p: any) => `${p.data.name} (${p.data.value[2]})`,
-          position: 'right',
-          // 浅色宣纸底上必须用墨色；原先的浅金在米色底上几乎看不清
-          color: '#6d4c2a',
-          fontSize: 11,
-          fontFamily: 'serif',
-          textBorderColor: 'rgba(255, 253, 246, 0.85)',
-          textBorderWidth: 2,
-        },
-        symbolSize: (val: any) => Math.max(9, Math.min(22, val[2] * 1.3)),
-        itemStyle: {
-          color: '#9e2a1d',
-          borderColor: '#b8352b',
-          borderWidth: 1,
-        },
+        symbolSize: 20,
+        label: { show: false },
+        emphasis: { scale: 1.25 },
         data: scatterData,
       },
     ],
@@ -827,7 +809,7 @@ onMounted(() => {
     // 图表就绪后再展开卷轴，避免展开过程中图表尺寸测量为 0
     window.setTimeout(() => {
       scrollOpen.value = true;
-      window.setTimeout(() => mapChart?.resize(), 700);
+      window.setTimeout(() => mapChart?.resize(), 820);
     }, 120);
   }, 100);
 });
@@ -891,16 +873,21 @@ onBeforeUnmount(() => {
   clip-path: inset(0 0 0 0);
 }
 
-/* 地图缓缓铺上：等卷轴展开到位后再浮现 */
+/* 地图显隐：卷轴动画期间完全不显示（visibility:hidden 不参与渲染），
+   否则地图会跟着 clip-path 裁切区域不断重排，看起来"不跟手"。
+   收起 → 立即隐藏；展开 → 等画心完全铺开(700ms)后再浮现。 */
 .map-main-panel .map-container {
   opacity: 0;
+  visibility: hidden;
   transform: scale(0.985);
-  transition: opacity 620ms ease, transform 760ms cubic-bezier(0.65, 0, 0.35, 1);
+  transition: opacity 240ms ease, visibility 0s linear 240ms, transform 240ms ease;
 }
 .heritage-scroll-root.is-open .map-main-panel .map-container {
   opacity: 1;
+  visibility: visible;
   transform: none;
-  transition-delay: 430ms;
+  transition: opacity 520ms ease 780ms, visibility 0s linear 780ms,
+    transform 620ms cubic-bezier(0.65, 0, 0.35, 1) 780ms;
 }
 
 /* ---------- 画卷左侧「题签」与十门类印章墙 ---------- */
@@ -1270,6 +1257,18 @@ onBeforeUnmount(() => {
   gap: 12px;
   font-size: 11px;
   color: #ab9b88;
+}
+.legend-chip .seal-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #b8352b;
+  color: #fff8ec;
+  font-size: 9px;
+  font-family: KaiTi, STKaiti, SimSun, serif;
 }
 .legend-chip {
   display: flex;
