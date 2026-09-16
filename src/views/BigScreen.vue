@@ -1,7 +1,13 @@
 <template>
-  <div ref="screenEl" class="heritage-scroll-root">
-    <!-- 顶部展厅卷轴标头 -->
-    <header class="scroll-header">
+  <div ref="screenEl" class="heritage-scroll-root" :class="{ 'is-open': scrollOpen }">
+    <!-- 卷轴轴头：合拢时并拢在中间，展开后分置两端 -->
+    <div class="scroll-rod rod-left"></div>
+    <div class="scroll-rod rod-right"></div>
+
+    <!-- 画心：整幅内容随卷轴展开而铺开 -->
+    <div class="scroll-stage">
+      <!-- 顶部展厅卷轴标头 -->
+      <header class="scroll-header">
       <div class="header-left">
         <el-button class="btn-return" size="small" @click="router.push('/')">
           <el-icon><Back /></el-icon> 返回平台
@@ -22,8 +28,32 @@
       </div>
     </header>
 
-    <!-- 顶部核心指标通栏（文博馆开阔陈列风格） -->
-    <section class="stat-banner">
+    <!--
+      画卷左侧的「题签」：平时只在纸边露出一枚竖排题签（像引首题名），
+      鼠标移入或点击题签才滑出十门类印章墙 —— 让它看着就是画卷的一部分。
+    -->
+    <aside class="cat-rail" :class="{ pinned: railPinned }">
+      <button class="rail-tab" :class="{ active: railPinned }" @click="railPinned = !railPinned">
+        <span class="tab-text">非遗门类</span>
+        <span class="tab-seal">印</span>
+      </button>
+      <div class="rail-body">
+        <button
+          v-for="c in categoryChips"
+          :key="c.name"
+          class="cat-btn"
+          :class="{ active: activeCategory === c.name }"
+          :title="`${c.name} · ${c.count} 项`"
+          @click="toggleCategory(c.name)"
+        >
+          <span class="seal" :style="{ background: c.color }">{{ c.glyph }}</span>
+          <span class="cnt">{{ c.count }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 原顶部指标通栏（已收起，大屏以地图为主体） -->
+    <section v-if="false" class="stat-banner">
       <div class="stat-item">
         <div class="stat-title">全省非遗总建档</div>
         <div class="stat-number gold">{{ activeItems.length }}<span class="stat-unit">项</span></div>
@@ -51,8 +81,8 @@
 
     <!-- 展屏主体交互网格（舒缓大间距，焦点聚焦于中央地图） -->
     <main class="scroll-body">
-      <!-- 左翼：门类分布与时间脉络 -->
-      <aside class="scroll-col side-col">
+      <!-- 左翼图表（已收起，仅保留地图主体；需要时可再放回） -->
+      <aside v-if="false" class="scroll-col side-col">
         <div class="heritage-panel flex-1">
           <div class="panel-header">
             <span class="panel-sym">❖</span>
@@ -115,8 +145,8 @@
         </div>
       </section>
 
-      <!-- 右翼：地市分布排位与文化走廊渗透率 -->
-      <aside class="scroll-col side-col">
+      <!-- 右翼图表（已收起） -->
+      <aside v-if="false" class="scroll-col side-col">
         <div class="heritage-panel flex-1">
           <div class="panel-header">
             <span class="panel-sym">❖</span>
@@ -133,17 +163,19 @@
           <div ref="corridorChartEl" class="chart-container"></div>
         </div>
       </aside>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { Back, FullScreen, VideoPlay, VideoPause } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import { useDataStore } from '@/services/stores/dataStore';
 import shandongGeo from '@/data/shandong-city-boundary.json';
+import { CATEGORIES, CATEGORY_COLORS, categoryGlyph } from '@/data/sources/heritage';
 
 const router = useRouter();
 const dataStore = useDataStore();
@@ -180,10 +212,41 @@ let mapChart: echarts.ECharts | null = null;
 let cityRankChart: echarts.ECharts | null = null;
 let corridorChart: echarts.ECharts | null = null;
 
-// 过滤要素
+/** 当前下钻的地市（null = 全省视角）；由地市榜点击驱动 */
+const activeCity = ref<string | null>(null);
+/** 当前选中的非遗门类（null = 全部门类）；由左侧印章墙驱动 */
+const activeCategory = ref<string | null>(null);
+/** 题签是否被钉住展开（悬停也会临时展开） */
+const railPinned = ref(false);
+
+/** 印章墙数据：沿用平台主页的十门类图标与色标 */
+const categoryChips = computed(() =>
+  CATEGORIES.map((name) => ({
+    name,
+    color: CATEGORY_COLORS[name] ?? '#8a6b45',
+    glyph: categoryGlyph(name),
+    count: dataStore.items.filter((i) => i.category === name).length,
+  })),
+);
+
+/** 点门类：再点一次取消；筛选后地图与图表一起收敛 */
+function toggleCategory(name: string) {
+  activeCategory.value = activeCategory.value === name ? null : name;
+  refreshAllCharts();
+  applyCityFocus();
+  // 选完就把题签收回去，让画面重新变回一整幅画
+  window.setTimeout(() => {
+    railPinned.value = false;
+  }, 900);
+}
+
+// 过滤要素：批次 + 地市两级
 const activeItems = computed(() => {
-  if (currentBatch.value === 0) return dataStore.items;
-  return dataStore.items.filter((item) => item.batch === currentBatch.value);
+  let list = dataStore.items;
+  if (currentBatch.value !== 0) list = list.filter((item) => item.batch === currentBatch.value);
+  if (activeCity.value) list = list.filter((item) => item.city === activeCity.value);
+  if (activeCategory.value) list = list.filter((item) => item.category === activeCategory.value);
+  return list;
 });
 
 // 注册山东省地图
@@ -251,7 +314,7 @@ function updateCategoryChart() {
 
   // 温润宣纸与朱砂赭墨配色
   const colors = [
-    '#9e2a1d', '#c59b3f', '#3c6a50', '#7a5a2a', '#a65628',
+    '#9e2a1d', '#c9b89a', '#3c6a50', '#7a5a2a', '#a65628',
     '#5c7a82', '#b38242', '#8c3d2e', '#486856', '#d4a84e'
   ];
 
@@ -259,30 +322,33 @@ function updateCategoryChart() {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: '#272019',
-      borderColor: '#c59b3f',
+      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      borderColor: '#c9b89a',
       borderWidth: 1,
-      textStyle: { color: '#f5edd8', fontSize: 12 },
+      textStyle: { color: '#4a3a2f', fontSize: 12 },
       formatter: '{b}：<b>{c}</b> 项 ({d}%)',
     },
+    // 图例改底部横排：竖排在面板高度不足时会把文字压到饼图上
     legend: {
-      orient: 'vertical',
-      right: '2%',
-      top: 'middle',
-      textStyle: { color: '#c2b39f', fontSize: 11 },
+      orient: 'horizontal',
+      bottom: 0,
+      left: 'center',
       itemWidth: 8,
       itemHeight: 8,
+      itemGap: 8,
+      textStyle: { color: '#6d5b45', fontSize: 10, width: 58, overflow: 'truncate' },
+      formatter: (name: string) => (name === '传统体育、游艺与杂技' ? '体育游艺' : name.replace(/^传统/, '')),
     },
     series: [
       {
         name: '非遗门类',
         type: 'pie',
-        radius: ['42%', '68%'],
-        center: ['36%', '50%'],
+        radius: ['40%', '66%'],
+        center: ['50%', '44%'],
         avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 3,
-          borderColor: '#1e1813',
+          borderColor: '#e6ddcc',
           borderWidth: 2,
         },
         color: colors,
@@ -292,7 +358,7 @@ function updateCategoryChart() {
             show: true,
             fontSize: 13,
             fontWeight: 'bold',
-            color: '#e8cb85',
+            color: '#b8352b',
             formatter: '{b}\n{c} 项',
           },
         },
@@ -325,9 +391,9 @@ function initBatchTrendChart() {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#272019',
-      borderColor: '#c59b3f',
-      textStyle: { color: '#f5edd8', fontSize: 12 },
+      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      borderColor: '#c9b89a',
+      textStyle: { color: '#4a3a2f', fontSize: 12 },
     },
     grid: { left: '12%', right: '6%', top: '16%', bottom: '18%' },
     xAxis: {
@@ -347,8 +413,8 @@ function initBatchTrendChart() {
         type: 'line',
         smooth: true,
         data: cumulative,
-        lineStyle: { color: '#c59b3f', width: 2.5 },
-        itemStyle: { color: '#9e2a1d', borderColor: '#c59b3f', borderWidth: 1.5 },
+        lineStyle: { color: '#c9b89a', width: 2.5 },
+        itemStyle: { color: '#9e2a1d', borderColor: '#c9b89a', borderWidth: 1.5 },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: 'rgba(197, 155, 63, 0.35)' },
@@ -375,6 +441,12 @@ function initMapChart() {
   if (!mapChartEl.value) return;
   mapChart = echarts.init(mapChartEl.value);
   updateMapChart();
+  // 点地图上的地市 → 下钻该市（卷轴收起再展开的转场）
+  mapChart.on('click', (params: { name?: string }) => {
+    const name = params?.name;
+    if (!name || !CITY_COORDS[name]) return; // 只响应地市区域，点到散点不触发
+    void jumpToCity(name);
+  });
 }
 
 function updateMapChart() {
@@ -397,10 +469,10 @@ function updateMapChart() {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: '#272019',
-      borderColor: '#c59b3f',
+      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      borderColor: '#c9b89a',
       borderWidth: 1,
-      textStyle: { color: '#f5edd8', fontSize: 12 },
+      textStyle: { color: '#4a3a2f', fontSize: 12 },
       formatter: (params: any) => {
         if (params.seriesType === 'effectScatter') {
           const cName = params.data.name;
@@ -420,21 +492,22 @@ function updateMapChart() {
       center: [118.8, 36.3],
       aspectScale: 0.85,
       itemStyle: {
-        areaColor: '#1d1712',
-        borderColor: '#544332',
+        // 宣纸山水：浅米底 + 淡墨描边，与整幅卷轴同色系
+        areaColor: '#f7f0dd',
+        borderColor: '#c9b89a',
         borderWidth: 1.2,
-        shadowColor: 'rgba(0, 0, 0, 0.5)',
-        shadowBlur: 10,
+        shadowColor: 'rgba(43, 34, 24, 0.10)',
+        shadowBlur: 12,
       },
       emphasis: {
         itemStyle: {
-          areaColor: '#2b2119',
-          borderColor: '#c59b3f',
+          areaColor: '#f0e0bc',
+          borderColor: '#b8352b',
           borderWidth: 1.5,
         },
         label: {
           show: true,
-          color: '#faeed7',
+          color: '#6d4c2a',
           fontSize: 12,
         },
       },
@@ -449,18 +522,14 @@ function updateMapChart() {
         type: 'lines',
         coordinateSystem: 'geo',
         zlevel: 1,
-        effect: {
-          show: true,
-          period: 4,
-          trailLength: 0.25,
-          symbol: 'circle',
-          symbolSize: 4,
-          color: '#c59b3f',
-        },
+        // 不做流动光效：卷轴底色上跑光会显得很"电子屏"，
+        // 只用静态虚线表现廊道走向
+        effect: { show: false },
         lineStyle: {
-          color: 'rgba(197, 155, 63, 0.45)',
-          width: 2.5,
+          color: 'rgba(197, 155, 63, 0.75)',
+          width: 2,
           curveness: 0.2,
+          type: 'dashed',
         },
         data: [{ coords: yellowRiverLine }],
       },
@@ -470,14 +539,7 @@ function updateMapChart() {
         type: 'lines',
         coordinateSystem: 'geo',
         zlevel: 1,
-        effect: {
-          show: true,
-          period: 3.5,
-          trailLength: 0.25,
-          symbol: 'circle',
-          symbolSize: 4,
-          color: '#3c6a50',
-        },
+        effect: { show: false },
         lineStyle: {
           color: 'rgba(60, 106, 80, 0.45)',
           width: 2.2,
@@ -492,22 +554,26 @@ function updateMapChart() {
         coordinateSystem: 'geo',
         zlevel: 2,
         rippleEffect: {
+          // 涟漪只保留轻微的一圈，避免"电子屏"观感
           brushType: 'stroke',
-          scale: 2.8,
-          period: 4,
+          scale: 1.8,
+          period: 5,
         },
         label: {
           show: true,
           formatter: (p: any) => `${p.data.name} (${p.data.value[2]})`,
           position: 'right',
-          color: '#e5ca8b',
+          // 浅色宣纸底上必须用墨色；原先的浅金在米色底上几乎看不清
+          color: '#6d4c2a',
           fontSize: 11,
           fontFamily: 'serif',
+          textBorderColor: 'rgba(255, 253, 246, 0.85)',
+          textBorderWidth: 2,
         },
         symbolSize: (val: any) => Math.max(9, Math.min(22, val[2] * 1.3)),
         itemStyle: {
           color: '#9e2a1d',
-          borderColor: '#e8cb85',
+          borderColor: '#b8352b',
           borderWidth: 1,
         },
         data: scatterData,
@@ -521,6 +587,10 @@ function initCityRankChart() {
   if (!cityRankChartEl.value) return;
   cityRankChart = echarts.init(cityRankChartEl.value);
   updateCityRankChart();
+  // 点击柱条 → 下钻该市（卷轴收起再展开的转场）
+  cityRankChart.on('click', (params: { name?: string }) => {
+    if (params?.name) void jumpToCity(String(params.name));
+  });
 }
 
 function updateCityRankChart() {
@@ -542,9 +612,9 @@ function updateCityRankChart() {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: '#272019',
-      borderColor: '#c59b3f',
-      textStyle: { color: '#f5edd8', fontSize: 12 },
+      backgroundColor: 'rgba(43, 34, 24, 0.92)',
+      borderColor: '#c9b89a',
+      textStyle: { color: '#4a3a2f', fontSize: 12 },
     },
     grid: { left: '16%', right: '12%', top: '12%', bottom: '18%', containLabel: false },
     xAxis: {
@@ -571,7 +641,7 @@ function updateCityRankChart() {
             if (params.dataIndex >= cities.length - 3) {
               return new echarts.graphic.LinearGradient(1, 0, 0, 0, [
                 { offset: 0, color: '#9e2a1d' },
-                { offset: 1, color: '#c59b3f' },
+                { offset: 1, color: '#c9b89a' },
               ]);
             }
             return '#7a5a2a';
@@ -599,9 +669,9 @@ function initCorridorChart() {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: '#272019',
+      backgroundColor: 'rgba(43, 34, 24, 0.92)',
       borderColor: '#3c6a50',
-      textStyle: { color: '#f5edd8', fontSize: 12 },
+      textStyle: { color: '#4a3a2f', fontSize: 12 },
     },
     grid: { left: '33%', right: '12%', top: '12%', bottom: '18%', containLabel: false },
     xAxis: {
@@ -690,6 +760,59 @@ function updateTime() {
   currentTime.value = `${Y}年${M}月${D}日 ${h}:${m}:${s}`;
 }
 
+/**
+ * 卷轴开合：进页时先合拢（两根轴并在中间），再横向展开把画心铺开，
+ * 展开完成后中央地图才缓缓浮现 —— 即「卷轴展开、地图慢慢铺上去」。
+ */
+const scrollOpen = ref(false);
+let scrollTimer: number | null = null;
+
+/** 卷轴收起 → 执行切换 → 再展开（用于点击地市跳转的转场） */
+async function withScrollTransition(mutate: () => void | Promise<void>) {
+  scrollOpen.value = false;
+  if (scrollTimer) window.clearTimeout(scrollTimer);
+  await new Promise((r) => {
+    scrollTimer = window.setTimeout(r, 520);
+  });
+  await mutate();
+  await nextTick();
+  mapChart?.resize();
+  scrollOpen.value = true;
+}
+
+/** 图表随筛选数据整体刷新 */
+function refreshAllCharts() {
+  // 批次趋势与走廊覆盖比是静态基线，不随地市下钻变化
+  updateCategoryChart();
+  updateMapChart();
+  updateCityRankChart();
+}
+
+/** 地图聚焦：全省 ↔ 某市 */
+function applyCityFocus() {
+  if (!mapChart) return;
+  const city = activeCity.value;
+  if (!city) {
+    mapChart.setOption({ geo: { zoom: 1.16, center: [118.8, 36.3] } });
+    return;
+  }
+  const coord = CITY_COORDS[city] ?? [118.8, 36.3];
+  mapChart.setOption({ geo: { zoom: 2.6, center: coord } });
+}
+
+/**
+ * 点击地市榜某个市：先把卷轴收起，切换视角与数据后再展开。
+ * 再次点击同一个市则返回全省视角。
+ */
+async function jumpToCity(cityShort: string) {
+  const full = cityShort.endsWith('市') ? cityShort : `${cityShort}市`;
+  await withScrollTransition(async () => {
+    activeCity.value = activeCity.value === full ? null : full;
+    refreshAllCharts();
+    applyCityFocus();
+  });
+}
+
 onMounted(() => {
   updateTime();
   timerId = setInterval(updateTime, 1000);
@@ -701,6 +824,11 @@ onMounted(() => {
     initMapChart();
     initCityRankChart();
     initCorridorChart();
+    // 图表就绪后再展开卷轴，避免展开过程中图表尺寸测量为 0
+    window.setTimeout(() => {
+      scrollOpen.value = true;
+      window.setTimeout(() => mapChart?.resize(), 700);
+    }, 120);
   }, 100);
 });
 
@@ -717,15 +845,185 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 东方墨韵沉香展厅基底（摒弃科幻蓝黑网格，采用温润深古木与宣纸暗调） */
+/* ---------- 卷轴：轴头 + 画心 ---------- */
+/* 整屏 = 一幅展开的卷轴：两根轴头先合拢在中间，再横向展开分置两端，
+   画心（全部内容）随之铺开；中央地图在展开到位后缓缓浮现 */
+.heritage-scroll-root {
+  position: relative;
+  overflow: hidden;
+}
+.scroll-rod {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  z-index: 9;
+  border-radius: 13px;
+  background: linear-gradient(90deg, #7a5433 0%, #b08550 45%, #6d4c2a 100%);
+  box-shadow:
+    0 0 18px rgba(43, 34, 24, 0.26),
+    inset 0 0 0 1px rgba(255, 248, 236, 0.4);
+  transition: transform 640ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* 合拢状态：两根轴并到屏幕中线 */
+.rod-left {
+  left: 0;
+  transform: translateX(calc(50vw - 13px));
+}
+.rod-right {
+  right: 0;
+  transform: translateX(calc(-50vw + 13px));
+}
+.heritage-scroll-root.is-open .rod-left,
+.heritage-scroll-root.is-open .rod-right {
+  transform: translateX(0);
+}
+
+/* 画心：从中间向两侧展开 */
+.scroll-stage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  clip-path: inset(0 50% 0 50%);
+  transition: clip-path 700ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.heritage-scroll-root.is-open .scroll-stage {
+  clip-path: inset(0 0 0 0);
+}
+
+/* 地图缓缓铺上：等卷轴展开到位后再浮现 */
+.map-main-panel .map-container {
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 620ms ease, transform 760ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.heritage-scroll-root.is-open .map-main-panel .map-container {
+  opacity: 1;
+  transform: none;
+  transition-delay: 430ms;
+}
+
+/* ---------- 画卷左侧「题签」与十门类印章墙 ---------- */
+/* 平时只在纸边露出一枚竖排题签（像书画引首），点击才滑出印章墙 */
+.cat-rail {
+  position: absolute;
+  /* 让开卷轴轴头（轴头占左侧 26px），题签贴在轴头右侧像画卷的引首 */
+  left: 27px;
+  top: 88px;
+  z-index: 12;
+  display: flex;
+  align-items: flex-start;
+  max-height: calc(100vh - 110px);
+}
+.rail-tab {
+  position: relative;
+  z-index: 2;
+  width: 26px;
+  padding: 12px 0 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(180deg, #faf5e9 0%, #efe4cd 100%);
+  border: 1px solid #d8c9a8;
+  border-left: none;
+  border-radius: 0 9px 9px 0;
+  box-shadow: 2px 0 12px rgba(43, 34, 24, 0.12);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.rail-tab:hover,
+.rail-tab.active {
+  background: linear-gradient(180deg, #fff9ec 0%, #f3e9d4 100%);
+}
+.tab-text {
+  writing-mode: vertical-rl;
+  letter-spacing: 2.5px;
+  font-size: 11px;
+  color: #6d4c2a;
+  font-family: var(--zi-font-serif, "STSong", "Songti SC", serif);
+}
+.tab-seal {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff8ec;
+  background: #b8352b;
+  border-radius: 3px;
+  font-family: KaiTi, STKaiti, SimSun, serif;
+}
+/* 印章墙：默认收在题签之后（与题签咬合），点击题签滑出 */
+.rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 8px;
+  margin-left: -9px;
+  padding-left: 14px;
+  background: linear-gradient(180deg, #2a2320 0%, #1c1815 100%);
+  border-radius: 0 12px 12px 0;
+  box-shadow: 5px 0 20px rgba(43, 34, 24, 0.24);
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  transform: translateX(-108%);
+  transition: transform 430ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.cat-rail.pinned .rail-body {
+  transform: translateX(0);
+}
+.cat-btn {
+  flex: 0 0 auto;
+  width: 50px;
+  padding: 4px 0 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, transform 0.18s;
+}
+.cat-btn:hover {
+  background: rgba(255, 248, 236, 0.08);
+  transform: translateY(-1px);
+}
+.cat-btn.active {
+  background: rgba(184, 53, 43, 0.24);
+  border-color: rgba(217, 160, 32, 0.6);
+}
+.cat-btn .seal {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff8ec;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: KaiTi, STKaiti, SimSun, serif;
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 236, 0.5);
+}
+.cat-btn .cnt {
+  font-size: 10px;
+  color: #cdbda2;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+/* 展厅基底：温润宣纸 + 朱砂淡晕 */
 .heritage-scroll-root {
   width: 100%;
   min-height: 100vh;
-  background-color: #16120e;
+  background-color: #efe7d6;
   background-image:
     radial-gradient(ellipse 70% 50% at 50% 0%, rgba(158, 42, 29, 0.08), transparent 70%),
-    radial-gradient(ellipse 80% 60% at 50% 60%, rgba(30, 24, 18, 0.9), #14100c);
-  color: #f2e9db;
+    radial-gradient(ellipse 80% 60% at 50% 60%, rgba(158, 42, 29, 0.05), #f5efe0);
+  color: #4a3a2f;
   font-family: var(--zi-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   display: flex;
   flex-direction: column;
@@ -749,14 +1047,14 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
 }
 .btn-return {
-  background: #251e18;
+  background: #f8f2e4;
   border-color: #5a4531;
-  color: #c59b3f;
+  color: #8a6b45;
   font-family: var(--zi-font-serif, serif);
 }
 .btn-return:hover {
-  background: #36291f;
-  border-color: #c59b3f;
+  background: #f0e7d4;
+  border-color: #8a6b45;
   color: #ffffff;
 }
 .heritage-seal {
@@ -785,8 +1083,8 @@ onBeforeUnmount(() => {
   font-size: clamp(13px, 1.45vw, 22px);
   font-weight: 700;
   letter-spacing: clamp(0px, 0.14vw, 2px);
-  color: #fbf5ea;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  color: #4a3a2f;
+  text-shadow: none;
   white-space: nowrap;
   max-width: 100%;
   overflow: hidden;
@@ -813,13 +1111,13 @@ onBeforeUnmount(() => {
 .cur-time {
   font-family: var(--zi-font-serif, serif);
   font-size: 13px;
-  color: #c59b3f;
+  color: #8a6b45;
   letter-spacing: 0.5px;
 }
 .btn-fullscreen {
-  background: #251e18;
+  background: #f8f2e4;
   border-color: #5a4531;
-  color: #e5ded3;
+  color: #6d5b45;
 }
 
 /* 顶部核心指标通栏（文博馆开阔陈列） */
@@ -827,12 +1125,12 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  background: #201913;
+  background: #faf5ea;
   border: 1px solid #3d3023;
   border-radius: 6px;
   padding: 12px 20px;
   margin-bottom: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 16px rgba(43, 34, 24, 0.10);
 }
 .stat-item {
   text-align: center;
@@ -873,12 +1171,15 @@ onBeforeUnmount(() => {
 }
 
 /* 主体交互网格（舒缓大间距） */
+/* 主体：两翼图表已收起，只留中央地图，因此用 flex 让地图铺满整幅卷轴 */
 .scroll-body {
-  display: grid;
-  grid-template-columns: 290px minmax(0, 1fr) 290px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   flex: 1;
   min-height: 0;
+  padding: 0 16px 16px;
+  box-sizing: border-box;
 }
 @media (max-width: 1180px) {
   .scroll-body {
@@ -898,7 +1199,7 @@ onBeforeUnmount(() => {
 
 /* 典雅卡片通用样式 */
 .heritage-panel {
-  background: #1f1812;
+  background: #fffdf8;
   border: 1px solid #3e3124;
   border-radius: 6px;
   padding: 12px 16px;
@@ -938,11 +1239,13 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-/* 中央主地图视窗 */
+/* 中央主地图视窗：两翼收起后需要撑满整幅卷轴（宽与高都要） */
 .center-col {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 .map-main-panel {
   flex: 1;
@@ -979,7 +1282,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   display: inline-block;
 }
-.dot.yellow { background: #c59b3f; }
+.dot.yellow { background: #d9a020; }
 .dot.green { background: #3c6a50; }
 .dot.red { background: #9e2a1d; }
 
@@ -995,7 +1298,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #281f18;
+  background: #f6efe0;
   border: 1px solid #4a3a2b;
   border-radius: 6px;
   padding: 8px 14px;
@@ -1027,7 +1330,7 @@ onBeforeUnmount(() => {
   overflow-x: auto;
 }
 .time-chip {
-  background: #1b1510;
+  background: #fffdf8;
   border: 1px solid #443526;
   color: #a89985;
   padding: 4px 8px;
@@ -1038,13 +1341,13 @@ onBeforeUnmount(() => {
   transition: all 160ms ease-out;
 }
 .time-chip:hover {
-  border-color: #c59b3f;
+  border-color: #8a6b45;
   color: #f7eedb;
 }
 .time-chip.active {
-  background: #c59b3f;
-  border-color: #c59b3f;
-  color: #1e1813;
+  background: #c9b89a;
+  border-color: #8a6b45;
+  color: #e6ddcc;
   font-weight: bold;
 }
 </style>
