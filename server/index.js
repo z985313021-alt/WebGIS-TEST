@@ -285,9 +285,18 @@ function publicUser(u) {
   return { id: u.id, username: u.username, email: u.email, role: u.role, createdAt: u.createdAt };
 }
 
-// 注册新用户（成功即签发 token：注册后自动进入系统）
+/**
+ * 注册邀请码：注册必须提供，用于限制开放注册带来的流量与滥用。
+ * 优先读环境变量 REGISTER_INVITE_CODE，便于线上随时更换而无需改代码。
+ */
+const REGISTER_INVITE_CODE = process.env.REGISTER_INVITE_CODE || '1145141919810';
+
+// 注册新用户（需邀请码；成功即签发 token：注册后自动进入系统）
 app.post('/api/auth/register', registerLimiter, (req, res) => {
-  const { username, email, password } = req.body ?? {};
+  const { username, email, password, inviteCode } = req.body ?? {};
+  if (String(inviteCode ?? '').trim() !== REGISTER_INVITE_CODE) {
+    return res.status(403).json({ ok: false, msg: '邀请码不正确，无法注册' });
+  }
   try {
     const user = registerUser(username, email, password);
     const sess = loginUser(user.username, password);

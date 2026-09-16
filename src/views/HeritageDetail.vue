@@ -8,9 +8,20 @@
       <div class="dl-gallery">
         <el-card shadow="never">
           <div class="gallery">
-            <img v-if="!imgError && photos.length" :src="photos[activePhoto]" class="main-img" @error="imgError = true" />
+            <!-- 未登录时不加载实景照片（图片是主要出口流量），改显示门类占位图 + 登录提示 -->
+            <img
+              v-if="canViewPhotos && !imgError && photos.length"
+              :src="photos[activePhoto]"
+              class="main-img"
+              @error="imgError = true"
+            />
             <img v-else :src="getHeritagePlaceholder(item.category)" class="main-img" :alt="item.name" />
-            <div v-if="photos.length > 1" class="thumbs">
+            <div v-if="!userStore.isLoggedIn" class="photo-gate">
+              <span class="pg-icon">🔒</span>
+              <span class="pg-text">登录后可查看非遗实景照片</span>
+              <el-button size="small" type="primary" @click="goLogin">去登录</el-button>
+            </div>
+            <div v-else-if="photos.length > 1" class="thumbs">
               <img
                 v-for="(p, i) in photos"
                 :key="i"
@@ -138,6 +149,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { User, Star, StarFilled } from '@element-plus/icons-vue';
 import { useDataStore } from '@/services/stores/dataStore';
+import { useUserStore } from '@/services/stores/userStore';
 import { CATEGORY_COLORS, batchLabel } from '@/data/sources/heritage';
 import { getHeritagePlaceholder } from '@/data/sources/assets';
 import HeritageMiniMap from '@/components/map/HeritageMiniMap.vue';
@@ -152,7 +164,16 @@ import {
 const route = useRoute();
 const router = useRouter();
 const store = useDataStore();
+const userStore = useUserStore();
 store.init();
+
+/** 是否允许加载实景照片：未登录不加载，避免游客消耗图片流量 */
+const canViewPhotos = computed(() => userStore.isLoggedIn);
+
+/** 跳登录并带上回跳地址 */
+function goLogin() {
+  void router.push({ path: '/auth', query: { from: route.fullPath } });
+}
 
 const activePhoto = ref(0);
 const imgError = ref(false);
@@ -338,6 +359,22 @@ function viewOnMap() {
 .header { margin-bottom: 16px; }
 .gallery .main-img { width: 100%; height: 320px; object-fit: cover; border-radius: 8px; }
 .main-img.placeholder { display: flex; align-items: center; justify-content: center; font-size: 72px; }
+/* 未登录的照片门控提示 */
+.photo-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fdf8ed;
+  border: 1px dashed #deb866;
+  font-size: 12px;
+  color: #8f6517;
+}
+.photo-gate .pg-icon { font-size: 14px; }
+.photo-gate .pg-text { flex: 0 0 auto; }
 .thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; }
 .thumb { width: 72px; height: 56px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
 .thumb.active { border-color: #409eff; }

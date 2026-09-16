@@ -200,6 +200,14 @@
                     @keyup.enter="onRegister"
                   />
                 </el-form-item>
+                <el-form-item prop="inviteCode">
+                  <el-input
+                    v-model="regForm.inviteCode"
+                    placeholder="请输入邀请码（必填）"
+                    :prefix-icon="Message"
+                    @keyup.enter="onRegister"
+                  />
+                </el-form-item>
 
                 <el-button
                   type="primary"
@@ -344,7 +352,7 @@ const from = (route.query.from ? { path: String(route.query.from) } : null) as {
 const loginFormRef = ref<FormInstance>();
 const regFormRef = ref<FormInstance>();
 const loginForm = reactive({ account: '', password: '' });
-const regForm = reactive({ username: '', email: '', password: '', confirmPassword: '' });
+const regForm = reactive({ username: '', email: '', password: '', confirmPassword: '', inviteCode: '' });
 
 const featuresRef = ref<HTMLElement | null>(null);
 
@@ -356,6 +364,10 @@ const loginRules: FormRules = {
 
 // 注册表单规则（放宽特殊字符限制）
 const regRules: FormRules = {
+  inviteCode: [
+    { required: true, message: '请输入邀请码', trigger: 'blur' },
+    { min: 6, message: '邀请码格式不正确', trigger: 'blur' },
+  ],
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/, message: '2-20 位字母、数字、下划线或中文', trigger: 'blur' },
@@ -547,6 +559,7 @@ async function onRegister() {
       username: regForm.username.trim(),
       email: regForm.email.trim(),
       password: regForm.password,
+      inviteCode: regForm.inviteCode.trim(),
     });
     ElMessage.success(`注册成功，欢迎 ${user.username}！`);
     goHome();
