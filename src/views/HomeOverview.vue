@@ -396,6 +396,8 @@ watch(chartOpen, (open) => {
   flex-shrink: 0;
 }
 .pl-body {
+  /* 撑满剩余宽度：否则数值列会随名称长短左右浮动，右边界对不齐 */
+  flex: 1;
   min-width: 0;
 }
 .pl-name {
@@ -428,7 +430,9 @@ watch(chartOpen, (open) => {
 .medal-2 { background: linear-gradient(135deg, #b9b3a6, #948d80); }
 .medal-3 { background: linear-gradient(135deg, #c88a55, #a96a37); }
 .pl-val {
-  flex-shrink: 0;
+  /* 固定宽度 + 右对齐，让各行热度值成一条竖线 */
+  flex: 0 0 46px;
+  text-align: right;
   font-size: 12px;
   font-weight: 700;
   color: #b8352b;

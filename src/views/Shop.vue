@@ -388,6 +388,104 @@ onMounted(async () => {
 <style scoped>
 .shop-page { padding: 20px 24px 40px; max-width: 1180px; margin: 0 auto; }
 
+/* ---------- 文创热销榜（横向滚动卡片条） ---------- */
+.hot-rank {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #fffdf8;
+  border: 1px solid #efe7d6;
+  border-radius: 12px;
+}
+.hr-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.hr-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6d4c2a;
+  font-family: var(--zi-font-serif, "STSong", "Songti SC", serif);
+}
+.hr-sub {
+  font-size: 11px;
+  color: #a08c72;
+}
+.hr-list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.hr-card {
+  flex: 0 0 176px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #f0e9da;
+  cursor: pointer;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+.hr-card:hover {
+  box-shadow: 0 4px 14px rgba(43, 34, 24, 0.1);
+  transform: translateY(-1px);
+}
+.hr-top {
+  border-color: #e8d5a8;
+  background: #fffdf6;
+}
+.hr-rank {
+  flex: 0 0 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a08c72;
+  background: #f2ece0;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.hr-top .hr-rank {
+  background: linear-gradient(135deg, #d4a03c, #b8802a);
+  color: #fff;
+}
+.hr-img {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #efe7d6;
+}
+.hr-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #a08c72;
+  background: #f7f2e6;
+}
+.hr-info {
+  min-width: 0;
+}
+.hr-name {
+  font-size: 12px;
+  color: #4a3a2f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hr-sales {
+  font-size: 11px;
+  color: #a08c72;
+}
+
 /* 从热度榜跳入时的商品高亮 */
 .p-card.is-highlight {
   box-shadow: 0 0 0 2px #b8352b, 0 8px 24px rgba(184, 53, 43, 0.18);
