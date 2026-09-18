@@ -10,6 +10,7 @@
       <aside class="chat-side">
         <div class="side-header">
           <input v-model="search" placeholder="🔍 搜索用户..." class="search-input" />
+          <div style="font-size:10px;color:#999;margin-top:4px">调试: unread={{ JSON.stringify(unread) }} me={{ me }}</div>
         </div>
         <div class="side-list">
           <!-- 未读 -->
@@ -94,7 +95,19 @@ const messages = ref([]);
 const draft = ref('');
 const search = ref('');
 const unread = ref([]);
-const me = ref(Number(localStorage.getItem('webgis_user_id') || 0));
+const me = ref(getMyId());
+function getMyId() {
+  const stored = localStorage.getItem('webgis_user_id');
+  if (stored) return Number(stored);
+  try {
+    const u = JSON.parse(localStorage.getItem('webgis_user') || '{}');
+    if (u?.id) {
+      localStorage.setItem('webgis_user_id', String(u.id));   // 补存
+      return Number(u.id);
+    }
+  } catch {}
+  return 0;
+}
 const msgsRef = ref(null);
 let pollTimer = null;
 

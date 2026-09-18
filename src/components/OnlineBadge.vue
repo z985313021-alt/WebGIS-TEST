@@ -30,7 +30,7 @@ onUnmounted(() => clearInterval(timer));
 </script>
 
 <style scoped>
-.online-badge { display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 999px; background: #f5efe0; border: 1px solid #e6ddcc; font-size: 12px; font-family: var(--zi-font-sans); transition: all .3s; cursor: default; }
+.online-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: #f5efe0; border: 1px solid #e6ddcc; font-size: 11px; font-family: var(--zi-font-sans); transition: all .3s; cursor: default; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .online-badge.live { background: #e8f5e9; border-color: #a5d6a7; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: #b0a090; transition: .3s; }
 .live .dot { background: #388e3c; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }

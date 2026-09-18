@@ -53,6 +53,7 @@ export const useUserStore = defineStore('user', {
       this.user = user;
       localStorage.setItem(AUTH_TOKEN_KEY, token);
       localStorage.setItem('webgis_user', JSON.stringify(user));
+      localStorage.setItem('webgis_user_id', String(user.id));
     },
     clear() {
       this.token = '';
