@@ -398,15 +398,15 @@ app.post('/api/messages', requireAuth, writeLimiter, (req, res) => {
   }
 });
 
+// 未读消息统计（必须在 /:userId 之前，否则 Express 会把 unread 当成 userId 参数）
+app.get('/api/messages/unread', requireAuth, (req, res) => {
+  res.json({ ok: true, unread: msgDb.getUnread(req.user.id) });
+});
+
 // 获取与某用户的对话记录
 app.get('/api/messages/:userId', requireAuth, (req, res) => {
   const rows = msgDb.getConversation(req.user.id, Number(req.params.userId));
   res.json({ ok: true, messages: rows });
-});
-
-// 未读消息统计
-app.get('/api/messages/unread', requireAuth, (req, res) => {
-  res.json({ ok: true, unread: msgDb.getUnread(req.user.id) });
 });
 
 // 标记已读
