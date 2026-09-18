@@ -136,13 +136,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import * as api from '@/data/api/shop';
 import type { Order, Product } from '@/data/api/shop';
 import { HD_ASSETS } from '@/data/sources/assets';
 import { onEvent } from '@/composables/useWebSocket';
 
-const tab = ref('orders');
+const route = useRoute();
+const tab = ref((route.query.tab as string) || 'orders');
 const orders = ref<Order[]>([]);
 const stat = reactive<Record<string, number>>({ total: 0, pending: 0, paid: 0, shipped: 0, done: 0, cancelled: 0 });
 const products = ref<Product[]>([]);

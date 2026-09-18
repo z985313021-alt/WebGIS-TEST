@@ -1,9 +1,8 @@
 <template>
-  <div class="online-badge" :class="{ live: wsConnected }" :title="wsConnected ? 'WebSocket 已连接' : '连接中...'">
+  <div class="online-badge" :class="{ live: wsConnected }" :title="wsConnected ? 'WebSocket 已连接 · ' + total + '人在线' : '连接中...'">
     <span class="dot"></span>
-    <span class="txt">{{ wsConnected ? '在线' : '连接中' }}</span>
-    <span v-if="wsConnected && total > 0" class="cnt">{{ total }}人</span>
-    <span v-if="wsConnected" class="redis" :title="redisOk ? 'Redis 已连接' : '内存模式'">●</span>
+    <span class="txt">{{ wsConnected ? total + '人在线' : '连接中' }}</span>
+    <span v-if="wsConnected && redisOk" class="redis" title="Redis 已连接">⚡</span>
   </div>
 </template>
 
@@ -31,12 +30,12 @@ onUnmounted(() => clearInterval(timer));
 </script>
 
 <style scoped>
-.online-badge { display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,0.07); font-size: 12px; font-family: var(--zi-font-sans); }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; transition: .3s; }
-.live .dot { background: #4caf50; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }
-.txt { color: #6d4c2a; }
-.live .txt { color: #4caf50; font-weight: 600; }
-.cnt { background: #b8352b; color: #fff; border-radius: 999px; padding: 0 6px; font-size: 10px; }
-.redis { font-size: 8px; color: #4caf50; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.online-badge { display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 999px; background: #f5efe0; border: 1px solid #e6ddcc; font-size: 12px; font-family: var(--zi-font-sans); transition: all .3s; cursor: default; }
+.online-badge.live { background: #e8f5e9; border-color: #a5d6a7; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #b0a090; transition: .3s; }
+.live .dot { background: #388e3c; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }
+.txt { color: #6d4c2a; font-weight: 600; }
+.live .txt { color: #2e7d32; }
+.redis { font-size: 10px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 </style>
