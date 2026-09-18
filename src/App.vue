@@ -20,6 +20,8 @@
       </el-menu>
 
       <div class="user-area">
+        <OnlineBadge v-if="user.isLoggedIn" />
+        <AdminNotification v-if="user.isLoggedIn && user.isAdmin" />
         <!-- 未登录 / 游客：显示登录按钮 -->
         <template v-if="!user.isLoggedIn">
           <el-button size="small" type="primary" class="btn-login-rect" @click="router.push('/login')">
@@ -98,6 +100,8 @@
       </router-view>
     </el-main>
   </el-container>
+  <ChatPanel v-if="user.isLoggedIn" />
+  <WsDebug v-if="user.isLoggedIn" />
 </template>
 
 <script setup lang="ts">
@@ -121,6 +125,10 @@ import {
 } from '@element-plus/icons-vue';
 import { useUserStore } from '@/services/stores/userStore';
 import { useCartStore } from '@/services/stores/cartStore';
+import AdminNotification from '@/components/AdminNotification.vue';
+import OnlineBadge from '@/components/OnlineBadge.vue';
+import ChatPanel from '@/components/ChatPanel.vue';
+import WsDebug from '@/components/WsDebug.vue';
 import * as authApi from '@/data/api/auth';
 
 const route = useRoute();

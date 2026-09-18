@@ -2,7 +2,12 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import https from 'node:https';
+import http from 'node:http';
 import zlib from 'node:zlib';
+import { attachWebSocket, notifyAdmins, notifyUser, stats } from './ws.js';
+import { initRedis, isRedisReady } from './redis.js';
+import { createCaptcha, verifyCaptcha } from './captcha.js';
+import * as msgDb from './scripts/message-db.mjs';
 import multer from 'multer';
 import { extname, join } from 'node:path';
 import { readdirSync, statSync, unlinkSync } from 'node:fs';
@@ -17,7 +22,12 @@ import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCo
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.API_PORT || process.env.PORT || 3001;
+
+// 初始化 Redis（失败自动降级内存）；随后创建 HTTP 服务器并挂载 WebSocket
+initRedis().catch(() => {});
+const server = http.createServer(app);
+attachWebSocket(server);
 const TIANDITU_TK = process.env.TIANDITU_TK || '';
 const AMAP_WEB_KEY = process.env.AMAP_WEB_KEY || '';
 const AMAP_JS_KEY = process.env.AMAP_JS_KEY || '';
@@ -285,12 +295,38 @@ function publicUser(u) {
   return { id: u.id, username: u.username, email: u.email, role: u.role, createdAt: u.createdAt };
 }
 
-// 注册新用户（成功即签发 token：注册后自动进入系统）
+/**
+ * 登录标记 cookie。
+ * 静态图片（/images/*）由 nginx 直接托管，拿不到 Authorization 头，
+ * 所以这里额外种一个标记 cookie，让 nginx 能用 $cookie_webgis_auth 判断是否放行 ——
+ * 未登录访客因此连图片都取不到，从源头掐掉这部分出口流量。
+ */
+const AUTH_COOKIE = 'webgis_auth';
+function markLoggedIn(res) {
+  res.cookie(AUTH_COOKIE, '1', {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 3600 * 1000,
+    path: '/',
+  });
+}
+
+/**
+ * 注册邀请码：注册必须提供，用于限制开放注册带来的流量与滥用。
+ * 优先读环境变量 REGISTER_INVITE_CODE，便于线上随时更换而无需改代码。
+ */
+const REGISTER_INVITE_CODE = process.env.REGISTER_INVITE_CODE || '1145141919810';
+
+// 注册新用户（需邀请码；成功即签发 token：注册后自动进入系统）
 app.post('/api/auth/register', registerLimiter, (req, res) => {
-  const { username, email, password } = req.body ?? {};
+  const { username, email, password, inviteCode } = req.body ?? {};
+  if (String(inviteCode ?? '').trim() !== REGISTER_INVITE_CODE) {
+    return res.status(403).json({ ok: false, msg: '邀请码不正确，无法注册' });
+  }
   try {
     const user = registerUser(username, email, password);
     const sess = loginUser(user.username, password);
+    markLoggedIn(res);
     res.json({ ok: true, token: sess.token, user: publicUser(sess.user) });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -330,16 +366,75 @@ function markLoginFail(req) {
   }
 }
 
-// 登录：账号 = 用户名或邮箱
-app.post('/api/auth/login', loginLimiter, (req, res) => {
+// 图形验证码：前端先调此接口拿到 id + svg，登录时一并提交
+// WebSocket 在线统计
+app.get('/api/ws/stats', (req, res) => {
+  res.json({ ok: true, ...stats(), redis: isRedisReady() });
+});
+
+// WebSocket 在线统计
+app.get('/api/ws/stats', (req, res) => {
+  res.json({ ok: true, ...stats(), redis: isRedisReady() });
+});
+
+app.get('/api/auth/captcha', (req, res) => {
+  createCaptcha()
+    .then((c) => res.json({ ok: true, id: c.id, svg: c.svg }))
+    .catch((e) => res.status(500).json({ ok: false, msg: '验证码生成失败: ' + e.message }));
+});
+
+// ---- 私聊 ----
+// 发送私聊消息（同时走 WebSocket 实时推送）
+app.post('/api/messages', requireAuth, writeLimiter, (req, res) => {
+  const { toUserId, content } = req.body ?? {};
+  if (!toUserId || !content?.trim()) return res.status(400).json({ ok: false, msg: '参数不全' });
+  try {
+    const m = msgDb.sendMessage(req.user.id, toUserId, content.trim());
+    // 实时推送给接收方
+    notifyUser(toUserId, 'message:private', { ...m, fromName: req.user.username });
+    res.json({ ok: true, msg: m });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// 获取与某用户的对话记录
+app.get('/api/messages/:userId', requireAuth, (req, res) => {
+  const rows = msgDb.getConversation(req.user.id, Number(req.params.userId));
+  res.json({ ok: true, messages: rows });
+});
+
+// 未读消息统计
+app.get('/api/messages/unread', requireAuth, (req, res) => {
+  res.json({ ok: true, unread: msgDb.getUnread(req.user.id) });
+});
+
+// 标记已读
+app.post('/api/messages/read/:fromUserId', requireAuth, (req, res) => {
+  msgDb.markRead(Number(req.params.fromUserId), req.user.id);
+  res.json({ ok: true });
+});
+
+// 在线用户列表（供私聊选人）
+app.get('/api/users/online', requireAuth, (req, res) => {
+  const all = listUsers().filter((u) => u.role).map((u) => ({ id: u.id, username: u.username, role: u.role }));
+  res.json({ ok: true, users: all, ws: stats() });
+});
+
+// 登录：账号 = 用户名或邮箱（带验证码校验）
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const locked = loginLockRemain(req);
   if (locked > 0) {
     return res.status(429).json({ ok: false, msg: `登录失败次数过多，请 ${locked} 分钟后再试` });
   }
-  const { account, password } = req.body ?? {};
+  const { account, password, captchaId, captchaCode } = req.body ?? {};
+  if (!(await verifyCaptcha(captchaId, captchaCode))) {
+    return res.status(400).json({ ok: false, msg: '验证码错误或已过期' });
+  }
   try {
     const sess = loginUser(account, password);
     loginFails.delete(loginFailKey(req));
+    markLoggedIn(res);
     res.json({ ok: true, token: sess.token, user: publicUser(sess.user) });
   } catch (e) {
     if (e.code === 'BAD_CREDENTIALS') markLoginFail(req);
@@ -357,6 +452,8 @@ app.get('/api/auth/me', (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   const token = bearerToken(req);
   if (token) logoutByToken(token);
+  // 同步清掉登录标记，让 nginx 立刻停止放行静态图片
+  res.clearCookie(AUTH_COOKIE, { path: '/' });
   res.json({ ok: true });
 });
 
@@ -465,6 +562,7 @@ app.post('/api/shop/orders', requireAuth, writeLimiter, (req, res) => {
   const { receiver, phone, address, remark } = req.body ?? {};
   try {
     const order = shop.createOrder(req.user.id, { receiver, phone, address, remark });
+    notifyAdmins('order:created', { orderNo: order.orderNo, total: order.total, buyer: req.user.username });
     res.json({ ok: true, status: order.status, order: { ...order, statusCn: shop.orderStatusChinese[order.status] || order.status } });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -479,6 +577,7 @@ app.get('/api/shop/orders', requireAuth, (req, res) => {
 app.post('/api/shop/orders/:orderNo/pay', requireAuth, writeLimiter, (req, res) => {
   try {
     const order = shop.payOrder(req.user.id, req.params.orderNo);
+    notifyAdmins('order:paid', { orderNo: order.orderNo, total: order.total, buyer: req.user.username });
     res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -487,6 +586,7 @@ app.post('/api/shop/orders/:orderNo/pay', requireAuth, writeLimiter, (req, res) 
 app.post('/api/shop/orders/:orderNo/cancel', requireAuth, writeLimiter, (req, res) => {
   try {
     const order = shop.cancelOrder(req.user.id, req.params.orderNo);
+    notifyAdmins('order:cancelled', { orderNo: order.orderNo, buyer: req.user.username });
     res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -495,6 +595,7 @@ app.post('/api/shop/orders/:orderNo/cancel', requireAuth, writeLimiter, (req, re
 app.post('/api/shop/orders/:orderNo/confirm', requireAuth, writeLimiter, (req, res) => {
   try {
     const order = shop.confirmOrder(req.user.id, req.params.orderNo);
+    notifyAdmins('order:done', { orderNo: order.orderNo, total: order.total, buyer: req.user.username });
     res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -516,7 +617,9 @@ app.get('/api/shop/orders/admin', requireAdmin, (req, res) => {
 });
 app.post('/api/shop/orders/:orderNo/ship', requireAdmin, (req, res) => {
   try {
+    const order = shop.getOrderByOrderNo?.(req.params.orderNo) ?? shop.getAllOrdersRaw().find((o) => o.orderNo === req.params.orderNo);
     shop.shipOrder(req.params.orderNo, req.body?.trackingNo);
+    if (order?.userId) notifyUser(order.userId, 'order:shipped', { orderNo: req.params.orderNo, trackingNo: req.body?.trackingNo });
     res.json({ ok: true, msg: '已发货' });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -994,8 +1097,8 @@ function startMaintenanceTasks() {
 }
 startMaintenanceTasks();
 
-app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`[server] listening on http://localhost:${PORT} (ws attached)`);
   if (!tdtConfigured()) {
     console.warn('[server] 警告：TIANDITU_TK 未配置，天地图底图不可用（前端自动用 OSM 兜底）');
   }

@@ -60,12 +60,12 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem('webgis_user');
     },
-    async login(account: string, password: string) {
-      const { token, user } = await authApi.login({ account, password });
+    async login(account: string, password: string, captchaId?: string, captchaCode?: string) {
+      const { token, user } = await authApi.login({ account, password, captchaId, captchaCode });
       this.persist(token, user);
       return user;
     },
-    async register(payload: { username: string; email: string; password: string }) {
+    async register(payload: { username: string; email: string; password: string; inviteCode: string }) {
       const { token, user } = await authApi.register(payload);
       this.persist(token, user);
       return user;

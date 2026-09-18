@@ -138,6 +138,12 @@
                     @keyup.enter="onLogin"
                   />
                 </el-form-item>
+                <el-form-item prop="captchaCode">
+                  <CaptchaBox
+                    v-model="loginForm.captchaCode"
+                    @update:captcha-id="loginForm.captchaId = $event"
+                  />
+                </el-form-item>
 
                 <el-button
                   type="primary"
@@ -197,6 +203,14 @@
                     placeholder="请再次输入密码确认"
                     show-password
                     :prefix-icon="Key"
+                    @keyup.enter="onRegister"
+                  />
+                </el-form-item>
+                <el-form-item prop="inviteCode">
+                  <el-input
+                    v-model="regForm.inviteCode"
+                    placeholder="请输入邀请码（必填）"
+                    :prefix-icon="Message"
                     @keyup.enter="onRegister"
                   />
                 </el-form-item>
@@ -329,6 +343,7 @@ import { ref, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { User, Key, Message } from '@element-plus/icons-vue';
+import CaptchaBox from '@/components/CaptchaBox.vue';
 import { useUserStore } from '@/services/stores/userStore';
 import { HD_ASSETS } from '@/data/sources/assets';
 
@@ -343,8 +358,8 @@ const from = (route.query.from ? { path: String(route.query.from) } : null) as {
 
 const loginFormRef = ref<FormInstance>();
 const regFormRef = ref<FormInstance>();
-const loginForm = reactive({ account: '', password: '' });
-const regForm = reactive({ username: '', email: '', password: '', confirmPassword: '' });
+const loginForm = reactive({ account: '', password: '', captchaCode: '', captchaId: '' });
+const regForm = reactive({ username: '', email: '', password: '', confirmPassword: '', inviteCode: '' });
 
 const featuresRef = ref<HTMLElement | null>(null);
 
@@ -352,10 +367,15 @@ const featuresRef = ref<HTMLElement | null>(null);
 const loginRules: FormRules = {
   account: [{ required: true, message: '请输入用户名或邮箱', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
 };
 
 // 注册表单规则（放宽特殊字符限制）
 const regRules: FormRules = {
+  inviteCode: [
+    { required: true, message: '请输入邀请码', trigger: 'blur' },
+    { min: 6, message: '邀请码格式不正确', trigger: 'blur' },
+  ],
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/, message: '2-20 位字母、数字、下划线或中文', trigger: 'blur' },
@@ -527,7 +547,7 @@ async function onLogin() {
   if (!ok) return;
   submitting.value = true;
   try {
-    await userStore.login(loginForm.account.trim(), loginForm.password);
+    await userStore.login(loginForm.account.trim(), loginForm.password, loginForm.captchaId, loginForm.captchaCode);
     ElMessage.success('登录成功，欢迎探索遗蕴齐鲁！');
     goHome();
   } catch (e: any) {
@@ -547,6 +567,7 @@ async function onRegister() {
       username: regForm.username.trim(),
       email: regForm.email.trim(),
       password: regForm.password,
+      inviteCode: regForm.inviteCode.trim(),
     });
     ElMessage.success(`注册成功，欢迎 ${user.username}！`);
     goHome();

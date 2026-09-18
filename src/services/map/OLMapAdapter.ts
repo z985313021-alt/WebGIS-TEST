@@ -13,6 +13,8 @@ import { fromLonLat, transform } from 'ol/proj';
 import Draw from 'ol/interaction/Draw';
 import Point from 'ol/geom/Point';
 import ImageLayer from 'ol/layer/Image';
+import TileLayer from 'ol/layer/Tile';
+import XYZ from 'ol/source/XYZ';
 import type ImageSource from 'ol/source/Image';
 import ImageWMS from 'ol/source/ImageWMS';
 import Cluster from 'ol/source/Cluster';
@@ -24,6 +26,19 @@ import type { MapAdapter, FeatureStyleFn, BaseMapType } from './MapAdapter';
 import { createBaseMapLayer, createTiandituLabelLayer } from '@/data/sources/tianditu';
 import { categoryGlyph } from '@/data/sources/heritage';
 import type { BaseMapProvider } from '@/data/sources/tianditu';
+
+/**
+ * 游客态使用的离线底图：一张 256×256 的宣纸色 data URI 瓦片。
+ * 它不产生任何网络请求（浏览器只解码这一张内联图），
+ * 因此未登录访问时不会消耗服务器的出口流量。
+ */
+const OFFLINE_TILE_URI =
+  'data:image/svg+xml;charset=utf-8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">' +
+      '<rect width="256" height="256" fill="#f7f2e6"/>' +
+      '</svg>',
+  );
 
 const HIDDEN_STYLE = new Style({
   image: new CircleStyle({ radius: 0, fill: new Fill({ color: 'rgba(0,0,0,0)' }) }),
@@ -394,10 +409,38 @@ export class OLMapAdapter implements MapAdapter {
     });
   }
 
+  /**
+   * 是否允许加载在线瓦片。未登录时为 false —— 底图与注记全部改用离线资源，
+   * 避免游客流量白白消耗服务器带宽（瓦片请求无法携带 Authorization 头，
+   * 所以在客户端就直接不发请求，比服务端拦截更省）。
+   */
+  private onlineTilesAllowed = true;
+
+  setOnlineTilesAllowed(allowed: boolean): void {
+    if (this.onlineTilesAllowed === allowed) return;
+    this.onlineTilesAllowed = allowed;
+    // 立刻按新策略重建底图与注记
+    this.setBaseMap(this.baseMapType);
+  }
+
+  /** 离线底图：同色 data URI 平铺，零网络请求 */
+  private createOfflineBaseLayer(): TileLayer<XYZ> {
+    return new TileLayer({
+      source: new XYZ({
+        url: OFFLINE_TILE_URI,
+        tileSize: 256,
+        // 同一张图重复使用，避免浏览器反复解码
+        transition: 0,
+      }),
+    }) as unknown as TileLayer<XYZ>;
+  }
+
   setBaseMap(type: BaseMapType): void {
     this.baseMapType = type;
     if (!this.map) return;
-    const next = createBaseMapLayer(type, this.provider);
+    const next = this.onlineTilesAllowed
+      ? createBaseMapLayer(type, this.provider)
+      : this.createOfflineBaseLayer();
     // 原位替换底图（保持第 0 层），避免盖住注记/矢量图层
     const layers = this.map.getLayers();
     if (this.baseLayer) {
@@ -420,7 +463,7 @@ export class OLMapAdapter implements MapAdapter {
   /** 天地图模式叠加 cva_c 注记层（城市名/道路名），OSM 模式移除（其自带标注） */
   private syncLabelLayer(): void {
     if (!this.map) return;
-    if (this.provider === 'tianditu' && !this.labelLayer) {
+    if (this.provider === 'tianditu' && this.onlineTilesAllowed && !this.labelLayer) {
       this.labelLayer = createTiandituLabelLayer();
       // 插在底图之上、矢量数据之下
       this.map.getLayers().insertAt(1, this.labelLayer);

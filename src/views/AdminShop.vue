@@ -140,6 +140,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import * as api from '@/data/api/shop';
 import type { Order, Product } from '@/data/api/shop';
 import { HD_ASSETS } from '@/data/sources/assets';
+import { onEvent } from '@/composables/useWebSocket';
 
 const tab = ref('orders');
 const orders = ref<Order[]>([]);
@@ -239,6 +240,11 @@ async function loadOrders() {
     Object.assign(stat, r.stat);
   } catch (e: any) { ElMessage.error(e.response?.data?.msg || '订单加载失败'); }
 }
+
+// 实时同步：订单事件到达时自动刷新列表
+onEvent('*', (type) => {
+  if (type?.startsWith('order:')) loadOrders();
+});
 async function loadProducts() {
   try { products.value = await api.fetchProducts(''); } catch (e: any) { ElMessage.error(e.response?.data?.msg); }
 }
