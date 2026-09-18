@@ -7,6 +7,8 @@ import zlib from 'node:zlib';
 import { attachWebSocket, notifyAdmins, notifyUser } from './ws.js';
 import { initRedis, isRedisReady } from './redis.js';
 import { createCaptcha, verifyCaptcha } from './captcha.js';
+import * as msgDb from './scripts/message-db.mjs';
+import { listUsers } from './scripts/user-db.mjs';
 import multer from 'multer';
 import { extname, join } from 'node:path';
 import { readdirSync, statSync, unlinkSync } from 'node:fs';
@@ -370,6 +372,44 @@ app.get('/api/auth/captcha', (req, res) => {
   createCaptcha()
     .then((c) => res.json({ ok: true, id: c.id, svg: c.svg }))
     .catch((e) => res.status(500).json({ ok: false, msg: '验证码生成失败: ' + e.message }));
+});
+
+// ---- 私聊 ----
+// 发送私聊消息（同时走 WebSocket 实时推送）
+app.post('/api/messages', requireAuth, writeLimiter, (req, res) => {
+  const { toUserId, content } = req.body ?? {};
+  if (!toUserId || !content?.trim()) return res.status(400).json({ ok: false, msg: '参数不全' });
+  try {
+    const m = msgDb.sendMessage(req.user.id, toUserId, content.trim());
+    // 实时推送给接收方
+    notifyUser(toUserId, 'message:private', { ...m, fromName: req.user.username });
+    res.json({ ok: true, msg: m });
+  } catch (e) {
+    res.status(400).json({ ok: false, msg: e.message });
+  }
+});
+
+// 获取与某用户的对话记录
+app.get('/api/messages/:userId', requireAuth, (req, res) => {
+  const rows = msgDb.getConversation(req.user.id, Number(req.params.userId));
+  res.json({ ok: true, messages: rows });
+});
+
+// 未读消息统计
+app.get('/api/messages/unread', requireAuth, (req, res) => {
+  res.json({ ok: true, unread: msgDb.getUnread(req.user.id) });
+});
+
+// 标记已读
+app.post('/api/messages/read/:fromUserId', requireAuth, (req, res) => {
+  msgDb.markRead(Number(req.params.fromUserId), req.user.id);
+  res.json({ ok: true });
+});
+
+// 在线用户列表（供私聊选人）
+app.get('/api/users/online', requireAuth, (req, res) => {
+  const all = listUsers().filter((u) => u.role).map((u) => ({ id: u.id, username: u.username, role: u.role }));
+  res.json({ ok: true, users: all, ws: stats() });
 });
 
 // 登录：账号 = 用户名或邮箱（带验证码校验）
