@@ -1,5 +1,5 @@
 <template>
-  <div class="portal-page" :class="{ 'panel-open': !!activeCat }">
+  <div class="portal-page" :class="{ 'panel-open': !!activeCat, 'chart-open': chartOpen }">
     <!-- 地图主体（圆角卡片，随左侧栏让位） -->
     <MapContainer ref="mapRef" />
     <MapControls />
@@ -488,6 +488,12 @@ watch(chartOpen, (open) => {
   border-color: #b8352b;
   color: #fff8ec;
 }
+/* 图表展开时隐藏地图控件，避免遮挡 */
+.portal-page.chart-open .map-controls { opacity: 0; pointer-events: none; transition: opacity .2s; }
+.portal-page.chart-open :deep(.ol-overviewmap),
+.portal-page.chart-open :deep(.ol-zoom),
+.portal-page.chart-open :deep(.ol-rotate) { opacity: 0; pointer-events: none; }
+
 .chart-drawer {
   position: absolute;
   top: 0;

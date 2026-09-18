@@ -219,13 +219,13 @@ watch(open, (v) => { if (v) { loadUsers(); loadUnread(); if (activeChat.value) l
 </script>
 
 <style scoped>
-.chat-system { position: fixed; bottom: 24px; right: 24px; z-index: 9999; font-family: var(--zi-font-sans); }
+.chat-system { position: fixed; bottom: 24px; left: 24px; z-index: 9999; font-family: var(--zi-font-sans); }
 .chat-fab :deep(.el-badge__content) { font-size: 10px; }
 .chat-toggle { width: 52px; height: 52px; background: linear-gradient(135deg, #b8352b, #8f2317); border: none; color: #fff; box-shadow: 0 4px 16px rgba(184, 53, 43, 0.4); transition: transform .2s; }
 .chat-toggle:hover { transform: scale(1.08); }
 .chat-toggle.active { background: #6d4c2a; }
 
-.chat-panel { position: absolute; bottom: 60px; right: 0; width: 660px; height: 500px; background: #fffdf8; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.18); display: flex; overflow: hidden; border: 1px solid #e6ddcc; }
+.chat-panel { position: absolute; bottom: 60px; left: 0; width: 660px; height: 500px; background: #fffdf8; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.18); display: flex; overflow: hidden; border: 1px solid #e6ddcc; }
 
 .chat-side { width: 230px; border-right: 1px solid #e6ddcc; display: flex; flex-direction: column; background: #faf6ee; }
 .side-header { padding: 10px; border-bottom: 1px solid #e6ddcc; }
