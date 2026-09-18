@@ -101,6 +101,7 @@
     </el-main>
   </el-container>
   <ChatPanel v-if="user.isLoggedIn" />
+  <WsDebug v-if="user.isLoggedIn" />
 </template>
 
 <script setup lang="ts">
@@ -127,6 +128,7 @@ import { useCartStore } from '@/services/stores/cartStore';
 import AdminNotification from '@/components/AdminNotification.vue';
 import OnlineBadge from '@/components/OnlineBadge.vue';
 import ChatPanel from '@/components/ChatPanel.vue';
+import WsDebug from '@/components/WsDebug.vue';
 import * as authApi from '@/data/api/auth';
 
 const route = useRoute();

@@ -4,11 +4,10 @@ import dotenv from 'dotenv';
 import https from 'node:https';
 import http from 'node:http';
 import zlib from 'node:zlib';
-import { attachWebSocket, notifyAdmins, notifyUser } from './ws.js';
+import { attachWebSocket, notifyAdmins, notifyUser, stats } from './ws.js';
 import { initRedis, isRedisReady } from './redis.js';
 import { createCaptcha, verifyCaptcha } from './captcha.js';
 import * as msgDb from './scripts/message-db.mjs';
-import { listUsers } from './scripts/user-db.mjs';
 import multer from 'multer';
 import { extname, join } from 'node:path';
 import { readdirSync, statSync, unlinkSync } from 'node:fs';
@@ -368,6 +367,16 @@ function markLoginFail(req) {
 }
 
 // 图形验证码：前端先调此接口拿到 id + svg，登录时一并提交
+// WebSocket 在线统计
+app.get('/api/ws/stats', (req, res) => {
+  res.json({ ok: true, ...stats(), redis: isRedisReady() });
+});
+
+// WebSocket 在线统计
+app.get('/api/ws/stats', (req, res) => {
+  res.json({ ok: true, ...stats(), redis: isRedisReady() });
+});
+
 app.get('/api/auth/captcha', (req, res) => {
   createCaptcha()
     .then((c) => res.json({ ok: true, id: c.id, svg: c.svg }))

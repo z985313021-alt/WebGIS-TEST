@@ -20,48 +20,35 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { Bell } from '@element-plus/icons-vue';
-import { wsConnected, onEvent } from '@/composables/useWebSocket';
 
 const list = ref([]);
 const panelVisible = ref(false);
 const unread = computed(() => list.value.filter((n) => !n.read).length);
 
-function iconOf(t) {
-  return { 'order:created': '🛒', 'order:paid': '💰', 'order:cancelled': '❌', 'order:done': '✅' }[t] || '🔔';
-}
-function titleOf(t) {
-  return { 'order:created': '新订单', 'order:paid': '已付款', 'order:cancelled': '已取消', 'order:done': '已完成' }[t] || t;
-}
-function descOf(n) {
-  const d = n.data || {};
-  return [d.orderNo ? '#' + d.orderNo : '', d.buyer ? '买家:' + d.buyer : '', d.total ? '¥' + d.total : ''].filter(Boolean).join(' / ');
-}
-function formatTime(ts) {
-  const d = new Date(ts);
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+function iconOf(t) { return { 'order:created': '🛒', 'order:paid': '💰', 'order:cancelled': '❌', 'order:done': '✅' }[t] || '🔔'; }
+function titleOf(t) { return { 'order:created': '新订单', 'order:paid': '已付款', 'order:cancelled': '已取消', 'order:done': '已完成' }[t] || t; }
+function descOf(n) { return [n.orderNo ? '#' + n.orderNo : '', n.buyer ? '买家:' + n.buyer : '', n.total ? '¥' + n.total : ''].filter(Boolean).join(' / '); }
+function formatTime(ts) { return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+
+// 唯一通道：window 事件总线（不再走 onEvent，避免重复投递）
+onMounted(() => window.addEventListener('ws-event', onWsEvent));
+onUnmounted(() => window.removeEventListener('ws-event', onWsEvent));
+
+function onWsEvent(e) {
+  const msg = e.detail;
+  if (!msg?.type?.startsWith('order:')) return;
+  if (msg.type === 'order:shipped') { onUserNotify(msg.data); return; }
+  onNotify(msg.data, msg.type, msg.ts);
 }
 
-// 始终注册监听（WebSocket 可能稍后连接，消息到达时会触发）
-onMounted(() => {
-  onEvent('order:created', onNotify);
-  onEvent('order:paid', onNotify);
-  onEvent('order:cancelled', onNotify);
-  onEvent('order:done', onNotify);
-  onEvent('order:shipped', onUserNotify);
-});
-
-// 管理员收到的订单事件
-function onNotify(msg) {
-  const { type, data } = msg;
-  list.value.unshift({ ...data, ts: msg.ts, type, read: false });
+function onNotify(data, type, ts) {
+  list.value.unshift({ ...data, ts, type, read: false });
   import('element-plus').then(({ ElMessage }) => {
     ElMessage.success(`${titleOf(type)}: #${data.orderNo} ¥${data.total}`);
   });
 }
 
-// 用户收到的发货通知
-function onUserNotify(msg) {
-  const { data } = msg;
+function onUserNotify(data) {
   import('element-plus').then(({ ElMessage }) => {
     ElMessage.success(`📦 订单 #${data.orderNo} 已发货`);
   });

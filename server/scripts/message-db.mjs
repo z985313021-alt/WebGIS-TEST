@@ -28,8 +28,9 @@ export function sendMessage(fromId, toId, content) {
 }
 
 export function getConversation(userA, userB, limit = 50) {
-  const rows = getDb().prepare('SELECT * FROM messages WHERE (from_user_id=? AND to_user_id=?) OR (from_user_id=? AND to_user_id=?) ORDER BY id DESC LIMIT ?').all(userA, userB, userB, userA, limit);
-  return rows.reverse();
+  const rows = getDb().prepare('SELECT * FROM messages WHERE (from_user_id=? AND to_user_id=?) OR (from_user_id=? AND to_user_id=?) ORDER BY id DESC LIMIT ?').all(userA, userB, userB, userA, limit).reverse();
+  const users = new Map(getDb().prepare('SELECT id, username FROM users').all().map((u) => [u.id, u.username]));
+  return rows.map((r) => ({ ...r, fromName: users.get(r.from_user_id) || '未知' }));
 }
 
 export function getUnread(userId) {

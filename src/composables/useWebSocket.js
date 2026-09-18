@@ -1,4 +1,4 @@
-// WebSocket 实时连接：自动鉴权 + 重连 + 事件订阅
+// WebSocket 实时连接（window 事件总线，确保全局唯一投递）
 import { ref, onUnmounted } from 'vue';
 
 const WS_BASE = (() => {
@@ -6,65 +6,50 @@ const WS_BASE = (() => {
   return `${proto}//${location.host}/ws`;
 })();
 
-/** @type {WebSocket | null} */
 let ws = null;
 let reconnectTimer = null;
 let manualClose = false;
 
-/** 响应式状态 */
 export const wsConnected = ref(false);
 export const wsLastEvent = ref(null);
 
-const listeners = new Map();   // type => Set<fn>
+/** 订阅事件（走 window 事件总线，全局唯一） */
+export function onEvent(type, fn) {
+  const handler = (e) => {
+    const msg = e.detail;
+    if (!msg) return;
+    if (type === '*') fn(msg.type, msg.data);
+    else if (msg.type === type) fn(msg);
+  };
+  window.addEventListener('ws-event', handler);
+  return () => window.removeEventListener('ws-event', handler);
+}
 
 function connect() {
   const token = localStorage.getItem('webgis_token');
-  if (!token) return;   // 未登录不连
+  if (!token) return;
 
   ws = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
 
   ws.onopen = () => { wsConnected.value = true; clearTimeout(reconnectTimer); };
   ws.onclose = () => {
     wsConnected.value = false;
-    if (!manualClose) {
-      // 断线自动重连（5 秒后）
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(connect, 5000);
-    }
+    if (!manualClose) { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connect, 5000); }
   };
-  ws.onerror = () => { ws?.close(); };
+  ws.onerror = () => ws?.close();
   ws.onmessage = (evt) => {
     try {
       const msg = JSON.parse(evt.data);
       wsLastEvent.value = msg;
-      const fns = listeners.get(msg.type);
-      if (fns) fns.forEach((fn) => fn(msg));
-      // 通配 '*'
-      const all = listeners.get('*');
-      if (all) all.forEach((fn) => fn(msg.type, msg.data));
-    } catch { /* 忽略非 JSON */ }
+      // 唯一投递通道：window 事件总线
+      window.dispatchEvent(new CustomEvent('ws-event', { detail: msg }));
+    } catch { /* ignore */ }
   };
 }
 
-/** 订阅事件：返回取消订阅函数 */
-export function onEvent(type, fn) {
-  if (!listeners.has(type)) listeners.set(type, new Set());
-  listeners.get(type).add(fn);
-  return () => listeners.get(type)?.delete(fn);
-}
-
-/** 主动断开 */
-export function disconnect() {
-  manualClose = true;
-  clearTimeout(reconnectTimer);
-  ws?.close();
-}
-
-// 自动启动（已登录则连）
-if (localStorage.getItem('webgis_token')) connect();
-
-// 暴露给登录/登出逻辑调用
+export function disconnect() { manualClose = true; clearTimeout(reconnectTimer); ws?.close(); }
 export const wsConnect = () => { manualClose = false; connect(); };
 export function wsDisconnect() { disconnect(); }
 
-onUnmounted(() => { clearTimeout(reconnectTimer); });
+if (localStorage.getItem('webgis_token')) connect();
+onUnmounted(() => clearTimeout(reconnectTimer));
