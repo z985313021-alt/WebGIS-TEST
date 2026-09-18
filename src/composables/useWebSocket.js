@@ -38,7 +38,7 @@ function connect() {
       const msg = JSON.parse(evt.data);
       wsLastEvent.value = msg;
       const fns = listeners.get(msg.type);
-      if (fns) fns.forEach((fn) => fn(msg.data));
+      if (fns) fns.forEach((fn) => fn(msg));
       // 通配 '*'
       const all = listeners.get('*');
       if (all) all.forEach((fn) => fn(msg.type, msg.data));

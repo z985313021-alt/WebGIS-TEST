@@ -96,6 +96,9 @@
           <el-button v-if="p.heritageId" size="small" text type="primary" @click="viewHeritage(p.heritageId)">
             查看代表性非遗 →
           </el-button>
+          <el-button size="small" text @click="contactService(p)">
+            联系客服咨询
+          </el-button>
         </div>
       </div>
     </div>
@@ -162,6 +165,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ShoppingBag, ShoppingCart } from '@element-plus/icons-vue';
 import * as api from '@/data/api/shop';
+import http from '@/data/http';
 import { fetchProductRank, type ProductRankItem } from '@/data/api/rank';
 import type { Product, CategoryCnt, CartItem } from '@/data/api/shop';
 import * as acct from '@/data/api/account';
@@ -277,6 +281,24 @@ async function syncQty(pid: number, q: number | undefined) {
 }
 async function removeIt(pid: number) {
   try { cart.value = await api.removeCart(pid); cartS.refresh(); } catch (e: any) { ElMessage.error(e.response?.data?.msg); }
+}
+/** 联系客服：自动发送商品信息 + 打开私聊 */
+async function contactService(p: Product) {
+  // 找管理员用户
+  let admin = null;
+  try {
+    const { data } = await http.get('/users/online');
+    admin = data.users?.find((u: any) => u.role === 'admin');
+  } catch {}
+  if (!admin) { ElMessage.warning('当前没有客服在线，请稍后再试'); return; }
+  // 自动发送商品咨询消息
+  const autoMsg = `您好，我想咨询这款商品：\n📦 ${p.name}\n💰 ¥${p.price}\n📎 ${p.subtitle || ''}`;
+  try {
+    await http.post('/messages', { toUserId: admin.id, content: autoMsg });
+  } catch {}
+  // 打开聊天面板（通过自定义事件通知 App.vue）
+  window.dispatchEvent(new CustomEvent('open-chat', { detail: admin }));
+  ElMessage.success('已为您连接客服');
 }
 const addrOptions = ref<AddressItem[]>([]);
 const picking = ref<number | null>(null);

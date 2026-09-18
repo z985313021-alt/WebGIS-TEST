@@ -138,7 +138,7 @@
                     @keyup.enter="onLogin"
                   />
                 </el-form-item>
-                <el-form-item prop="captcha">
+                <el-form-item prop="captchaCode">
                   <CaptchaBox
                     v-model="loginForm.captchaCode"
                     @update:captcha-id="loginForm.captchaId = $event"
@@ -367,7 +367,7 @@ const featuresRef = ref<HTMLElement | null>(null);
 const loginRules: FormRules = {
   account: [{ required: true, message: '请输入用户名或邮箱', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-  captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
 };
 
 // 注册表单规则（放宽特殊字符限制）

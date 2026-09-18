@@ -20,7 +20,7 @@
       </el-menu>
 
       <div class="user-area">
-        <!-- 管理员实时通知铃铛 -->
+        <OnlineBadge v-if="user.isLoggedIn" />
         <AdminNotification v-if="user.isLoggedIn && user.isAdmin" />
         <!-- 未登录 / 游客：显示登录按钮 -->
         <template v-if="!user.isLoggedIn">
@@ -100,6 +100,7 @@
       </router-view>
     </el-main>
   </el-container>
+  <ChatPanel v-if="user.isLoggedIn" />
 </template>
 
 <script setup lang="ts">
@@ -124,6 +125,8 @@ import {
 import { useUserStore } from '@/services/stores/userStore';
 import { useCartStore } from '@/services/stores/cartStore';
 import AdminNotification from '@/components/AdminNotification.vue';
+import OnlineBadge from '@/components/OnlineBadge.vue';
+import ChatPanel from '@/components/ChatPanel.vue';
 import * as authApi from '@/data/api/auth';
 
 const route = useRoute();

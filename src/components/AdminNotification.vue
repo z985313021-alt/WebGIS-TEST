@@ -41,18 +41,29 @@ function formatTime(ts) {
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+// 始终注册监听（WebSocket 可能稍后连接，消息到达时会触发）
 onMounted(() => {
-  if (wsConnected.value) onEvent('order:created', onNotify);
-  if (wsConnected.value) onEvent('order:paid', onNotify);
-  if (wsConnected.value) onEvent('order:cancelled', onNotify);
-  if (wsConnected.value) onEvent('order:done', onNotify);
+  onEvent('order:created', onNotify);
+  onEvent('order:paid', onNotify);
+  onEvent('order:cancelled', onNotify);
+  onEvent('order:done', onNotify);
+  onEvent('order:shipped', onUserNotify);
 });
 
-function onNotify(data) {
-  list.value.unshift({ ...data, ts: Date.now(), type: data._type, read: false });
-  // 同时弹消息
+// 管理员收到的订单事件
+function onNotify(msg) {
+  const { type, data } = msg;
+  list.value.unshift({ ...data, ts: msg.ts, type, read: false });
   import('element-plus').then(({ ElMessage }) => {
-    ElMessage.success(`${titleOf(data._type)}: #${data.orderNo}`);
+    ElMessage.success(`${titleOf(type)}: #${data.orderNo} ¥${data.total}`);
+  });
+}
+
+// 用户收到的发货通知
+function onUserNotify(msg) {
+  const { data } = msg;
+  import('element-plus').then(({ ElMessage }) => {
+    ElMessage.success(`📦 订单 #${data.orderNo} 已发货`);
   });
 }
 </script>
