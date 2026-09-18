@@ -32,10 +32,12 @@ const input = ref(props.modelValue);
 async function refresh() {
   loading.value = true;
   try {
-    const { data } = await api.get('/auth/captcha');
+    const { data } = await http.get('/auth/captcha');
     svg.value = data.svg;
     captchaId.value = data.id;
     emit('update:captchaId', data.id);
+  } catch (e) {
+    console.error('[Captcha] 加载失败:', e.message);
   } finally { loading.value = false; }
 }
 
