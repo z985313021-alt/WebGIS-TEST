@@ -2,7 +2,11 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import https from 'node:https';
+import http from 'node:http';
 import zlib from 'node:zlib';
+import { attachWebSocket, notifyAdmins, notifyUser } from './ws.js';
+import { initRedis, isRedisReady } from './redis.js';
+import { createCaptcha, verifyCaptcha } from './captcha.js';
 import multer from 'multer';
 import { extname, join } from 'node:path';
 import { readdirSync, statSync, unlinkSync } from 'node:fs';
@@ -17,7 +21,12 @@ import { searchStations, queryTickets, queryPrices, queryRouteStations, ensureCo
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.API_PORT || process.env.PORT || 3001;
+
+// 初始化 Redis（失败自动降级内存）；随后创建 HTTP 服务器并挂载 WebSocket
+initRedis().catch(() => {});
+const server = http.createServer(app);
+attachWebSocket(server);
 const TIANDITU_TK = process.env.TIANDITU_TK || '';
 const AMAP_WEB_KEY = process.env.AMAP_WEB_KEY || '';
 const AMAP_JS_KEY = process.env.AMAP_JS_KEY || '';
@@ -356,13 +365,23 @@ function markLoginFail(req) {
   }
 }
 
-// 登录：账号 = 用户名或邮箱
-app.post('/api/auth/login', loginLimiter, (req, res) => {
+// 图形验证码：前端先调此接口拿到 id + svg，登录时一并提交
+app.get('/api/auth/captcha', (req, res) => {
+  createCaptcha()
+    .then((c) => res.json({ ok: true, id: c.id, svg: c.svg }))
+    .catch((e) => res.status(500).json({ ok: false, msg: '验证码生成失败: ' + e.message }));
+});
+
+// 登录：账号 = 用户名或邮箱（带验证码校验）
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const locked = loginLockRemain(req);
   if (locked > 0) {
     return res.status(429).json({ ok: false, msg: `登录失败次数过多，请 ${locked} 分钟后再试` });
   }
-  const { account, password } = req.body ?? {};
+  const { account, password, captchaId, captchaCode } = req.body ?? {};
+  if (!(await verifyCaptcha(captchaId, captchaCode))) {
+    return res.status(400).json({ ok: false, msg: '验证码错误或已过期' });
+  }
   try {
     const sess = loginUser(account, password);
     loginFails.delete(loginFailKey(req));
@@ -494,6 +513,7 @@ app.post('/api/shop/orders', requireAuth, writeLimiter, (req, res) => {
   const { receiver, phone, address, remark } = req.body ?? {};
   try {
     const order = shop.createOrder(req.user.id, { receiver, phone, address, remark });
+    notifyAdmins('order:created', { orderNo: order.orderNo, total: order.total, buyer: req.user.username });
     res.json({ ok: true, status: order.status, order: { ...order, statusCn: shop.orderStatusChinese[order.status] || order.status } });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -508,6 +528,7 @@ app.get('/api/shop/orders', requireAuth, (req, res) => {
 app.post('/api/shop/orders/:orderNo/pay', requireAuth, writeLimiter, (req, res) => {
   try {
     const order = shop.payOrder(req.user.id, req.params.orderNo);
+    notifyAdmins('order:paid', { orderNo: order.orderNo, total: order.total, buyer: req.user.username });
     res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -516,6 +537,7 @@ app.post('/api/shop/orders/:orderNo/pay', requireAuth, writeLimiter, (req, res) 
 app.post('/api/shop/orders/:orderNo/cancel', requireAuth, writeLimiter, (req, res) => {
   try {
     const order = shop.cancelOrder(req.user.id, req.params.orderNo);
+    notifyAdmins('order:cancelled', { orderNo: order.orderNo, buyer: req.user.username });
     res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -524,6 +546,7 @@ app.post('/api/shop/orders/:orderNo/cancel', requireAuth, writeLimiter, (req, re
 app.post('/api/shop/orders/:orderNo/confirm', requireAuth, writeLimiter, (req, res) => {
   try {
     const order = shop.confirmOrder(req.user.id, req.params.orderNo);
+    notifyAdmins('order:done', { orderNo: order.orderNo, total: order.total, buyer: req.user.username });
     res.json({ ok: true, statusCn: shop.orderStatusChinese[order.status] });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -545,7 +568,9 @@ app.get('/api/shop/orders/admin', requireAdmin, (req, res) => {
 });
 app.post('/api/shop/orders/:orderNo/ship', requireAdmin, (req, res) => {
   try {
+    const order = shop.getOrderByOrderNo?.(req.params.orderNo) ?? shop.getAllOrdersRaw().find((o) => o.orderNo === req.params.orderNo);
     shop.shipOrder(req.params.orderNo, req.body?.trackingNo);
+    if (order?.userId) notifyUser(order.userId, 'order:shipped', { orderNo: req.params.orderNo, trackingNo: req.body?.trackingNo });
     res.json({ ok: true, msg: '已发货' });
   } catch (e) {
     res.status(400).json({ ok: false, msg: e.message });
@@ -1023,8 +1048,8 @@ function startMaintenanceTasks() {
 }
 startMaintenanceTasks();
 
-app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`[server] listening on http://localhost:${PORT} (ws attached)`);
   if (!tdtConfigured()) {
     console.warn('[server] 警告：TIANDITU_TK 未配置，天地图底图不可用（前端自动用 OSM 兜底）');
   }

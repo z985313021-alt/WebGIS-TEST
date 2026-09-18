@@ -20,6 +20,8 @@
       </el-menu>
 
       <div class="user-area">
+        <!-- 管理员实时通知铃铛 -->
+        <AdminNotification v-if="user.isLoggedIn && user.isAdmin" />
         <!-- 未登录 / 游客：显示登录按钮 -->
         <template v-if="!user.isLoggedIn">
           <el-button size="small" type="primary" class="btn-login-rect" @click="router.push('/login')">
@@ -121,6 +123,7 @@ import {
 } from '@element-plus/icons-vue';
 import { useUserStore } from '@/services/stores/userStore';
 import { useCartStore } from '@/services/stores/cartStore';
+import AdminNotification from '@/components/AdminNotification.vue';
 import * as authApi from '@/data/api/auth';
 
 const route = useRoute();
