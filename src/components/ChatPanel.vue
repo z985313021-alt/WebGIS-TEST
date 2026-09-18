@@ -10,18 +10,16 @@
       <aside class="chat-side">
         <div class="side-header">
           <input v-model="search" placeholder="🔍 搜索用户..." class="search-input" />
-          <div style="font-size:10px;color:#999;margin-top:4px">调试: unread={{ JSON.stringify(unread) }} me={{ me }}</div>
         </div>
         <div class="side-list">
-          <!-- 未读 -->
+          <!-- 未读区 -->
           <div v-if="unreadUsers.length" class="side-section">
             <div class="side-section-title">📩 未读消息 ({{ unreadUsers.length }})</div>
             <div
               v-for="u in unreadUsers"
               :key="'u-' + u.id"
               class="u-item unread-item"
-              :class="{ active: activeChat?.id === u.id }"
-              @click="startChat(u)"
+              @click="openChat(u)"
             >
               <span class="u-av" :style="{ background: avatarColor(u.username) }">{{ u.username.slice(0, 1).toUpperCase() }}</span>
               <div class="u-info">
@@ -35,11 +33,10 @@
           <div class="side-section">
             <div v-if="unreadUsers.length" class="side-section-title">全部联系人</div>
             <div
-              v-for="u in displayUsers"
+              v-for="u in readUsers"
               :key="'r-' + u.id"
               class="u-item"
-              :class="{ active: activeChat?.id === u.id }"
-              @click="startChat(u)"
+              @click="openChat(u)"
             >
               <span class="u-av" :style="{ background: avatarColor(u.username) }">{{ u.username.slice(0, 1).toUpperCase() }}</span>
               <div class="u-info">
@@ -75,6 +72,7 @@
           <el-button type="primary" @click="sendMsg" :disabled="!draft.trim()">发送</el-button>
         </div>
       </main>
+
       <main class="chat-main empty-main" v-else>
         <el-empty description="选择一个联系人开始聊天" />
       </main>
@@ -96,38 +94,36 @@ const draft = ref('');
 const search = ref('');
 const unread = ref([]);
 const me = ref(getMyId());
+const msgsRef = ref(null);
+let pollTimer = null;
+
 function getMyId() {
   const stored = localStorage.getItem('webgis_user_id');
   if (stored) return Number(stored);
   try {
     const u = JSON.parse(localStorage.getItem('webgis_user') || '{}');
-    if (u?.id) {
-      localStorage.setItem('webgis_user_id', String(u.id));   // 补存
-      return Number(u.id);
-    }
+    if (u?.id) { localStorage.setItem('webgis_user_id', String(u.id)); return Number(u.id); }
   } catch {}
   return 0;
 }
-const msgsRef = ref(null);
-let pollTimer = null;
 
-// 搜索过滤后的用户
+// 搜索过滤
 const searchFiltered = computed(() => {
   const q = search.value.trim().toLowerCase();
-  const list = users.value;
-  if (!q) return list;
-  return list.filter((u) => u.username.toLowerCase().includes(q));
+  return q ? users.value.filter((u) => u.username.toLowerCase().includes(q)) : users.value;
 });
 
+// 未读数据（用数组替代 Set，避免 Vue 响应式追踪问题）
 const unreadMap = computed(() => {
   const m = {};
   for (const u of unread.value) m[u.from_user_id] = u.cnt;
   return m;
 });
 const totalUnread = computed(() => unread.value.reduce((a, b) => a + b.cnt, 0));
-const unreadIds = computed(() => new Set(unread.value.map((u) => u.from_user_id)));
-const unreadUsers = computed(() => searchFiltered.value.filter((u) => unreadIds.value.has(u.id)));
-const displayUsers = computed(() => searchFiltered.value.filter((u) => !unreadIds.value.has(u.id)));
+const unreadIdList = computed(() => unread.value.map((u) => u.from_user_id));
+const unreadUsers = computed(() => searchFiltered.value.filter((u) => unreadIdList.value.includes(u.id)));
+const readUsers = computed(() => searchFiltered.value.filter((u) => !unreadIdList.value.includes(u.id)));
+const displayUsers = computed(() => searchFiltered.value);
 
 function isMine(m) { return m.from_user_id === me.value; }
 function avatarColor(name) { const c = ['#b8352b', '#d9a020', '#3c6a50', '#4a7c9b', '#8b5e3c', '#6b4c8a']; let h = 0; for (const ch of (name || '')) h = ch.charCodeAt(0) + ((h << 5) - h); return c[Math.abs(h) % c.length]; }
@@ -155,7 +151,8 @@ async function loadMessages() {
   } catch (e) { console.warn('[chat] loadMessages failed', e.message); }
 }
 
-async function startChat(u) {
+// 点击联系人 → 打开聊天
+async function openChat(u) {
   activeChat.value = u;
   await loadMessages();
   try { await http.post(`/messages/read/${u.id}`); } catch {}
@@ -171,18 +168,19 @@ async function sendMsg() {
   messages.value.push({ id: 'tmp_' + Date.now(), from_user_id: me.value, to_user_id: activeChat.value.id, content, fromName: '我', created_at: ts, read: true });
   nextTick(() => { msgsRef.value && (msgsRef.value.scrollTop = msgsRef.value.scrollHeight); });
   try {
-    const { data } = await http.post('/messages', { toUserId: activeChat.value.id, content });
+    await http.post('/messages', { toUserId: activeChat.value.id, content });
     await loadMessages();
     await loadUnread();
   } catch (e) { console.warn('[chat] sendMsg failed', e.message); }
 }
 
+// 实时接收
 function onWsMessage(msg) {
   if (msg.type !== 'message:private') return;
   const d = msg.data || {};
   const partnerId = d.from === me.value ? d.to : d.from;
 
-  // 在当前聊天窗口 → 追加消息
+  // 当前聊天窗口 → 追加
   if (activeChat.value && partnerId === activeChat.value.id) {
     messages.value.push({
       id: d.id || Date.now(),
@@ -197,7 +195,6 @@ function onWsMessage(msg) {
     try { http.post(`/messages/read/${partnerId}`); } catch {}
   }
 
-  // 刷新未读
   loadUnread();
 
   // 面板关闭 → 弹通知
@@ -242,7 +239,7 @@ watch(open, (v) => { if (v) { loadUsers(); loadUnread(); if (activeChat.value) l
 .u-name { font-size: 13px; color: #4a3a2f; font-weight: 600; display: block; }
 .role { font-style: normal; color: #b8352b; font-size: 10px; margin-left: 4px; }
 .u-preview { font-size: 11px; color: #a08c72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-.u-unread { background: #b8352b; color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 10px; flex: 0 0 auto; }
+.u-unread { background: #b8352b; color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 10px; flex: 0 0 auto; min-width: 18px; text-align: center; }
 .side-empty { text-align: center; color: #a08c72; padding: 30px 10px; font-size: 12px; }
 
 .chat-main { flex: 1; display: flex; flex-direction: column; }
