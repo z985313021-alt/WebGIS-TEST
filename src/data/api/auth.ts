@@ -23,6 +23,8 @@ export interface RegisterPayload {
 export interface LoginPayload {
   account: string; // 用户名 或 邮箱
   password: string;
+  captchaId?: string;
+  captchaCode?: string;
 }
 
 function readSession(data: any): { token: string; user: UserInfo } {
