@@ -1,5 +1,12 @@
 <template>
   <div ref="screenEl" class="heritage-scroll-root" :class="{ 'is-open': scrollOpen }">
+    <!-- 背景装饰：宣纸纹理 + 四角描金 -->
+    <div class="bg-texture"></div>
+    <div class="corner-deco tl">❖</div>
+    <div class="corner-deco tr">❖</div>
+    <div class="corner-deco bl">❖</div>
+    <div class="corner-deco br">❖</div>
+
     <!-- 卷轴轴头：合拢时并拢在中间，展开后分置两端 -->
     <div class="scroll-rod rod-left"></div>
     <div class="scroll-rod rod-right"></div>
@@ -21,12 +28,22 @@
       </div>
 
       <div class="header-right">
-        <div class="cur-time">{{ currentTime }}</div>
+        <div class="cur-time">{{ currentTime }}<span class="cur-shichen">{{ currentShichen }}</span></div>
         <el-button class="btn-fullscreen" size="small" @click="toggleFullscreen">
           <el-icon><FullScreen /></el-icon> {{ isFullscreen ? '退出全屏' : '全屏展陈' }}
         </el-button>
       </div>
     </header>
+
+    <!-- 右下角题跋印章 -->
+    <div class="scroll-seal" @click="showSeal = !showSeal">
+      <span class="seal-text">题跋</span>
+      <div v-if="showSeal" class="seal-pop">
+        <p>数据来源：山东省非物质文化遗产普查（2024）</p>
+        <p>数字化制作：遗蕴齐鲁 · WebGIS 时空云台</p>
+        <p>点击空白处收起</p>
+      </div>
+    </div>
 
     <!--
       画卷左侧的「题签」：平时只在纸边露出一枚竖排题签（像引首题名），
@@ -114,15 +131,30 @@
             </div>
           </div>
 
-          <div ref="mapChartEl" class="map-container"></div>
+          <div class="map-spotlight">
+            <div ref="mapChartEl" class="map-container" style="height:420px"></div>
+          </div>
 
-          <!-- 优雅下置式时空切片控制器 -->
-          <div class="time-control-bar">
+          <!-- 时空演化时间轴 -->
+          <div class="time-axis">
+            <div class="axis-track">
+              <div class="axis-progress" :style="{ width: ((currentBatch) / 5 * 100) + '%' }"></div>
+              <button
+                v-for="b in 6"
+                :key="b-1"
+                class="axis-node"
+                :class="{ active: currentBatch === b-1, passed: currentBatch > b-1 }"
+                @click="setBatch(b-1)"
+              >
+                <span class="node-dot"></span>
+                <span class="node-label">{{ ['总览','一批','二批','三批','四批','五批'][b-1] }}</span>
+              </button>
+            </div>
             <button class="btn-play-pause" @click="toggleAutoPlay">
               <el-icon><VideoPlay v-if="!isPlaying" /><VideoPause v-else /></el-icon>
-              {{ isPlaying ? '暂停演化' : '时空演化' }}
+              {{ isPlaying ? '暂停' : '演化' }}
             </button>
-            <div class="time-chips">
+            <div class="time-chips" style="display:none">
               <button
                 class="time-chip"
                 :class="{ active: currentBatch === 0 }"
@@ -835,10 +867,14 @@ function updateTime() {
   const Y = now.getFullYear();
   const M = String(now.getMonth() + 1).padStart(2, '0');
   const D = String(now.getDate()).padStart(2, '0');
-  const h = String(now.getHours()).padStart(2, '0');
-  const m = String(now.getMinutes()).padStart(2, '0');
-  const s = String(now.getSeconds()).padStart(2, '0');
-  currentTime.value = `${Y}年${M}月${D}日 ${h}:${m}:${s}`;
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+  currentTime.value = `${Y}年${M}月${D}日 ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  // 古时计算
+  const shichen = ['子时','丑时','寅时','卯时','辰时','巳时','午时','未时','申时','酉时','戌时','亥时'];
+  const idx = Math.floor((h + 1) / 2) % 12;
+  currentShichen.value = shichen[idx];
 }
 
 /**
@@ -846,6 +882,8 @@ function updateTime() {
  * 展开完成后中央地图才缓缓浮现 —— 即「卷轴展开、地图慢慢铺上去」。
  */
 const scrollOpen = ref(false);
+const currentShichen = ref('');
+const showSeal = ref(false);
 let scrollTimer: number | null = null;
 
 /** 卷轴收起 → 执行切换 → 再展开（用于点击地市跳转的转场） */
@@ -1526,4 +1564,181 @@ onBeforeUnmount(() => {
   color: #e6ddcc;
   font-weight: bold;
 }
+
+/* ========== 大屏 UI 增强 ========== */
+
+/* 背景：宣纸纹理 */
+.bg-texture {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* 四角描金装饰 */
+.corner-deco {
+  position: fixed;
+  z-index: 1;
+  font-size: 18px;
+  color: rgba(197, 155, 63, 0.25);
+  pointer-events: none;
+  font-family: KaiTi, STKaiti, SimSun, serif;
+}
+.corner-deco.tl { top: 8px; left: 12px; }
+.corner-deco.tr { top: 8px; right: 12px; transform: rotate(90deg); }
+.corner-deco.bl { bottom: 8px; left: 12px; transform: rotate(-90deg); }
+.corner-deco.br { bottom: 8px; right: 12px; transform: rotate(180deg); }
+
+/* 右下角题跋印章 */
+.scroll-seal {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 5;
+  cursor: pointer;
+}
+.seal-text {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: #b8352b;
+  padding: 8px 4px;
+  border: 1px solid #b8352b;
+  border-radius: 4px;
+  font-family: KaiTi, STKaiti, SimSun, serif;
+  background: rgba(253, 252, 246, 0.9);
+}
+.seal-pop {
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  width: 220px;
+  padding: 12px;
+  background: #fffdf8;
+  border: 1px solid #e6ddcc;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.12);
+  font-size: 12px;
+  color: #6d4c2a;
+}
+.seal-pop p { margin: 4px 0; }
+
+/* 时辰显示 */
+.cur-shichen {
+  font-size: 10px;
+  color: #a08c72;
+  margin-left: 6px;
+  font-family: KaiTi, STKaiti, SimSun, serif;
+}
+
+/* 中央地图聚光 */
+.map-spotlight {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.map-spotlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 50% at 50% 45%, transparent 40%, rgba(253, 252, 246, 0.08) 100%);
+}
+
+/* 图表卡片悬浮感 */
+.heritage-panel {
+  background: rgba(255, 253, 247, 0.04) !important;
+  border: 1px solid rgba(197, 155, 63, 0.10) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06) !important;
+  backdrop-filter: blur(2px);
+}
+
+/* 非遗点位脉冲动画 */
+:deep(.heritage-point) {
+  animation: pulse-ring 2s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(184, 53, 43, 0.6); }
+  100% { box-shadow: 0 0 0 12px rgba(184, 53, 43, 0); }
+}
+
+/* 时间轴样式 */
+.time-axis {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: rgba(255, 253, 247, 0.04);
+  border: 1px solid rgba(197, 155, 63, 0.10);
+  border-radius: 8px;
+}
+.axis-track {
+  flex: 1;
+  position: relative;
+  height: 4px;
+  background: rgba(197, 155, 63, 0.2);
+  border-radius: 2px;
+}
+.axis-progress {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, #d9a020, #b8352b);
+  border-radius: 2px;
+  transition: width .4s ease;
+}
+.axis-node {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.axis-node:nth-child(2) { left: 0%; }
+.axis-node:nth-child(3) { left: 20%; }
+.axis-node:nth-child(4) { left: 40%; }
+.axis-node:nth-child(5) { left: 60%; }
+.axis-node:nth-child(6) { left: 80%; }
+.axis-node:nth-child(7) { left: 100%; }
+.node-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #6d5b45;
+  border: 2px solid #2b2218;
+  transition: all .3s;
+}
+.axis-node.active .node-dot {
+  background: #d9a020;
+  box-shadow: 0 0 8px #d9a020;
+  transform: scale(1.3);
+}
+.axis-node.passed .node-dot { background: #b8352b; }
+.node-label {
+  font-size: 10px;
+  color: #a08c72;
+  white-space: nowrap;
+  font-family: var(--zi-font-serif, "STSong", "Songti SC", serif);
+}
+.axis-node.active .node-label { color: #d9a020; font-weight: 700; }
+
+/* 响应式补充 */
+@media (max-width: 1600px) {
+  .scroll-body { grid-template-columns: 260px 1fr 260px; }
+}
+@media (max-width: 900px) {
+  .scroll-body { grid-template-columns: 1fr; }
+  .side-col { flex-direction: row; flex-wrap: wrap; }
+  .side-col .heritage-panel { flex: 1 1 45%; }
+  .time-axis { flex-wrap: wrap; }
+}
+
 </style>
