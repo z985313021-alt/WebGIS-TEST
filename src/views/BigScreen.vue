@@ -79,28 +79,27 @@
       </div>
     </section>
 
-    <!-- 展屏主体交互网格（舒缓大间距，焦点聚焦于中央地图） -->
+    <!-- 展屏主体交互网格 -->
     <main class="scroll-body">
-      <!-- 左侧装订位（图表统一挪到右侧题签抽屉里） -->
-      <aside v-if="false" class="scroll-col side-col">
+      <!-- 左侧：门类构成 + 批次脉络 -->
+      <aside class="scroll-col side-col">
         <div class="heritage-panel flex-1">
           <div class="panel-header">
             <span class="panel-sym">❖</span>
             <h3 class="panel-title">非遗十大门类构成</h3>
           </div>
-          <div ref="categoryChartEl" class="chart-container"></div>
+          <div ref="categoryChartEl" class="chart-container" style="height:160px"></div>
         </div>
-
         <div class="heritage-panel flex-1">
           <div class="panel-header">
             <span class="panel-sym">❖</span>
-            <h3 class="panel-title">国家级名录批次公布脉络</h3>
+            <h3 class="panel-title">批次公布脉络</h3>
           </div>
-          <div ref="batchTrendChartEl" class="chart-container"></div>
+          <div ref="batchTrendChartEl" class="chart-container" style="height:160px"></div>
         </div>
       </aside>
 
-      <!-- 中央主视窗：齐鲁非遗空间拓扑大地图 + 时空演化轮播 -->
+      <!-- 中央主视窗 -->
       <section class="scroll-col center-col">
         <div class="heritage-panel map-main-panel">
           <div class="panel-header map-header">
@@ -1331,30 +1330,29 @@ onBeforeUnmount(() => {
   background: rgba(197, 155, 63, 0.15);
 }
 
-/* 主体交互网格（舒缓大间距） */
-/* 主体：两翼图表已收起，只留中央地图，因此用 flex 让地图铺满整幅卷轴 */
+/* 主体交互网格：左中右三栏 */
 .scroll-body {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
   gap: 16px;
   flex: 1;
   min-height: 0;
   padding: 0 16px 16px;
   box-sizing: border-box;
+  align-items: start;
 }
-@media (max-width: 1180px) {
+@media (max-width: 1200px) {
   .scroll-body {
     grid-template-columns: 1fr;
   }
+  .side-col { flex-direction: row; flex-wrap: wrap; }
+  .side-col .heritage-panel { flex: 1 1 40%; }
 }
 
 .scroll-col {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-}
-.side-col {
+  gap: 12px;
   min-width: 0;
 }
 
