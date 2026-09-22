@@ -143,7 +143,6 @@ const drawerOpen = ref(false);
 
 /** 暂不开放的页面（施工中）：点击只提示，不做路由跳转 */
 const MAINTENANCE_PAGES: Record<string, string> = {
-  '/screen': '态势大屏',
 };
 
 /**
