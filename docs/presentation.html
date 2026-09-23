@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>遗蕴齐鲁 · WebGIS 非遗数字地图</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #faf5e9; --surface: #fffdf8; --surface2: #f5efe0;
+  --fg: #2b2218; --fg2: #6d4c2a; --fg3: #a08c72;
+  --accent: #b8352b; --accent2: #d9a020; --accent3: #3c6a50;
+  --radius: 12px; --shadow: 0 4px 20px rgba(43,34,24,.08);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+html { font-family: var(--font); background: var(--bg); color: var(--fg); overflow: hidden; height: 100vh; }
+
+/* 幻灯片容器 */
+#deck { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+.slide {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 48px 64px;
+  opacity: 0; pointer-events: none; transform: translateX(60px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.slide.active { opacity: 1; pointer-events: all; transform: none; }
+
+/* 导航 */
+#nav {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px; z-index: 100;
+  padding: 8px 16px; background: rgba(255,253,248,.9); backdrop-filter: blur(8px);
+  border-radius: 999px; box-shadow: var(--shadow);
+}
+#nav button {
+  background: none; border: none; cursor: pointer; padding: 6px 14px;
+  border-radius: 999px; font-size: 13px; color: var(--fg2); transition: all .2s;
+}
+#nav button:hover { background: var(--surface2); }
+#nav button.active { background: var(--accent); color: #fff; }
+#page-num { font-size: 12px; color: var(--fg3); min-width: 40px; text-align: center; }
+
+/* 卡片 */
+.card {
+  background: var(--surface); border: 1px solid rgba(197,155,63,.12);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
+}
+
+/* 标题 */
+h1 { font-size: 42px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 8px; }
+h2 { font-size: 28px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.subtitle { font-size: 16px; color: var(--fg2); }
+
+/* 网格 */
+.grid { display: grid; gap: 16px; width: 100%; max-width: 1100px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* 列表 */
+.feature-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.feature-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.6; }
+.feature-list li::before { content: '▸'; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+
+/* 架构图 */
+.arch-box { text-align: center; padding: 20px; }
+.arch-box .icon { font-size: 36px; margin-bottom: 8px; }
+.arch-box h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.arch-box p { font-size: 12px; color: var(--fg3); line-height: 1.5; }
+
+/* 徽章 */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge-r { background: var(--accent); color: #fff; }
+.badge-g { background: var(--accent3); color: #fff; }
+.badge-y { background: var(--accent2); color: #fff; }
+
+/* 动画 */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+.slide.active .animate-in { animation: fadeInUp .6s ease forwards; }
+.slide.active .animate-in:nth-child(2) { animation-delay: .1s; }
+.slide.active .animate-in:nth-child(3) { animation-delay: .2s; }
+.slide.active .animate-in:nth-child(4) { animation-delay: .3s; }
+
+/* 装饰 */
+.deco-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* 进度条 */
+.progress-bar { height: 4px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+.progress-bar .fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 999px; transition: width .4s; }
+
+/* 截图框 */
+.screenshot { border-radius: 8px; overflow: hidden; border: 1px solid rgba(197,155,63,.15); box-shadow: 0 4px 14px rgba(0,0,0,.1); }
+.screenshot img { width: 100%; height: auto; display: block; }
+
+@media (max-width: 900px) {
+  .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+  .slide { padding: 32px 24px; }
+  h1 { font-size: 32px; }
+}
+</style>
+</head>
+<body>
+
+<div id="deck">
+
+  <!-- 封面 -->
+  <section class="slide active" data-title="封面">
+    <div style="text-align:center;max-width:700px">
+      <div style="font-size:72px;margin-bottom:16px" class="animate-in">🗺️</div>
+      <h1 class="animate-in" style="margin-bottom:12px">遗蕴齐鲁</h1>
+      <p class="subtitle animate-in" style="font-size:20px;margin-bottom:32px">山东省非物质文化遗产空间数字化 WebGIS 平台</p>
+      <div class="animate-in" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <span class="badge badge-r">Vue 3</span>
+        <span class="badge badge-g">OpenLayers</span>
+        <span class="badge badge-y">ECharts</span>
+        <span class="badge badge-r">Express</span>
+        <span class="badge badge-g">SQLite</span>
+        <span class="badge badge-y">WebSocket</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 项目概览 -->
+  <section class="slide" data-title="项目概览">
+    <div style="max-width:900px;width:100%">
+      <h2 class="animate-in">项目概览</h2>
+      <div class="grid grid-4 animate-in">
+        <div class="card" style="text-align:center">
+          <div style="font-size:32px">📍</div>
+          <div style="font-size:24px;font-weight:700;margin:8px 0">185+</div>
+          <div class="subtitle">非遗项目</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:32px">🏙️</div>
+          <div style="font-size:24px;font-weight:700;margin:8px 0">16</div>
+          <div class="subtitle">覆盖地市</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:32px">🎭</div>
+          <div style="font-size:24px;font-weight:700;margin:8px 0">10</div>
+          <div class="subtitle">非遗门类</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:32px">🛒</div>
+          <div style="font-size:24px;font-weight:700;margin:8px 0">16</div>
+          <div class="subtitle">文创商品</div>
+        </div>
+      </div>
+      <div class="card animate-in" style="margin-top:20px">
+        <p style="line-height:1.8;font-size:14px">
+          平台采用 <strong>WebGIS + 时空知识图谱</strong> 技术，将山东省国家级与省级非物质文化遗产项目映射到地理空间，
+          实现非遗名录的可视化检索、空间分布分析、热度态势感知与文旅融合应用。
+          游客可在线探索非遗地图、参与抢购文创、追踪物流状态；管理员可管理商品、发货、查看实时订单通知。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 系统架构 -->
+  <section class="slide" data-title="系统架构">
+    <div style="max-width:1000px;width:100%">
+      <h2 class="animate-in">系统架构</h2>
+      <div class="grid grid-3 animate-in" style="align-items:start">
+        <div class="card">
+          <div class="arch-box">
+            <div class="icon">🎨</div>
+            <h3>前端层</h3>
+            <p>Vue 3 + Vite<br>OpenLayers 10 · ECharts 5<br>Element Plus · Pinia</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="arch-box">
+            <div class="icon">⚙️</div>
+            <h3>服务层</h3>
+            <p>Express 5<br>WebSocket · REST API<br>Multer 文件上传</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="arch-box">
+            <div class="icon">🗄️</div>
+            <h3>数据层</h3>
+            <p>SQLite (node:sqlite)<br>Redis 验证码缓存<br>GeoJSON 空间数据</p>
+          </div>
+        </div>
+      </div>
+      <div class="card animate-in" style="margin-top:20px">
+        <h3 style="font-size:15px;margin-bottom:12px">数据流</h3>
+        <div class="progress-bar"><div class="fill" style="width:100%"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--fg3)">
+          <span>浏览器</span><span>Vite</span><span>Express</span><span>SQLite</span>
+        </div>
+        <ul class="feature-list" style="margin-top:16px">
+          <li><strong>实时通信</strong>：WebSocket 双向握手，订单/消息秒级推送</li>
+          <li><strong>瓦片代理</strong>：天地图 WMTS 高德地图代理，规避 CORS</li>
+          <li><strong>空间分析</strong>：Turf.js 拓扑计算 + 高德逆地理编码</li>
+          <li><strong>限流安全</strong>：滑动窗口限流 + 登录锁定 + 上传大小守卫</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 技术栈 -->
+  <section class="slide" data-title="技术栈">
+    <div style="max-width:1000px;width:100%">
+      <h2 class="animate-in">技术栈</h2>
+      <div class="grid grid-2 animate-in">
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:14px">🖥️ 前端</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span class="badge badge-r">Vue 3.5</span>
+            <span class="badge badge-g">TypeScript</span>
+            <span class="badge badge-y">Vite 6</span>
+            <span class="badge badge-r">Pinia</span>
+            <span class="badge badge-g">Vue Router</span>
+            <span class="badge badge-y">Element Plus</span>
+            <span class="badge badge-r">OpenLayers 10</span>
+            <span class="badge badge-g">ECharts 5</span>
+            <span class="badge badge-y">Turf.js</span>
+            <span class="badge badge-r">Axios</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:14px">⚙️ 后端</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span class="badge badge-g">Node 22</span>
+            <span class="badge badge-y">Express 5</span>
+            <span class="badge badge-r">WebSocket (ws)</span>
+            <span class="badge badge-g">SQLite</span>
+            <span class="badge badge-y">Redis (ioredis)</span>
+            <span class="badge badge-r">Multer</span>
+            <span class="badge badge-g">svg-captcha</span>
+            <span class="badge badge-y">scrypt</span>
+          </div>
+        </div>
+      </div>
+      <div class="card animate-in" style="margin-top:20px">
+        <h3 style="font-size:15px;margin-bottom:14px">🔧 基础设施</h3>
+        <div class="grid grid-3" style="gap:12px">
+          <div><strong>部署</strong><p style="font-size:12px;color:var(--fg3);margin-top:4px">阿里云 ECS 2C2G · nginx 反代</p></div>
+          <div><strong>构建</strong><p style="font-size:12px;color:var(--fg3);margin-top:4px">vue-tsc 类型检查 · Vite 生产构建</p></div>
+          <div><strong>版本</strong><p style="font-size:12px;color:var(--fg3);margin-top:4px">Git · dev 分支开发</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 功能模块 -->
+  <section class="slide" data-title="功能模块">
+    <div style="max-width:1000px;width:100%">
+      <h2 class="animate-in">功能模块</h2>
+      <div class="grid grid-2 animate-in">
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:12px">🗺️ 地图主页</h3>
+          <ul class="feature-list">
+            <li>十门类印章墙筛选 + 滑出清单</li>
+            <li>非遗热度榜 Top 20（综合热度）</li>
+            <li>点地图下钻地市 · 实时温度展示</li>
+            <li>统计图表按需展开（环形图/柱状图）</li>
+            <li>报表抽屉 + 图表切换</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:12px">🔬 分析工作台</h3>
+          <ul class="feature-list">
+            <li>非遗名录时空演化（5 批次）</li>
+            <li>空间分析（缓冲区/叠加分析）</li>
+            <li>图层态势（热力图/聚合）</li>
+            <li>统计透视（门类/地市/趋势）</li>
+            <li>鹰眼图 + 比例尺 + 坐标</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:12px">🛒 文创商城</h3>
+          <ul class="feature-list">
+            <li>非遗商品热度榜 Top 10</li>
+            <li>购物车 + 抢购模式（60s 锁定）</li>
+            <li>订单物流追踪</li>
+            <li>实时订单通知（WebSocket）</li>
+            <li>商品详情 + 关联非遗</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:12px">👤 用户系统</h3>
+          <ul class="feature-list">
+            <li>注册邀请码校验</li>
+            <li>Redis 图形验证码登录</li>
+            <li>scrypt + salt 密码哈希</li>
+            <li>游客模式（离线底图）</li>
+            <li>管理员实时订单通知</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 实时通信 -->
+  <section class="slide" data-title="实时通信">
+    <div style="max-width:900px;width:100%">
+      <h2 class="animate-in">WebSocket 实时通信</h2>
+      <div class="grid grid-2 animate-in">
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:12px">连接流程</h3>
+          <div style="font-family:monospace;font-size:12px;line-height:1.8;background:var(--surface2);padding:16px;border-radius:8px">
+            <div style="color:var(--accent3)">// 1. 握手</div>
+            <div>ws://host/ws?token=xxx</div>
+            <div style="color:var(--accent3);margin-top:8px">// 2. 服务器校验</div>
+            <div>getUserByToken → 注册连接</div>
+            <div style="color:var(--accent3);margin-top:8px">// 3. 事件推送</div>
+            <div>notifyAdmins / notifyUser</div>
+            <div style="color:var(--accent3);margin-top:8px">// 4. 客户端分发</div>
+            <div>window.dispatchEvent('ws-event')</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:12px">事件类型</h3>
+          <ul class="feature-list">
+            <li><code>order:created/paid/cancelled/done</code> → 通知管理员</li>
+            <li><code>order:shipped</code> → 通知订单用户</li>
+            <li><code>message:private</code> → 私聊消息实时推送</li>
+            <li><code>connected</code> → 握手成功确认</li>
+          </ul>
+          <div style="margin-top:12px">
+            <span class="badge badge-r">心跳 60s</span>
+            <span class="badge badge-g">断线重连 5s</span>
+            <span class="badge badge-y">一次性校验</span>
+          </div>
+        </div>
+      </div>
+      <div class="card animate-in" style="margin-top:20px">
+        <h3 style="font-size:15px;margin-bottom:10px">私聊消息角标</h3>
+        <p style="font-size:13px;color:var(--fg2);line-height:1.7">
+          收件人实时收到消息 → 聊天按钮角标 +1 → 联系人列表顶部"未读消息"分区 → 点击进入聊天后标记已读 → 角标清零。
+          全程无需刷新页面，WebSocket + Vue 响应式驱动 UI 自动更新。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 演示入口 -->
+  <section class="slide" data-title="演示入口">
+    <div style="max-width:700px;width:100%;text-align:center">
+      <h2 class="animate-in" style="justify-content:center">在线演示</h2>
+      <div class="card animate-in" style="margin-top:24px">
+        <div style="font-size:14px;margin-bottom:16px">公网访问地址</div>
+        <a href="http://121.199.46.211/" target="_blank" style="font-size:20px;font-weight:600;color:var(--accent);text-decoration:none">
+          http://121.199.46.211/
+        </a>
+        <div style="margin-top:24px;display:flex;gap:24px;justify-content:center;flex-wrap:wrap">
+          <div>
+            <div style="font-size:12px;color:var(--fg3)">管理员</div>
+            <div style="font-family:monospace;font-size:14px;margin-top:4px">admin / Webgis@2026Sk</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--fg3)">演示用户</div>
+            <div style="font-family:monospace;font-size:14px;margin-top:4px">demo_0001 / Demo123456</div>
+          </div>
+        </div>
+      </div>
+      <div class="animate-in" style="margin-top:20px">
+        <a href="http://121.199.46.211/screen" target="_blank" class="badge badge-r" style="text-decoration:none;padding:8px 20px;font-size:14px">
+          查看态势大屏 →
+        </a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 导航 -->
+<div id="nav">
+  <button onclick="prev()">←</button>
+  <div id="dots"></div>
+  <button onclick="next()">→</button>
+  <span id="page-num">1/8</span>
+</div>
+
+<script>
+const slides = [...document.querySelectorAll('.slide')];
+const dots = document.getElementById('dots');
+const pageNum = document.getElementById('page-num');
+let current = 0;
+
+// 生成导航点
+slides.forEach((_, i) => {
+  const btn = document.createElement('button');
+  btn.textContent = i + 1;
+  btn.onclick = () => go(i);
+  dots.appendChild(btn);
+});
+
+function go(i) {
+  current = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, idx) => s.classList.toggle('active', idx === current));
+  [...dots.children].forEach((b, idx) => b.classList.toggle('active', idx === current));
+  pageNum.textContent = (current + 1) + '/' + slides.length;
+}
+
+function next() { go(current + 1); }
+function prev() { go(current - 1); }
+
+// 键盘导航
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') next();
+  if (e.key === 'ArrowLeft') prev();
+});
+
+go(0);
+</script>
+</body>
+</html>
